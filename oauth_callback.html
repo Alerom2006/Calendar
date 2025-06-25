@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>OAuth Callback</title>
+  </head>
+  <body>
+    <h1>Авторизация...</h1>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      const state = urlParams.get("state");
+
+      if (!code || !state) {
+        alert("Ошибка авторизации: отсутствует код или состояние.");
+      } else {
+        fetch(`https://spacebakery1.amocrm.ru/oauth2/access_token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
+            client_secret:
+              "zhcaUvtB2qj6XWUGTVJQ1jA3lfIxME0hqHQGVwyuzeiNdDtZJIOyLBoPStuszUHJ",
+            grant_type: "authorization_code",
+            code: code,
+            redirect_uri:
+              "https://alerom2006.github.io/Calendar/oauth_callback.html",
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.access_token) {
+              localStorage.setItem(
+                `amo_access_token_${state}`,
+                data.access_token
+              );
+              window.location.href =
+                "https://alerom2006.github.io/Calendar/index.html";
+            } else {
+              alert(
+                "Ошибка при получении токенов: " +
+                  (data.message || "Неизвестная ошибка")
+              );
+            }
+          })
+          .catch((error) => {
+            console.error("Ошибка запроса токенов:", error);
+            alert("Ошибка при запросе токенов. Проверьте консоль для деталей.");
+          });
+      }
+    </script>
+  </body>
+</html>

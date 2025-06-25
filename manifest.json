@@ -1,0 +1,50 @@
+{
+  "widget": {
+    "name": "Календарь заказов",
+    "description": "Виджет для отображения сделок по дате заказа",
+    "short_description": "Просмотр сделок в календаре",
+    "version": "1.0.2",
+    "interface_version": 2,
+    "init_once": true,
+    "locale": ["ru", "en"],
+    "installation": true,
+    "support": {
+      "link": "https://alerom2006.github.io/Calendar/",
+      "email": "your@email.com"
+    }
+  },
+  "locations": ["lcard-1", "settings", "digital_pipeline"],
+  "integration": {
+    "url": "https://alerom2006.github.io/Calendar/index.html",
+    "type": "widget",
+    "code": "calendar_orders_widget_v2"
+  },
+  "oauth2": {
+    "client_id": "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
+    "client_secret": "zhcaUvtB2qj6XWUGTVJQ1jA3lfIxME0hqHQGVwyuzeiNdDtZJIOyLBoPStuszUHJ",
+    "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html",
+    "scope": "crm"
+  },
+  "frontend": {
+    "script": "script.js",
+    "style": "style.css",
+    "template": "index.html"
+  },
+  "i18n": {
+    "ru": "i18n/ru.json",
+    "en": "i18n/en.json"
+  },
+  "settings": {
+    "deal_date_field": {
+      "name": "deal_date_field_id",
+      "title": "ID поля 'Заказ на...'",
+      "type": "number",
+      "default": 885453,
+      "required": true
+    }
+  },
+  "required_fields": [885453, 892009, 892003, 887367],
+  "tour": {
+    "is_tour": false
+  }
+}

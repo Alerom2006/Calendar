@@ -1,0 +1,41 @@
+/* Основные стили виджета */
+.widget-container {
+  font-family: "Roboto", sans-serif;
+  max-width: 100%;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+/* Календарь */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+}
+
+/* Кнопки */
+.btn {
+  background: #4a76a8;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Ошибки */
+.error-message {
+  color: #d9534f;
+  padding: 10px;
+  border: 1px solid #d9534f;
+  border-radius: 4px;
+  margin: 10px 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .calendar-grid {
+    gap: 4px;
+  }
+}

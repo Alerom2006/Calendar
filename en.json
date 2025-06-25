@@ -1,0 +1,54 @@
+{
+  "widget": {
+    "name": "Orders Calendar",
+    "description": "Widget for displaying deals filtered by order date",
+    "tour_description": "View deals filtered by order date"
+  },
+  "calendar": {
+    "title": "Orders Calendar",
+    "header": {
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
+  },
+  "deals": {
+    "list_title": "Deals for {date}",
+    "empty": "No deals for this date",
+    "fields": {
+      "id": "ID",
+      "name": "Name",
+      "price": "Amount",
+      "delivery_range": "Delivery range",
+      "exact_time": "Exact time",
+      "address": "Address",
+      "not_specified": "Not specified"
+    }
+  },
+  "auth": {
+    "button": "Authorize",
+    "message": "Authorization required for widget operation",
+    "error": "Authorization error"
+  },
+  "errors": {
+    "fetch_deals": "Error fetching deals. Check console.",
+    "connection": "Server connection error"
+  },
+  "settings": {
+    "deal_date_field": "Order date field ID"
+  }
+}

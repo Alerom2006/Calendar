@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Календарь заказов | amoCRM</title>
+
+    <!-- Подключение Bootstrap только CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT"
+      crossorigin="anonymous"
+    />
+
+    <!-- Локальные стили -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Шрифты Google -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Проверка локализации перед загрузкой -->
+    <script>
+      // Проверяем доступность файлов локализации
+      function checkLocalization() {
+        const lang = navigator.language.startsWith("ru") ? "ru" : "en";
+        const localizationFile = `i18n/${lang}.json`;
+
+        return fetch(localizationFile)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(
+                `Localization file not found: ${localizationFile}`
+              );
+            }
+            return response.json();
+          })
+          .catch((error) => {
+            console.warn("Using fallback translations:", error.message);
+            return {
+              widget: {
+                name: lang === "ru" ? "Календарь заказов" : "Orders Calendar",
+                description:
+                  lang === "ru"
+                    ? "Виджет для отображения сделок по датам заказа"
+                    : "Widget for displaying deals by order date",
+              },
+            };
+          });
+      }
+
+      // Устанавливаем заголовок на основе доступных переводов
+      document.addEventListener("DOMContentLoaded", async () => {
+        try {
+          const translations = await checkLocalization();
+          document.title = translations.widget.name + " | amoCRM";
+          const header = document.querySelector("header h1");
+          if (header) header.textContent = translations.widget.name;
+        } catch (error) {
+          console.error("Localization error:", error);
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <!-- Основной контейнер -->
+    <div id="widget_container" class="container-fluid px-3 py-4">
+      <!-- Заголовок виджета -->
+      <header class="widget-header mb-4">
+        <img
+          src="images/logo_small.png"
+          alt="Логотип"
+          class="widget-logo mb-2"
+          onerror="this.style.display='none'"
+        />
+        <h1 class="text-center mb-0">Календарь заказов</h1>
+      </header>
+
+      <!-- Основное содержимое -->
+      <main class="widget-content">
+        <!-- Блок календаря -->
+        <section id="calendar-section" class="card mb-4">
+          <div class="card-body">
+            <div
+              id="calendar-header"
+              class="d-flex align-items-center justify-content-between mb-3"
+            >
+              <button
+                id="prevMonth"
+                class="btn btn-outline-primary"
+                aria-label="Предыдущий месяц"
+              >
+                <span aria-hidden="true">&lt;</span>
+                <span class="visually-hidden">Предыдущий месяц</span>
+              </button>
+
+              <h2 id="currentMonthYear" class="text-center mb-0 fs-4"></h2>
+
+              <button
+                id="nextMonth"
+                class="btn btn-outline-primary"
+                aria-label="Следующий месяц"
+              >
+                <span class="visually-hidden">Следующий месяц</span>
+                <span aria-hidden="true">&gt;</span>
+              </button>
+            </div>
+
+            <div id="calendar" class="calendar-grid"></div>
+          </div>
+        </section>
+
+        <!-- Блок списка сделок -->
+        <section id="deal-list" class="card mb-4">
+          <div class="card-body">
+            <h2 class="h5 mb-3">
+              <span id="deals-title">Сделки на</span>
+              <span id="selected-date">выбранную дату</span>
+            </h2>
+            <div id="deals" class="deals-container"></div>
+          </div>
+        </section>
+
+        <!-- Блок авторизации -->
+        <section id="auth-section" class="text-center">
+          <button id="authButton" class="btn btn-primary px-4">
+            <span class="me-2">🔒</span>
+            <span id="auth-button-text">Авторизоваться в amoCRM</span>
+          </button>
+        </section>
+
+        <!-- Блок ошибок -->
+        <div
+          id="error-alert"
+          class="alert alert-danger d-none"
+          role="alert"
+          aria-live="assertive"
+        ></div>
+      </main>
+
+      <!-- Подвал -->
+      <footer class="widget-footer text-center text-muted mt-4 small">
+        <p class="mb-0" id="footer-text">Виджет календаря заказов v1.0</p>
+      </footer>
+    </div>
+
+    <!-- Скрипты -->
+    <script src="script.js"></script>
+
+    <!-- Дополнительная проверка загрузки -->
+    <script>
+      // Проверка загрузки основных ресурсов
+      window.addEventListener("load", () => {
+        if (!document.querySelector("#calendar")) {
+          console.error("Calendar element not found");
+        }
+        if (typeof OrdersCalendar === "undefined") {
+          document.getElementById("error-alert").textContent =
+            "Ошибка загрузки виджета. Пожалуйста, обновите страницу.";
+          document.getElementById("error-alert").classList.remove("d-none");
+        }
+      });
+    </script>
+  </body>
+</html>

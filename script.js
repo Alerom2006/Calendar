@@ -9,13 +9,17 @@ class OrdersCalendar {
     };
 
     this.API_URL = "https://spacebakery1.amocrm.ru/api/v4/";
+    
+    // Долгосрочный токен (действителен до 2030 года)
+    this.LONG_TERM_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjdkMjRiMTcxOTNlOWNiNzFjZjVhZTMwNzBmOWQxYzBhMTRlYjFhMmIyZDZmY2M0NjZhYTQ2ZjkyMDhiNjRjNGRhNjkyNGJiZTRmZjg4ZTQ4In0.eyJhdWQiOiI5MmFjYzllZS03ODFkLTQ5YzUtYTQzZC05Y2IwZTdmN2E1MjciLCJqdGkiOiI3ZDI0YjE3MTkzZTljYjcxY2Y1YWUzMDcwZjlkMWMwYTE0ZWIxYTJiMmQ2ZmNjNDY2YWE0NmY5MjA4YjY0YzRkYTY5MjRiYmU0ZmY4OGU0OCIsImlhdCI6MTc1MDg1MTMyMywibmJmIjoxNzUwODUxMzIzLCJleHAiOjE5MDg1NzYwMDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiNmJlNjMxNmQtNzZmZC00ZWYxLWIzMTQtZTgwMTQ5MWRjNjA0IiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.iSrkNyj4fBmOjQjA5Y63Sq3F6g1_PDRPb2ogjQ1MyJ0yyIhcwrGgNZa-1zJd5GNUsKwwYkoLUMH5upKlOyan8gbLAeCsJ8XhUtVrbCkHePJPc4ctIswQsae0RjYwzHhEiC-b9MH0VcvlOXKbVYj-aQC-fpBmzMo_VjhQ7mK0xv8zz1NlxiqqEnxfBic4sIkCMwb588__lTeLafRoXM_4fHDTN0FRRjZCovHq1vqQ5OB7V42xqVfZGF6-nV0UFx-2nuFf83sd0QQNC9_vPlXXIcowPrfDOfWjBepuTdkMwkp1_vvHLiGi_dhRFcAk7KnKhtBlBebyOm5ix6RNc5hGaA";
 
     // Состояние виджета
     this.widgetInstanceId = Date.now();
-    this.accessToken = null;
+    this.accessToken = this.LONG_TERM_TOKEN; // Используем долгосрочный токен по умолчанию
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
     this.i18n = this.loadTranslations();
+    this.isRefreshingToken = false;
 
     // Инициализация
     this.init();
@@ -89,6 +93,7 @@ class OrdersCalendar {
         errors: {
           fetch_deals: "Ошибка при получении сделок",
           connection: "Ошибка соединения",
+          auth: "Ошибка авторизации"
         },
       },
       en: {
@@ -125,6 +130,7 @@ class OrdersCalendar {
         errors: {
           fetch_deals: "Error fetching deals",
           connection: "Connection error",
+          auth: "Authorization error"
         },
       },
     };
@@ -145,19 +151,62 @@ class OrdersCalendar {
     this.accessToken = await this.getAccessToken();
     if (!this.accessToken) {
       console.warn("Токен доступа не получен");
+      this.showError(this.i18n.errors?.auth || "Ошибка авторизации");
     }
   }
 
-  async getAccessToken() {
+  async getAccessToken(forceRefresh = false) {
+    // Если уже в процессе обновления токена, возвращаем текущий
+    if (this.isRefreshingToken) {
+      return this.accessToken;
+    }
+
     try {
-      return (
-        (await window.AmoCRM.widgets
-          .system(this.widgetInstanceId)
-          .then((s) => s.access_token)) ||
-        localStorage.getItem(`amo_token_${this.widgetInstanceId}`)
-      );
+      // 1. Пробуем получить свежий токен через AmoCRM API, если требуется обновление
+      if (forceRefresh || !this.LONG_TERM_TOKEN) {
+        this.isRefreshingToken = true;
+        const freshToken = await window.AmoCRM?.widgets
+          ?.system(this.widgetInstanceId)
+          ?.then((s) => s?.access_token)
+          ?.catch(() => null);
+        
+        if (freshToken) {
+          this.accessToken = freshToken;
+          this.storeToken(freshToken);
+          return freshToken;
+        }
+      }
+
+      // 2. Пробуем получить из localStorage
+      const storedToken = this.retrieveStoredToken();
+      if (storedToken) {
+        this.accessToken = storedToken;
+        return storedToken;
+      }
+
+      // 3. Возвращаем долгосрочный токен как fallback
+      return this.LONG_TERM_TOKEN;
     } catch (error) {
       console.error("Ошибка получения токена:", error);
+      return this.LONG_TERM_TOKEN; // Всегда возвращаем долгосрочный токен как запасной вариант
+    } finally {
+      this.isRefreshingToken = false;
+    }
+  }
+
+  storeToken(token) {
+    try {
+      localStorage.setItem(`amo_token_${this.widgetInstanceId}`, token);
+    } catch (e) {
+      console.warn("Не удалось сохранить токен в localStorage:", e);
+    }
+  }
+
+  retrieveStoredToken() {
+    try {
+      return localStorage.getItem(`amo_token_${this.widgetInstanceId}`);
+    } catch (e) {
+      console.warn("Не удалось получить токен из localStorage:", e);
       return null;
     }
   }
@@ -170,9 +219,7 @@ class OrdersCalendar {
   }
 
   getCurrentMonthTitle() {
-    return `${
-      this.i18n.months[this.currentDate.getMonth()]
-    } ${this.currentDate.getFullYear()}`;
+    return `${this.i18n.months[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
   }
 
   async renderCalendar() {
@@ -208,9 +255,7 @@ class OrdersCalendar {
 
     // Дни месяца
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-        day
-      ).padStart(2, "0")}`;
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const dealCount = deals[date]?.length || 0;
 
       html += `
@@ -251,9 +296,7 @@ class OrdersCalendar {
     dealsContainer.innerHTML = dealList
       .map(
         (deal) => `
-      <div class="deal-card" onclick="window.AmoCRM?.openCard('lead', ${
-        deal.id
-      })">
+      <div class="deal-card" onclick="window.AmoCRM?.openCard('lead', ${deal.id})">
         <div class="deal-name">${deal.name}</div>
         ${this.renderDealFields(deal)}
       </div>
@@ -281,9 +324,15 @@ class OrdersCalendar {
   // ==================== Работа со сделками ====================
 
   async fetchDeals(year, month) {
-    if (!this.accessToken) return {};
-
     try {
+      // Всегда сначала проверяем/обновляем токен
+      this.accessToken = await this.getAccessToken();
+      
+      if (!this.accessToken) {
+        this.showError(this.i18n.errors?.auth || "Ошибка авторизации");
+        return {};
+      }
+
       const startDate = new Date(year, month, 1).toISOString().split("T")[0];
       const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
@@ -294,8 +343,18 @@ class OrdersCalendar {
       });
 
       const response = await fetch(`${this.API_URL}leads?${params}`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
+        headers: { 
+          Authorization: `Bearer ${this.accessToken}`,
+          'X-Requested-With': 'XMLHttpRequest',
+          'Content-Type': 'application/json'
+        },
       });
+
+      if (response.status === 401) {
+        // Если токен недействителен, пробуем обновить его принудительно
+        this.accessToken = await this.getAccessToken(true);
+        return this.fetchDeals(year, month); // Рекурсивный повтор запроса
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -349,8 +408,7 @@ class OrdersCalendar {
     document.getElementById("authButton").addEventListener("click", () => {
       const params = new URLSearchParams({
         client_id: "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
-        redirect_uri:
-          "https://alerom2006.github.io/Calendar/oauth_callback.html",
+        redirect_uri: "https://alerom2006.github.io/Calendar/oauth_callback.html",
         state: this.widgetInstanceId,
       });
       window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
@@ -377,10 +435,15 @@ class OrdersCalendar {
 
 // Инициализация виджета
 document.addEventListener("DOMContentLoaded", () => {
-  if (window.AmoCRM) {
-    window.AmoCRM.onReady(() => new OrdersCalendar());
-  } else {
-    console.warn("AmoCRM API не загружен, запуск в standalone режиме");
-    new OrdersCalendar();
+  try {
+    if (window.AmoCRM) {
+      window.AmoCRM.onReady(() => new OrdersCalendar());
+    } else {
+      console.warn("AmoCRM API не загружен, запуск в standalone режиме");
+      new OrdersCalendar();
+    }
+  } catch (error) {
+    console.error("Ошибка инициализации виджета:", error);
+    document.body.innerHTML = `<div class="error">Ошибка загрузки виджета. Пожалуйста, обновите страницу.</div>`;
   }
 });

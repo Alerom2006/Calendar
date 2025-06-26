@@ -1,6 +1,5 @@
 class OrdersCalendar {
   constructor() {
-    // Константы класса
     this.FIELD_IDS = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
@@ -9,11 +8,10 @@ class OrdersCalendar {
     };
 
     this.API_URL = "https://spacebakery1.amocrm.ru/api/v4/";
-    
-    // Долгосрочный токен
-    this.LONG_TERM_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjQ0ZjEyMjI0NTVmZWQzYzI1ZTY3MDMyODRiYmI1ZGM1OTQ2ZGY3NjQ0ZmIxMzgxYTY3NzJjYzM1NGMyMjVhOGY3NTE2MDUyYzg0NWIyYWYxIn0.eyJhdWQiOiI5MmFjYzllZS03ODFkLTQ5YzUtYTQzZC05Y2IwZTdmN2E1MjciLCJqdGkiOiI0NGYxMjIyNDU1ZmVkM2MyNWU2NzAzMjg0YmJiNWRjNTk0NmRmNzY0NGZiMTM4MWE2NzcyY2MzNTRjMjI1YThmNzUxNjA1MmM4NDViMmFmMSIsImlhdCI6MTc1MDg1MjE1MCwibmJmIjoxNzUwODUyMTUwLCJleHAiOjE5MDg1NzYwMDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYmIxNzdiZjMtZjlkNC00ZDhkLTg2NTItN2UwNWQ1N2I5M2E1IiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.cQH4gp1Oi2G1XcmEACpUZTqPGfW6P78DWN62CbOcRBXPNAAnDuCIfCruFtGFgoUJFqWj3m_RZKowEuKId0lr9xDkp-25p9rPlFK-bcJ2nhT8CYPx4tUBHhVqbMZjtcqFucC3JBWSvqVu-NYdw0ogv2qxQUXhsovNQaBHH-qADDJgiIyaC_YoiXfsTS637zYJGuqWIjKsq8KzDzNTegGhBuV4iWz2FmW0qYkkEOrIA31lorYKp9SNMF4VoXAc06uoCXyY7--YeifUvc_FrD4X9bwshrxz9lHn32_LhdEMO6owVfuG0GOLhbWnRflIYiqwBBIdXXq8xozl_SWfaja8Ag";
 
-    // Состояние виджета
+    this.LONG_TERM_TOKEN =
+      "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjQ0ZjEyMjI0NTVmZWQzYzI1ZTY3MDMyODRiYmI1ZGM1OTQ2ZGY3NjQ0ZmIxMzgxYTY3NzJjYzM1NGMyMjVhOGY3NTE2MDUyYzg0NWIyYWYxIn0.eyJhdWQiOiI5MmFjYzllZS03ODFkLTQ5YzUtYTQzZC05Y2IwZTdmN2E1MjciLCJqdGkiOiI0NGYxMjIyNDU1ZmVkM2MyNWU2NzAzMjg0YmJiNWRjNTk0NmRmNzY0NGZiMTM4MWE2NzcyY2MzNTRjMjI1YThmNzUxNjA1MmM4NDViMmFmMSIsImlhdCI6MTc1MDg1MjE1MCwibmJmIjoxNzUwODUyMTUwLCJleHAiOjE5MDg1NzYwMDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYmIxNzdiZjMtZjlkNC00ZDhkLTg2NTItN2UwNWQ1N2I5M2E1IiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.cQH4gp1Oi2G1XcmEACpUZTqPGfW6P78DWN62CbOcRBXPNAAnDuCIfCruFtGFgoUJFqWj3m_RZKowEuKId0lr9xDkp-25p9rPlFK-bcJ2nhT8CYPx4tUBHhVqbMZjtcqFucC3JBWSvqVu-NYdw0ogv2qxQUXhsovNQaBHH-qADDJgiIyaC_YoiXfsTS637zYJGuqWIjKsq8KzDzNTegGhBuV4iWz2FmW0qYkkEOrIA31lorYKp9SNMF4VoXAc06uoCXyY7--YeifUvc_FrD4X9bwshrxz9lHn32_LhdEMO6owVfuG0GOLhbWnRflIYiqwBBIdXXq8xozl_SWfaja8Ag";
+
     this.widgetInstanceId = Date.now();
     this.accessToken = this.LONG_TERM_TOKEN;
     this.currentDate = new Date();
@@ -21,7 +19,6 @@ class OrdersCalendar {
     this.i18n = this.loadTranslations();
     this.isRefreshingToken = false;
 
-    // Инициализация
     this.init();
   }
 
@@ -44,7 +41,12 @@ class OrdersCalendar {
 
   detectLanguage() {
     try {
-      return (window.AmoCRM && window.AmoCRM.constant("lang") || "ru").startsWith("ru") ? "ru" : "en";
+      return (
+        (window.AmoCRM && window.AmoCRM.constant("lang")) ||
+        "ru"
+      ).startsWith("ru")
+        ? "ru"
+        : "en";
     } catch (e) {
       console.error("Ошибка определения языка:", e);
       return "ru";
@@ -56,7 +58,7 @@ class OrdersCalendar {
       ru: {
         widget: {
           name: "Календарь заказов",
-          description: "Виджет для отображения сделок по датам заказа"
+          description: "Виджет для отображения сделок по датам заказа",
         },
         title: "Календарь заказов",
         prev: "Предыдущий",
@@ -67,20 +69,33 @@ class OrdersCalendar {
         fields: {
           delivery: "Доставка",
           exactTime: "Точное время",
-          address: "Адрес"
+          address: "Адрес",
         },
-        months: ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"],
+        months: [
+          "Январь",
+          "Февраль",
+          "Март",
+          "Апрель",
+          "Май",
+          "Июнь",
+          "Июль",
+          "Август",
+          "Сентябрь",
+          "Октябрь",
+          "Ноябрь",
+          "Декабрь",
+        ],
         weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
         errors: {
           fetch_deals: "Ошибка при получении сделок",
           connection: "Ошибка соединения",
-          auth: "Ошибка авторизации"
-        }
+          auth: "Ошибка авторизации",
+        },
       },
       en: {
         widget: {
           name: "Orders Calendar",
-          description: "Widget for displaying deals by order date"
+          description: "Widget for displaying deals by order date",
         },
         title: "Orders Calendar",
         prev: "Previous",
@@ -91,21 +106,43 @@ class OrdersCalendar {
         fields: {
           delivery: "Delivery",
           exactTime: "Exact time",
-          address: "Address"
+          address: "Address",
         },
-        months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+        months: [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ],
         weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         errors: {
           fetch_deals: "Error fetching deals",
           connection: "Connection error",
-          auth: "Authorization error"
-        }
-      }
+          auth: "Authorization error",
+        },
+      },
     };
 
     try {
-      var amoTranslations = (window.AmoCRM && window.AmoCRM.widgets && window.AmoCRM.widgets.i18n && window.AmoCRM.widgets.i18n.getTranslations()) || {};
-      return Object.assign({}, fallbackTranslations[this.lang], amoTranslations);
+      var amoTranslations =
+        (window.AmoCRM &&
+          window.AmoCRM.widgets &&
+          window.AmoCRM.widgets.i18n &&
+          window.AmoCRM.widgets.i18n.getTranslations()) ||
+        {};
+      return Object.assign(
+        {},
+        fallbackTranslations[this.lang],
+        amoTranslations
+      );
     } catch (e) {
       console.error("Ошибка загрузки переводов:", e);
       return fallbackTranslations[this.lang];
@@ -116,7 +153,9 @@ class OrdersCalendar {
     this.accessToken = await this.getAccessToken();
     if (!this.accessToken) {
       console.warn("Токен доступа не получен");
-      this.showError(this.i18n.errors && this.i18n.errors.auth || "Ошибка авторизации");
+      this.showError(
+        (this.i18n.errors && this.i18n.errors.auth) || "Ошибка авторизации"
+      );
     }
   }
 
@@ -129,12 +168,19 @@ class OrdersCalendar {
       if (forceRefresh || !this.LONG_TERM_TOKEN) {
         this.isRefreshingToken = true;
         var freshToken = null;
-        if (window.AmoCRM && window.AmoCRM.widgets && window.AmoCRM.widgets.system) {
-          freshToken = await window.AmoCRM.widgets.system(this.widgetInstanceId).then(function(s) { 
-            return s && s.access_token; 
-          }).catch(function() { 
-            return null; 
-          });
+        if (
+          window.AmoCRM &&
+          window.AmoCRM.widgets &&
+          window.AmoCRM.widgets.system
+        ) {
+          freshToken = await window.AmoCRM.widgets
+            .system(this.widgetInstanceId)
+            .then(function (s) {
+              return s && s.access_token;
+            })
+            .catch(function () {
+              return null;
+            });
         }
 
         if (freshToken) {
@@ -184,7 +230,11 @@ class OrdersCalendar {
   }
 
   getCurrentMonthTitle() {
-    return this.i18n.months[this.currentDate.getMonth()] + " " + this.currentDate.getFullYear();
+    return (
+      this.i18n.months[this.currentDate.getMonth()] +
+      " " +
+      this.currentDate.getFullYear()
+    );
   }
 
   async renderCalendar() {
@@ -210,7 +260,7 @@ class OrdersCalendar {
 
     var html = '<div class="weekdays">';
     for (var i = 0; i < this.i18n.weekdays.length; i++) {
-      html += '<div class="weekday">' + this.i18n.weekdays[i] + '</div>';
+      html += '<div class="weekday">' + this.i18n.weekdays[i] + "</div>";
     }
 
     html += '</div><div class="days">';
@@ -220,13 +270,23 @@ class OrdersCalendar {
     }
 
     for (var day = 1; day <= daysInMonth; day++) {
-      var date = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      var date =
+        year +
+        "-" +
+        String(month + 1).padStart(2, "0") +
+        "-" +
+        String(day).padStart(2, "0");
       var dealCount = (deals[date] && deals[date].length) || 0;
 
-      html += '<div class="day ' + (dealCount ? "has-deals" : "") + '" data-date="' + date + '">' +
+      html +=
+        '<div class="day ' +
+        (dealCount ? "has-deals" : "") +
+        '" data-date="' +
+        date +
+        '">' +
         day +
-        (dealCount ? '<span class="deal-count">' + dealCount + '</span>' : "") +
-        '</div>';
+        (dealCount ? '<span class="deal-count">' + dealCount + "</span>" : "") +
+        "</div>";
     }
 
     var calendarElement = document.getElementById("calendar");
@@ -235,11 +295,14 @@ class OrdersCalendar {
 
       var days = calendarElement.querySelectorAll(".day:not(.empty)");
       for (var i = 0; i < days.length; i++) {
-        days[i].addEventListener("click", (function(date, deals) {
-          return function() {
-            this.renderDeals(date, deals);
-          }.bind(this);
-        }).bind(this)(days[i].dataset.date, deals));
+        days[i].addEventListener(
+          "click",
+          function (date, deals) {
+            return function () {
+              this.renderDeals(date, deals);
+            }.bind(this);
+          }.bind(this)(days[i].dataset.date, deals)
+        );
       }
     }
   }
@@ -253,24 +316,30 @@ class OrdersCalendar {
       dateElement.textContent = new Date(date).toLocaleDateString(this.lang, {
         day: "numeric",
         month: "long",
-        year: "numeric"
+        year: "numeric",
       });
     }
 
     if (!dealsContainer) return;
 
     if (dealList.length === 0) {
-      dealsContainer.innerHTML = '<div class="no-deals">' + this.i18n.noDeals + '</div>';
+      dealsContainer.innerHTML =
+        '<div class="no-deals">' + this.i18n.noDeals + "</div>";
       return;
     }
 
     var dealsHtml = "";
     for (var i = 0; i < dealList.length; i++) {
       var deal = dealList[i];
-      dealsHtml += '<div class="deal-card" onclick="window.AmoCRM && window.AmoCRM.openCard && window.AmoCRM.openCard(\'lead\', ' + deal.id + ')">' +
-        '<div class="deal-name">' + deal.name + '</div>' +
+      dealsHtml +=
+        '<div class="deal-card" onclick="window.AmoCRM && window.AmoCRM.openCard && window.AmoCRM.openCard(\'lead\', ' +
+        deal.id +
+        ')">' +
+        '<div class="deal-name">' +
+        deal.name +
+        "</div>" +
         this.renderDealFields(deal) +
-        '</div>';
+        "</div>";
     }
 
     dealsContainer.innerHTML = dealsHtml;
@@ -280,7 +349,7 @@ class OrdersCalendar {
     var fields = [
       { id: this.FIELD_IDS.DELIVERY_RANGE, name: this.i18n.fields.delivery },
       { id: this.FIELD_IDS.EXACT_TIME, name: this.i18n.fields.exactTime },
-      { id: this.FIELD_IDS.ADDRESS, name: this.i18n.fields.address }
+      { id: this.FIELD_IDS.ADDRESS, name: this.i18n.fields.address },
     ];
 
     var html = "";
@@ -290,13 +359,21 @@ class OrdersCalendar {
       if (deal.custom_fields_values) {
         for (var j = 0; j < deal.custom_fields_values.length; j++) {
           if (deal.custom_fields_values[j].field_id == field.id) {
-            fieldValue = deal.custom_fields_values[j].values && deal.custom_fields_values[j].values[0] && deal.custom_fields_values[j].values[0].value;
+            fieldValue =
+              deal.custom_fields_values[j].values &&
+              deal.custom_fields_values[j].values[0] &&
+              deal.custom_fields_values[j].values[0].value;
             break;
           }
         }
       }
       if (fieldValue) {
-        html += '<div class="deal-field"><strong>' + field.name + ':</strong> ' + fieldValue + '</div>';
+        html +=
+          '<div class="deal-field"><strong>' +
+          field.name +
+          ":</strong> " +
+          fieldValue +
+          "</div>";
       }
     }
     return html;
@@ -305,9 +382,11 @@ class OrdersCalendar {
   async fetchDeals(year, month) {
     try {
       this.accessToken = await this.getAccessToken();
-      
+
       if (!this.accessToken) {
-        this.showError(this.i18n.errors && this.i18n.errors.auth || "Ошибка авторизации");
+        this.showError(
+          (this.i18n.errors && this.i18n.errors.auth) || "Ошибка авторизации"
+        );
         return {};
       }
 
@@ -315,16 +394,19 @@ class OrdersCalendar {
       var endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
       var params = new URLSearchParams();
-      params.append("filter[custom_fields_values][field_id]", this.FIELD_IDS.ORDER_DATE);
+      params.append(
+        "filter[custom_fields_values][field_id]",
+        this.FIELD_IDS.ORDER_DATE
+      );
       params.append("filter[custom_fields_values][from]", startDate);
       params.append("filter[custom_fields_values][to]", endDate);
 
       var response = await fetch(this.API_URL + "leads?" + params.toString(), {
-        headers: { 
+        headers: {
           Authorization: "Bearer " + this.accessToken,
           "X-Requested-With": "XMLHttpRequest",
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.status === 401) {
@@ -338,7 +420,10 @@ class OrdersCalendar {
 
       return this.processDealsData(await response.json());
     } catch (error) {
-      this.showError(this.i18n.errors && this.i18n.errors.fetch_deals || "Ошибка при получении сделок");
+      this.showError(
+        (this.i18n.errors && this.i18n.errors.fetch_deals) ||
+          "Ошибка при получении сделок"
+      );
       console.error("Ошибка получения сделок:", error);
       return {};
     }
@@ -351,18 +436,25 @@ class OrdersCalendar {
     for (var i = 0; i < data._embedded.leads.length; i++) {
       var deal = data._embedded.leads[i];
       var dateField = null;
-      
+
       if (deal.custom_fields_values) {
         for (var j = 0; j < deal.custom_fields_values.length; j++) {
-          if (deal.custom_fields_values[j].field_id == this.FIELD_IDS.ORDER_DATE) {
+          if (
+            deal.custom_fields_values[j].field_id == this.FIELD_IDS.ORDER_DATE
+          ) {
             dateField = deal.custom_fields_values[j];
             break;
           }
         }
       }
 
-      var date = (dateField && dateField.values && dateField.values[0] && dateField.values[0].value && dateField.values[0].value.split(" ")[0]) || 
-                 new Date(deal.created_at * 1000).toISOString().split("T")[0];
+      var date =
+        (dateField &&
+          dateField.values &&
+          dateField.values[0] &&
+          dateField.values[0].value &&
+          dateField.values[0].value.split(" ")[0]) ||
+        new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
       if (!result[date]) result[date] = [];
       result[date].push(deal);
@@ -387,13 +479,21 @@ class OrdersCalendar {
       nextMonthBtn.addEventListener("click", this.navigateMonth.bind(this, 1));
     }
     if (authButton) {
-      authButton.addEventListener("click", function() {
-        var params = new URLSearchParams();
-        params.append("client_id", "92acc9ee-781d-49c5-a43d-9cb0e7f7a527");
-        params.append("redirect_uri", "https://alerom2006.github.io/Calendar/oauth_callback.html");
-        params.append("state", this.widgetInstanceId);
-        window.location.href = "https://spacebakery1.amocrm.ru/oauth2/authorize?" + params.toString();
-      }.bind(this));
+      authButton.addEventListener(
+        "click",
+        function () {
+          var params = new URLSearchParams();
+          params.append("client_id", "92acc9ee-781d-49c5-a43d-9cb0e7f7a527");
+          params.append(
+            "redirect_uri",
+            "https://alerom2006.github.io/Calendar/oauth_callback.html"
+          );
+          params.append("state", this.widgetInstanceId);
+          window.location.href =
+            "https://spacebakery1.amocrm.ru/oauth2/authorize?" +
+            params.toString();
+        }.bind(this)
+      );
     }
   }
 
@@ -414,10 +514,10 @@ class OrdersCalendar {
   }
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
   try {
     if (window.AmoCRM) {
-      window.AmoCRM.onReady(function() {
+      window.AmoCRM.onReady(function () {
         new OrdersCalendar();
       });
     } else {
@@ -428,8 +528,11 @@ document.addEventListener("DOMContentLoaded", function() {
     console.error("Ошибка инициализации виджета:", error);
     var errorDiv = document.createElement("div");
     errorDiv.className = "error";
-    errorDiv.textContent = "Ошибка загрузки виджета. Пожалуйста, обновите страницу.";
+    errorDiv.textContent =
+      "Ошибка загрузки виджета. Пожалуйста, обновите страницу.";
     document.body.innerHTML = "";
     document.body.appendChild(errorDiv);
   }
 });
+console.log("Current translations:", this.i18n);
+console.log("Missing translation for:", "Календарь заказов");

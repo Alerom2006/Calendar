@@ -1,30 +1,4 @@
 {
-  "i18n": {
-    "ru": {
-      "widget": {
-        "name": "Календарь заказов",
-        "description": "Виджет для отображения сделок по дате заказа",
-        "short_description": "Просмотр сделок в календаре",
-        "tour_description": "Просматривайте сделки, отфильтрованные по дате заказа"
-      },
-      "settings": {
-        "deal_date_field": "ID поля 'Заказ на...'",
-        "deal_date_field_id": "ID поля для даты заказа"
-      }
-    },
-    "en": {
-      "widget": {
-        "name": "Orders Calendar",
-        "description": "Widget for displaying deals by order date",
-        "short_description": "View deals in calendar",
-        "tour_description": "View deals filtered by order date"
-      },
-      "settings": {
-        "deal_date_field": "Order date field ID",
-        "deal_date_field_id": "Field ID for order date"
-      }
-    }
-  },
   "widget": {
     "manifest_version": "1.0",
     "name": "widget.name",
@@ -62,7 +36,7 @@
   "settings": {
     "deal_date_field_id": {
       "name": "deal_date_field_id",
-      "title": "settings.deal_date_field",
+      "title": "ID поля 'Дата заказа'",
       "type": "number",
       "default": 885453,
       "required": true

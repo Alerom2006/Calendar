@@ -10,6 +10,7 @@
     "locale": ["ru", "en"],
     "is_resizable": false,
     "is_settings": true,
+    "installation": true,
     "size": {
       "width": 4,
       "height": 4
@@ -20,10 +21,6 @@
     "url": "https://alerom2006.github.io/Calendar/index.html",
     "type": "widget",
     "code": "calendar_orders_widget_v2"
-  },
-  "installation": {
-    "url": "https://alerom2006.github.io/Calendar/install.html",
-    "permissions": ["crm"]
   },
   "oauth2": {
     "client_id": "91a1aa6f-ba8c-4b8d-b56a-66888cc00139",

@@ -1,5 +1,5 @@
 class OrdersCalendar {
-  constructor() {
+  varructor() {
     this.widgetInstanceId = Date.now();
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
@@ -37,7 +37,7 @@ class OrdersCalendar {
 
   detectLanguage() {
     try {
-      return (window.AmoCRM?.constant("lang") || "ru").startsWith("ru")
+      return (window.AmoCRM?.varant("lang") || "ru").startsWith("ru")
         ? "ru"
         : "en";
     } catch (e) {
@@ -47,10 +47,10 @@ class OrdersCalendar {
   }
 
   getTranslation(key) {
-    const keys = key.split(".");
-    let result = window.i18n;
+    var keys = key.split(".");
+    var result = window.i18n;
 
-    for (const k of keys) {
+    for (var k of keys) {
       result = result?.[k];
       if (result === undefined) return key;
     }
@@ -74,9 +74,7 @@ class OrdersCalendar {
   async getAccessToken() {
     try {
       if (window.AmoCRM?.widgets?.system) {
-        const system = await window.AmoCRM.widgets.system(
-          this.widgetInstanceId
-        );
+        var system = await window.AmoCRM.widgets.system(this.widgetInstanceId);
         return system?.access_token || null;
       }
       return null;
@@ -87,17 +85,17 @@ class OrdersCalendar {
   }
 
   setupUI() {
-    const monthYearElement = document.getElementById("currentMonthYear");
+    var monthYearElement = document.getElementById("currentMonthYear");
     if (monthYearElement) {
       monthYearElement.textContent = this.getCurrentMonthTitle();
     }
 
-    const authButton = document.getElementById("authButton");
+    var authButton = document.getElementById("authButton");
     if (authButton) {
       authButton.textContent = this.getTranslation("auth.button");
     }
 
-    const dealsTitle = document.getElementById("deals-title");
+    var dealsTitle = document.getElementById("deals-title");
     if (dealsTitle) {
       dealsTitle.textContent = this.getTranslation("deals.list_title").replace(
         "{date}",
@@ -107,7 +105,7 @@ class OrdersCalendar {
   }
 
   getCurrentMonthTitle() {
-    const months = this.getTranslation("calendar.months");
+    var months = this.getTranslation("calendar.months");
     return `${
       months[this.currentDate.getMonth()]
     } ${this.currentDate.getFullYear()}`;
@@ -115,15 +113,15 @@ class OrdersCalendar {
 
   async renderCalendar() {
     try {
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth();
+      var year = this.currentDate.getFullYear();
+      var month = this.currentDate.getMonth();
 
-      const monthYearElement = document.getElementById("currentMonthYear");
+      var monthYearElement = document.getElementById("currentMonthYear");
       if (monthYearElement) {
         monthYearElement.textContent = this.getCurrentMonthTitle();
       }
 
-      const deals = await this.fetchDeals(year, month);
+      var deals = await this.fetchDeals(year, month);
       this.renderCalendarGrid(year, month, deals);
     } catch (error) {
       this.showError(this.getTranslation("errors.fetch_deals"));
@@ -132,28 +130,28 @@ class OrdersCalendar {
   }
 
   renderCalendarGrid(year, month, deals) {
-    const calendarElement = document.getElementById("calendar");
+    var calendarElement = document.getElementById("calendar");
     if (!calendarElement) return;
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const weekdays = this.getTranslation("calendar.weekdays");
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var weekdays = this.getTranslation("calendar.weekdays");
 
-    let html = '<div class="weekdays">';
+    var html = '<div class="weekdays">';
     weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
     html += '</div><div class="days">';
 
     // Empty cells
-    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+    for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
       html += '<div class="day empty"></div>';
     }
 
     // Days of month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+    for (var day = 1; day <= daysInMonth; day++) {
+      var date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
         day
       ).padStart(2, "0")}`;
-      const dealCount = deals[date]?.length || 0;
+      var dealCount = deals[date]?.length || 0;
 
       html += `
         <div class="day ${dealCount ? "has-deals" : ""}" data-date="${date}">
@@ -174,9 +172,9 @@ class OrdersCalendar {
   }
 
   renderDeals(date, deals) {
-    const dealList = deals[date] || [];
-    const dealsContainer = document.getElementById("deals");
-    const dateElement = document.getElementById("selected-date");
+    var dealList = deals[date] || [];
+    var dealsContainer = document.getElementById("deals");
+    var dateElement = document.getElementById("selected-date");
 
     if (!dealsContainer || !dateElement) return;
 
@@ -208,7 +206,7 @@ class OrdersCalendar {
   }
 
   renderDealFields(deal) {
-    const fields = {
+    var fields = {
       [this.FIELD_IDS.DELIVERY_RANGE]: this.getTranslation(
         "deals.fields.delivery_range"
       ),
@@ -220,7 +218,7 @@ class OrdersCalendar {
 
     return Object.entries(fields)
       .map(([id, name]) => {
-        const value = deal.custom_fields_values?.find((f) => f.field_id == id)
+        var value = deal.custom_fields_values?.find((f) => f.field_id == id)
           ?.values?.[0]?.value;
         return value
           ? `<div class="deal-field"><strong>${name}:</strong> ${
@@ -238,16 +236,16 @@ class OrdersCalendar {
     }
 
     try {
-      const startDate = new Date(year, month, 1).toISOString().split("T")[0];
-      const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
+      var startDate = new Date(year, month, 1).toISOString().split("T")[0];
+      var endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
-      const params = new URLSearchParams({
+      var params = new URLSearchParams({
         "filter[custom_fields_values][field_id]": this.FIELD_IDS.ORDER_DATE,
         "filter[custom_fields_values][from]": startDate,
         "filter[custom_fields_values][to]": endDate,
       });
 
-      const response = await fetch(
+      var response = await fetch(
         `https://spacebakery1.amocrm.ru/api/v4/leads?${params}`,
         {
           headers: {
@@ -278,10 +276,10 @@ class OrdersCalendar {
     if (!data?._embedded?.leads) return {};
 
     return data._embedded.leads.reduce((acc, deal) => {
-      const dateField = deal.custom_fields_values?.find(
+      var dateField = deal.custom_fields_values?.find(
         (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
       );
-      const date =
+      var date =
         dateField?.values?.[0]?.value?.split(" ")[0] ||
         new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
@@ -305,7 +303,7 @@ class OrdersCalendar {
       ?.addEventListener("click", () => this.navigateMonth(1));
 
     document.getElementById("authButton")?.addEventListener("click", () => {
-      const params = new URLSearchParams({
+      var params = new URLSearchParams({
         client_id: "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
         redirect_uri:
           "https://alerom2006.github.io/Calendar/oauth_callback.html",
@@ -316,14 +314,14 @@ class OrdersCalendar {
   }
 
   toggleAuthSection() {
-    const authSection = document.getElementById("auth-section");
+    var authSection = document.getElementById("auth-section");
     if (authSection) {
       authSection.style.display = this.accessToken ? "none" : "block";
     }
   }
 
   showError(message) {
-    const errorElement = document.getElementById("error-alert");
+    var errorElement = document.getElementById("error-alert");
     if (errorElement) {
       errorElement.textContent = message;
       errorElement.classList.remove("d-none");
@@ -343,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   } catch (error) {
     console.error("Widget initialization error:", error);
-    const errorElement = document.getElementById("error-alert");
+    var errorElement = document.getElementById("error-alert");
     if (errorElement) {
       errorElement.textContent =
         window.i18n?.errors?.initialization || "Widget loading error";

@@ -90,7 +90,7 @@
   "settings": {
     "deal_date_field_id": {
       "name": "deal_date_field_id",
-      "title": "settings.deal_date_field_id",
+      "title": "ID поля 'Дата заказа'",
       "type": "number",
       "default": 885453,
       "required": true

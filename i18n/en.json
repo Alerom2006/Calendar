@@ -50,7 +50,6 @@
     "connection": "Server connection error"
   },
   "settings": {
-    "deal_date_field": "Order date field ID",
-    "deal_date_field_id": "Field ID for order date"
+    "deal_date_field": "Order date field ID"
   }
 }

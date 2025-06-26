@@ -304,7 +304,7 @@ class OrdersCalendar {
 
     document.getElementById("authButton")?.addEventListener("click", () => {
       var params = new URLSearchParams({
-        client_id: "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
+        client_id: "91a1aa6f-ba8c-4b8d-b56a-66888cc00139",
         redirect_uri:
           "https://alerom2006.github.io/Calendar/oauth_callback.html",
         state: this.widgetInstanceId,

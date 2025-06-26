@@ -1,16 +1,18 @@
 {
+  "manifest_version": "1.0",
+  "name": "widget.name",
+  "description": "widget.description",
+  "short_description": "widget.short_description",
+  "version": "1.0.2",
+  "interface_version": 2,
+  "init_once": true,
+  "locale": ["ru", "en"],
   "widget": {
-    "name": "Календарь заказов",
-    "description": "Виджет для отображения сделок по дате заказа",
-    "short_description": "Просмотр сделок в календаре",
-    "version": "1.0.2",
-    "interface_version": 2,
-    "init_once": true,
-    "locale": ["ru", "en"],
-    "installation": true,
-    "support": {
-      "link": "https://alerom2006.github.io/Calendar/",
-      "email": "your@email.com"
+    "is_resizable": false,
+    "is_settings": true,
+    "size": {
+      "width": 4,
+      "height": 4
     }
   },
   "locations": ["lcard-1", "settings", "digital_pipeline"],
@@ -31,19 +33,73 @@
     "template": "index.html"
   },
   "i18n": {
-    "ru": "i18n/ru.json",
-    "en": "i18n/en.json"
+    "ru": {
+      "widget.name": "Календарь заказов",
+      "widget.description": "Виджет для отображения сделок по дате заказа",
+      "widget.short_description": "Просмотр сделок в календаре",
+      "months": [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь"
+      ],
+      "weekdays": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+      "noDeals": "На эту дату сделок нет",
+      "fields": {
+        "delivery": "Доставка",
+        "exactTime": "Точное время",
+        "address": "Адрес"
+      }
+    },
+    "en": {
+      "widget.name": "Orders Calendar",
+      "widget.description": "Widget for displaying deals by order date",
+      "widget.short_description": "View deals in calendar",
+      "months": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ],
+      "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "noDeals": "No deals for this date",
+      "fields": {
+        "delivery": "Delivery",
+        "exactTime": "Exact time",
+        "address": "Address"
+      }
+    }
   },
   "settings": {
-    "deal_date_field": {
+    "deal_date_field_id": {
       "name": "deal_date_field_id",
-      "title": "ID поля 'Заказ на...'",
+      "title": "ID поля 'Дата заказа'",
       "type": "number",
       "default": 885453,
       "required": true
     }
   },
   "required_fields": [885453, 892009, 892003, 887367],
+  "support": {
+    "link": "https://alerom2006.github.io/Calendar/",
+    "email": "your@email.com"
+  },
   "tour": {
     "is_tour": false
   }

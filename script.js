@@ -1,31 +1,16 @@
 class OrdersCalendar {
   constructor() {
-    this.FIELD_IDS = {
-      ORDER_DATE: 885453,
-      DELIVERY_RANGE: 892009,
-      EXACT_TIME: 892003,
-      ADDRESS: 887367,
-    };
-
-    this.API_URL = "https://spacebakery1.amocrm.ru/api/v4/";
-
-    this.LONG_TERM_TOKEN =
-      "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjQ0ZjEyMjI0NTVmZWQzYzI1ZTY3MDMyODRiYmI1ZGM1OTQ2ZGY3NjQ0ZmIxMzgxYTY3NzJjYzM1NGMyMjVhOGY3NTE2MDUyYzg0NWIyYWYxIn0.eyJhdWQiOiI5MmFjYzllZS03ODFkLTQ5YzUtYTQzZC05Y2IwZTdmN2E1MjciLCJqdGkiOiI0NGYxMjIyNDU1ZmVkM2MyNWU2NzAzMjg0YmJiNWRjNTk0NmRmNzY0NGZiMTM4MWE2NzcyY2MzNTRjMjI1YThmNzUxNjA1MmM4NDViMmFmMSIsImlhdCI6MTc1MDg1MjE1MCwibmJmIjoxNzUwODUyMTUwLCJleHAiOjE5MDg1NzYwMDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYmIxNzdiZjMtZjlkNC00ZDhkLTg2NTItN2UwNWQ1N2I5M2E1IiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.cQH4gp1Oi2G1XcmEACpUZTqPGfW6P78DWN62CbOcRBXPNAAnDuCIfCruFtGFgoUJFqWj3m_RZKowEuKId0lr9xDkp-25p9rPlFK-bcJ2nhT8CYPx4tUBHhVqbMZjtcqFucC3JBWSvqVu-NYdw0ogv2qxQUXhsovNQaBHH-qADDJgiIyaC_YoiXfsTS637zYJGuqWIjKsq8KzDzNTegGhBuV4iWz2FmW0qYkkEOrIA31lorYKp9SNMF4VoXAc06uoCXyY7--YeifUvc_FrD4X9bwshrxz9lHn32_LhdEMO6owVfuG0GOLhbWnRflIYiqwBBIdXXq8xozl_SWfaja8Ag";
-
     this.widgetInstanceId = Date.now();
-    this.accessToken = this.LONG_TERM_TOKEN;
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
-    this.i18n = this.loadTranslations();
-    this.isRefreshingToken = false;
-
+    this.loadFieldIds();
     this.init();
   }
 
   async init() {
     try {
       if (!window.AmoCRM) {
-        throw new Error("AmoCRM API не загружен");
+        throw new Error("AmoCRM API not loaded");
       }
 
       await this.checkAuth();
@@ -34,432 +19,276 @@ class OrdersCalendar {
       this.setupEventListeners();
       this.toggleAuthSection();
     } catch (error) {
-      this.showError("Ошибка инициализации: " + error.message);
-      console.error(error);
+      this.showError(
+        this.getTranslation("errors.initialization") + ": " + error.message
+      );
+      console.error("Initialization error:", error);
     }
+  }
+
+  loadFieldIds() {
+    this.FIELD_IDS = {
+      ORDER_DATE: window.widgetSettings?.deal_date_field_id || 885453,
+      DELIVERY_RANGE: 892009,
+      EXACT_TIME: 892003,
+      ADDRESS: 887367,
+    };
   }
 
   detectLanguage() {
     try {
-      return (
-        (window.AmoCRM && window.AmoCRM.constant("lang")) ||
-        "ru"
-      ).startsWith("ru")
+      return (window.AmoCRM?.constant("lang") || "ru").startsWith("ru")
         ? "ru"
         : "en";
     } catch (e) {
-      console.error("Ошибка определения языка:", e);
+      console.error("Language detection error:", e);
       return "ru";
     }
   }
 
-  loadTranslations() {
-    var fallbackTranslations = {
-      ru: {
-        widget: {
-          name: "Календарь заказов",
-          description: "Виджет для отображения сделок по датам заказа",
-        },
-        title: "Календарь заказов",
-        prev: "Предыдущий",
-        next: "Следующий",
-        dealsTitle: "Сделки на {date}",
-        noDeals: "На эту дату сделок нет",
-        auth: "Авторизоваться",
-        fields: {
-          delivery: "Доставка",
-          exactTime: "Точное время",
-          address: "Адрес",
-        },
-        months: [
-          "Январь",
-          "Февраль",
-          "Март",
-          "Апрель",
-          "Май",
-          "Июнь",
-          "Июль",
-          "Август",
-          "Сентябрь",
-          "Октябрь",
-          "Ноябрь",
-          "Декабрь",
-        ],
-        weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-        errors: {
-          fetch_deals: "Ошибка при получении сделок",
-          connection: "Ошибка соединения",
-          auth: "Ошибка авторизации",
-        },
-      },
-      en: {
-        widget: {
-          name: "Orders Calendar",
-          description: "Widget for displaying deals by order date",
-        },
-        title: "Orders Calendar",
-        prev: "Previous",
-        next: "Next",
-        dealsTitle: "Deals for {date}",
-        noDeals: "No deals this date",
-        auth: "Authorize",
-        fields: {
-          delivery: "Delivery",
-          exactTime: "Exact time",
-          address: "Address",
-        },
-        months: [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ],
-        weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-        errors: {
-          fetch_deals: "Error fetching deals",
-          connection: "Connection error",
-          auth: "Authorization error",
-        },
-      },
-    };
+  getTranslation(key) {
+    const keys = key.split(".");
+    let result = window.i18n;
 
-    try {
-      var amoTranslations =
-        (window.AmoCRM &&
-          window.AmoCRM.widgets &&
-          window.AmoCRM.widgets.i18n &&
-          window.AmoCRM.widgets.i18n.getTranslations()) ||
-        {};
-      return Object.assign(
-        {},
-        fallbackTranslations[this.lang],
-        amoTranslations
-      );
-    } catch (e) {
-      console.error("Ошибка загрузки переводов:", e);
-      return fallbackTranslations[this.lang];
+    for (const k of keys) {
+      result = result?.[k];
+      if (result === undefined) return key;
     }
+
+    return result || key;
   }
 
   async checkAuth() {
-    this.accessToken = await this.getAccessToken();
-    if (!this.accessToken) {
-      console.warn("Токен доступа не получен");
-      this.showError(
-        (this.i18n.errors && this.i18n.errors.auth) || "Ошибка авторизации"
-      );
-    }
-  }
-
-  async getAccessToken(forceRefresh) {
-    if (this.isRefreshingToken) {
-      return this.accessToken;
-    }
-
     try {
-      if (forceRefresh || !this.LONG_TERM_TOKEN) {
-        this.isRefreshingToken = true;
-        var freshToken = null;
-        if (
-          window.AmoCRM &&
-          window.AmoCRM.widgets &&
-          window.AmoCRM.widgets.system
-        ) {
-          freshToken = await window.AmoCRM.widgets
-            .system(this.widgetInstanceId)
-            .then(function (s) {
-              return s && s.access_token;
-            })
-            .catch(function () {
-              return null;
-            });
-        }
-
-        if (freshToken) {
-          this.accessToken = freshToken;
-          this.storeToken(freshToken);
-          return freshToken;
-        }
+      this.accessToken = await this.getAccessToken();
+      if (!this.accessToken) {
+        console.warn("Access token not received");
+        this.showError(this.getTranslation("auth.error"));
       }
-
-      var storedToken = this.retrieveStoredToken();
-      if (storedToken) {
-        this.accessToken = storedToken;
-        return storedToken;
-      }
-
-      return this.LONG_TERM_TOKEN;
     } catch (error) {
-      console.error("Ошибка получения токена:", error);
-      return this.LONG_TERM_TOKEN;
-    } finally {
-      this.isRefreshingToken = false;
+      console.error("Auth error:", error);
+      this.showError(this.getTranslation("auth.error"));
     }
   }
 
-  storeToken(token) {
+  async getAccessToken() {
     try {
-      localStorage.setItem("amo_token_" + this.widgetInstanceId, token);
-    } catch (e) {
-      console.warn("Не удалось сохранить токен в localStorage:", e);
-    }
-  }
-
-  retrieveStoredToken() {
-    try {
-      return localStorage.getItem("amo_token_" + this.widgetInstanceId);
-    } catch (e) {
-      console.warn("Не удалось получить токен из localStorage:", e);
+      if (window.AmoCRM?.widgets?.system) {
+        const system = await window.AmoCRM.widgets.system(
+          this.widgetInstanceId
+        );
+        return system?.access_token || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Token error:", error);
       return null;
     }
   }
 
   setupUI() {
-    var element = document.getElementById("currentMonthYear");
-    if (element) {
-      element.textContent = this.getCurrentMonthTitle();
+    const monthYearElement = document.getElementById("currentMonthYear");
+    if (monthYearElement) {
+      monthYearElement.textContent = this.getCurrentMonthTitle();
+    }
+
+    const authButton = document.getElementById("authButton");
+    if (authButton) {
+      authButton.textContent = this.getTranslation("auth.button");
+    }
+
+    const dealsTitle = document.getElementById("deals-title");
+    if (dealsTitle) {
+      dealsTitle.textContent = this.getTranslation("deals.list_title").replace(
+        "{date}",
+        ""
+      );
     }
   }
 
   getCurrentMonthTitle() {
-    return (
-      this.i18n.months[this.currentDate.getMonth()] +
-      " " +
-      this.currentDate.getFullYear()
-    );
+    const months = this.getTranslation("calendar.months");
+    return `${
+      months[this.currentDate.getMonth()]
+    } ${this.currentDate.getFullYear()}`;
   }
 
   async renderCalendar() {
     try {
-      var year = this.currentDate.getFullYear();
-      var month = this.currentDate.getMonth();
+      const year = this.currentDate.getFullYear();
+      const month = this.currentDate.getMonth();
 
-      var monthYearElement = document.getElementById("currentMonthYear");
+      const monthYearElement = document.getElementById("currentMonthYear");
       if (monthYearElement) {
         monthYearElement.textContent = this.getCurrentMonthTitle();
       }
 
-      var deals = await this.fetchDeals(year, month);
+      const deals = await this.fetchDeals(year, month);
       this.renderCalendarGrid(year, month, deals);
     } catch (error) {
-      this.showError("Ошибка отображения календаря: " + error.message);
+      this.showError(this.getTranslation("errors.fetch_deals"));
+      console.error("Render error:", error);
     }
   }
 
   renderCalendarGrid(year, month, deals) {
-    var firstDay = new Date(year, month, 1).getDay();
-    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    const calendarElement = document.getElementById("calendar");
+    if (!calendarElement) return;
 
-    var html = '<div class="weekdays">';
-    for (var i = 0; i < this.i18n.weekdays.length; i++) {
-      html += '<div class="weekday">' + this.i18n.weekdays[i] + "</div>";
-    }
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const weekdays = this.getTranslation("calendar.weekdays");
 
+    let html = '<div class="weekdays">';
+    weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
     html += '</div><div class="days">';
 
-    for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+    // Empty cells
+    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
       html += '<div class="day empty"></div>';
     }
 
-    for (var day = 1; day <= daysInMonth; day++) {
-      var date =
-        year +
-        "-" +
-        String(month + 1).padStart(2, "0") +
-        "-" +
-        String(day).padStart(2, "0");
-      var dealCount = (deals[date] && deals[date].length) || 0;
+    // Days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
+      const dealCount = deals[date]?.length || 0;
 
-      html +=
-        '<div class="day ' +
-        (dealCount ? "has-deals" : "") +
-        '" data-date="' +
-        date +
-        '">' +
-        day +
-        (dealCount ? '<span class="deal-count">' + dealCount + "</span>" : "") +
-        "</div>";
+      html += `
+        <div class="day ${dealCount ? "has-deals" : ""}" data-date="${date}">
+          ${day}
+          ${dealCount ? `<span class="deal-count">${dealCount}</span>` : ""}
+        </div>
+      `;
     }
 
-    var calendarElement = document.getElementById("calendar");
-    if (calendarElement) {
-      calendarElement.innerHTML = html + "</div>";
+    calendarElement.innerHTML = html + "</div>";
 
-      var days = calendarElement.querySelectorAll(".day:not(.empty)");
-      for (var i = 0; i < days.length; i++) {
-        days[i].addEventListener(
-          "click",
-          function (date, deals) {
-            return function () {
-              this.renderDeals(date, deals);
-            }.bind(this);
-          }.bind(this)(days[i].dataset.date, deals)
-        );
-      }
-    }
+    // Add click handlers
+    calendarElement.querySelectorAll(".day:not(.empty)").forEach((day) => {
+      day.addEventListener("click", () =>
+        this.renderDeals(day.dataset.date, deals)
+      );
+    });
   }
 
   renderDeals(date, deals) {
-    var dealList = deals[date] || [];
-    var dealsContainer = document.getElementById("deals");
-    var dateElement = document.getElementById("selected-date");
+    const dealList = deals[date] || [];
+    const dealsContainer = document.getElementById("deals");
+    const dateElement = document.getElementById("selected-date");
 
-    if (dateElement) {
-      dateElement.textContent = new Date(date).toLocaleDateString(this.lang, {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    }
+    if (!dealsContainer || !dateElement) return;
 
-    if (!dealsContainer) return;
+    dateElement.textContent = new Date(date).toLocaleDateString(this.lang, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
 
     if (dealList.length === 0) {
-      dealsContainer.innerHTML =
-        '<div class="no-deals">' + this.i18n.noDeals + "</div>";
+      dealsContainer.innerHTML = `<div class="no-deals">${this.getTranslation(
+        "deals.empty"
+      )}</div>`;
       return;
     }
 
-    var dealsHtml = "";
-    for (var i = 0; i < dealList.length; i++) {
-      var deal = dealList[i];
-      dealsHtml +=
-        '<div class="deal-card" onclick="window.AmoCRM && window.AmoCRM.openCard && window.AmoCRM.openCard(\'lead\', ' +
-        deal.id +
-        ')">' +
-        '<div class="deal-name">' +
-        deal.name +
-        "</div>" +
-        this.renderDealFields(deal) +
-        "</div>";
-    }
-
-    dealsContainer.innerHTML = dealsHtml;
+    dealsContainer.innerHTML = dealList
+      .map(
+        (deal) => `
+      <div class="deal-card" onclick="window.AmoCRM?.openCard?.('lead', ${
+        deal.id
+      })">
+        <div class="deal-name">${deal.name}</div>
+        ${this.renderDealFields(deal)}
+      </div>
+    `
+      )
+      .join("");
   }
 
   renderDealFields(deal) {
-    var fields = [
-      { id: this.FIELD_IDS.DELIVERY_RANGE, name: this.i18n.fields.delivery },
-      { id: this.FIELD_IDS.EXACT_TIME, name: this.i18n.fields.exactTime },
-      { id: this.FIELD_IDS.ADDRESS, name: this.i18n.fields.address },
-    ];
+    const fields = {
+      [this.FIELD_IDS.DELIVERY_RANGE]: this.getTranslation(
+        "deals.fields.delivery_range"
+      ),
+      [this.FIELD_IDS.EXACT_TIME]: this.getTranslation(
+        "deals.fields.exact_time"
+      ),
+      [this.FIELD_IDS.ADDRESS]: this.getTranslation("deals.fields.address"),
+    };
 
-    var html = "";
-    for (var i = 0; i < fields.length; i++) {
-      var field = fields[i];
-      var fieldValue = null;
-      if (deal.custom_fields_values) {
-        for (var j = 0; j < deal.custom_fields_values.length; j++) {
-          if (deal.custom_fields_values[j].field_id == field.id) {
-            fieldValue =
-              deal.custom_fields_values[j].values &&
-              deal.custom_fields_values[j].values[0] &&
-              deal.custom_fields_values[j].values[0].value;
-            break;
-          }
-        }
-      }
-      if (fieldValue) {
-        html +=
-          '<div class="deal-field"><strong>' +
-          field.name +
-          ":</strong> " +
-          fieldValue +
-          "</div>";
-      }
-    }
-    return html;
+    return Object.entries(fields)
+      .map(([id, name]) => {
+        const value = deal.custom_fields_values?.find((f) => f.field_id == id)
+          ?.values?.[0]?.value;
+        return value
+          ? `<div class="deal-field"><strong>${name}:</strong> ${
+              value || this.getTranslation("deals.fields.not_specified")
+            }</div>`
+          : "";
+      })
+      .join("");
   }
 
   async fetchDeals(year, month) {
+    if (!this.accessToken) {
+      this.showError(this.getTranslation("auth.error"));
+      return {};
+    }
+
     try {
-      this.accessToken = await this.getAccessToken();
+      const startDate = new Date(year, month, 1).toISOString().split("T")[0];
+      const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
 
-      if (!this.accessToken) {
-        this.showError(
-          (this.i18n.errors && this.i18n.errors.auth) || "Ошибка авторизации"
-        );
-        return {};
-      }
-
-      var startDate = new Date(year, month, 1).toISOString().split("T")[0];
-      var endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
-
-      var params = new URLSearchParams();
-      params.append(
-        "filter[custom_fields_values][field_id]",
-        this.FIELD_IDS.ORDER_DATE
-      );
-      params.append("filter[custom_fields_values][from]", startDate);
-      params.append("filter[custom_fields_values][to]", endDate);
-
-      var response = await fetch(this.API_URL + "leads?" + params.toString(), {
-        headers: {
-          Authorization: "Bearer " + this.accessToken,
-          "X-Requested-With": "XMLHttpRequest",
-          "Content-Type": "application/json",
-        },
+      const params = new URLSearchParams({
+        "filter[custom_fields_values][field_id]": this.FIELD_IDS.ORDER_DATE,
+        "filter[custom_fields_values][from]": startDate,
+        "filter[custom_fields_values][to]": endDate,
       });
 
+      const response = await fetch(
+        `https://spacebakery1.amocrm.ru/api/v4/leads?${params}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        }
+      );
+
       if (response.status === 401) {
-        this.accessToken = await this.getAccessToken(true);
+        this.accessToken = await this.getAccessToken();
         return this.fetchDeals(year, month);
       }
 
       if (!response.ok) {
-        throw new Error("HTTP error! status: " + response.status);
+        throw new Error(`HTTP error: ${response.status}`);
       }
 
       return this.processDealsData(await response.json());
     } catch (error) {
-      this.showError(
-        (this.i18n.errors && this.i18n.errors.fetch_deals) ||
-          "Ошибка при получении сделок"
-      );
-      console.error("Ошибка получения сделок:", error);
+      this.showError(this.getTranslation("errors.fetch_deals"));
+      console.error("Fetch deals error:", error);
       return {};
     }
   }
 
   processDealsData(data) {
-    if (!data._embedded || !data._embedded.leads) return {};
+    if (!data?._embedded?.leads) return {};
 
-    var result = {};
-    for (var i = 0; i < data._embedded.leads.length; i++) {
-      var deal = data._embedded.leads[i];
-      var dateField = null;
-
-      if (deal.custom_fields_values) {
-        for (var j = 0; j < deal.custom_fields_values.length; j++) {
-          if (
-            deal.custom_fields_values[j].field_id == this.FIELD_IDS.ORDER_DATE
-          ) {
-            dateField = deal.custom_fields_values[j];
-            break;
-          }
-        }
-      }
-
-      var date =
-        (dateField &&
-          dateField.values &&
-          dateField.values[0] &&
-          dateField.values[0].value &&
-          dateField.values[0].value.split(" ")[0]) ||
+    return data._embedded.leads.reduce((acc, deal) => {
+      const dateField = deal.custom_fields_values?.find(
+        (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
+      );
+      const date =
+        dateField?.values?.[0]?.value?.split(" ")[0] ||
         new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
-      if (!result[date]) result[date] = [];
-      result[date].push(deal);
-    }
-    return result;
+      if (!acc[date]) acc[date] = [];
+      acc[date].push(deal);
+      return acc;
+    }, {});
   }
 
   async navigateMonth(offset) {
@@ -468,44 +297,33 @@ class OrdersCalendar {
   }
 
   setupEventListeners() {
-    var prevMonthBtn = document.getElementById("prevMonth");
-    var nextMonthBtn = document.getElementById("nextMonth");
-    var authButton = document.getElementById("authButton");
+    document
+      .getElementById("prevMonth")
+      ?.addEventListener("click", () => this.navigateMonth(-1));
+    document
+      .getElementById("nextMonth")
+      ?.addEventListener("click", () => this.navigateMonth(1));
 
-    if (prevMonthBtn) {
-      prevMonthBtn.addEventListener("click", this.navigateMonth.bind(this, -1));
-    }
-    if (nextMonthBtn) {
-      nextMonthBtn.addEventListener("click", this.navigateMonth.bind(this, 1));
-    }
-    if (authButton) {
-      authButton.addEventListener(
-        "click",
-        function () {
-          var params = new URLSearchParams();
-          params.append("client_id", "92acc9ee-781d-49c5-a43d-9cb0e7f7a527");
-          params.append(
-            "redirect_uri",
-            "https://alerom2006.github.io/Calendar/oauth_callback.html"
-          );
-          params.append("state", this.widgetInstanceId);
-          window.location.href =
-            "https://spacebakery1.amocrm.ru/oauth2/authorize?" +
-            params.toString();
-        }.bind(this)
-      );
-    }
+    document.getElementById("authButton")?.addEventListener("click", () => {
+      const params = new URLSearchParams({
+        client_id: "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
+        redirect_uri:
+          "https://alerom2006.github.io/Calendar/oauth_callback.html",
+        state: this.widgetInstanceId,
+      });
+      window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
+    });
   }
 
   toggleAuthSection() {
-    var authSection = document.getElementById("auth-section");
+    const authSection = document.getElementById("auth-section");
     if (authSection) {
       authSection.style.display = this.accessToken ? "none" : "block";
     }
   }
 
   showError(message) {
-    var errorElement = document.getElementById("error-alert");
+    const errorElement = document.getElementById("error-alert");
     if (errorElement) {
       errorElement.textContent = message;
       errorElement.classList.remove("d-none");
@@ -514,25 +332,22 @@ class OrdersCalendar {
   }
 }
 
-document.addEventListener("DOMContentLoaded", function () {
+// Initialize widget
+document.addEventListener("DOMContentLoaded", () => {
   try {
     if (window.AmoCRM) {
-      window.AmoCRM.onReady(function () {
-        new OrdersCalendar();
-      });
+      window.AmoCRM.onReady(() => new OrdersCalendar());
     } else {
-      console.warn("AmoCRM API не загружен, запуск в standalone режиме");
+      console.warn("AmoCRM API not loaded, running in standalone mode");
       new OrdersCalendar();
     }
   } catch (error) {
-    console.error("Ошибка инициализации виджета:", error);
-    var errorDiv = document.createElement("div");
-    errorDiv.className = "error";
-    errorDiv.textContent =
-      "Ошибка загрузки виджета. Пожалуйста, обновите страницу.";
-    document.body.innerHTML = "";
-    document.body.appendChild(errorDiv);
+    console.error("Widget initialization error:", error);
+    const errorElement = document.getElementById("error-alert");
+    if (errorElement) {
+      errorElement.textContent =
+        window.i18n?.errors?.initialization || "Widget loading error";
+      errorElement.classList.remove("d-none");
+    }
   }
 });
-console.log("Current translations:", this.i18n);
-console.log("Missing translation for:", "Календарь заказов");

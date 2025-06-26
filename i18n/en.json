@@ -2,6 +2,7 @@
   "widget": {
     "name": "Orders Calendar",
     "description": "Widget for displaying deals filtered by order date",
+    "short_description": "View deals in calendar",
     "tour_description": "View deals filtered by order date"
   },
   "calendar": {

@@ -28,7 +28,7 @@ class OrdersCalendar {
 
   loadFieldIds() {
     this.FIELD_IDS = {
-      ORDER_DATE: window.widgetSettings?.deal_date_field_id || 885453,
+      ORDER_DATE: window.widgetSettings?.deal_date_field || 885453,
       DELIVERY_RANGE: 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,

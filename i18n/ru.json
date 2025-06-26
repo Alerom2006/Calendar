@@ -50,6 +50,7 @@
     "connection": "Ошибка соединения с сервером"
   },
   "settings": {
-    "deal_date_field": "ID поля 'Заказ на...'"
+    "deal_date_field": "ID поля 'Заказ на...'",
+    "deal_date_field_id": "ID поля для даты заказа"
   }
 }

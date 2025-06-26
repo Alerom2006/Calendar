@@ -1,13 +1,13 @@
 {
-  "manifest_version": "1.0",
-  "name": "widget.name",
-  "description": "widget.description",
-  "short_description": "widget.short_description",
-  "version": "1.0.2",
-  "interface_version": 2,
-  "init_once": true,
-  "locale": ["ru", "en"],
   "widget": {
+    "manifest_version": "1.0",
+    "name": "widget.name",
+    "description": "widget.description",
+    "short_description": "widget.short_description",
+    "version": "1.0.2",
+    "interface_version": 2,
+    "init_once": true,
+    "locale": ["ru", "en"],
     "is_resizable": false,
     "is_settings": true,
     "size": {

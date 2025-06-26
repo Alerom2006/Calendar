@@ -21,9 +21,13 @@
     "type": "widget",
     "code": "calendar_orders_widget_v2"
   },
+  "installation": {
+    "url": "https://alerom2006.github.io/Calendar/install.html",
+    "permissions": ["crm"]
+  },
   "oauth2": {
-    "client_id": "92acc9ee-781d-49c5-a43d-9cb0e7f7a527",
-    "client_secret": "zhcaUvtB2qj6XWUGTVJQ1jA3lfIxME0hqHQGVwyuzeiNdDtZJIOyLBoPStuszUHJ",
+    "client_id": "91a1aa6f-ba8c-4b8d-b56a-66888cc00139",
+    "client_secret": "RpWTWvYiYUbebulsn8zKqYHh5TjL75WbuKH0ruZmE0YkHQORbnqE9eVuznk1NG1z",
     "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html",
     "scope": "crm"
   },

@@ -1,4 +1,30 @@
 {
+  "i18n": {
+    "ru": {
+      "widget": {
+        "name": "Календарь заказов",
+        "description": "Виджет для отображения сделок по дате заказа",
+        "short_description": "Просмотр сделок в календаре",
+        "tour_description": "Просматривайте сделки, отфильтрованные по дате заказа"
+      },
+      "settings": {
+        "deal_date_field": "ID поля 'Заказ на...'",
+        "deal_date_field_id": "ID поля для даты заказа"
+      }
+    },
+    "en": {
+      "widget": {
+        "name": "Orders Calendar",
+        "description": "Widget for displaying deals by order date",
+        "short_description": "View deals in calendar",
+        "tour_description": "View deals filtered by order date"
+      },
+      "settings": {
+        "deal_date_field": "Order date field ID",
+        "deal_date_field_id": "Field ID for order date"
+      }
+    }
+  },
   "widget": {
     "manifest_version": "1.0",
     "name": "widget.name",
@@ -33,64 +59,10 @@
     "style": "style.css",
     "template": "index.html"
   },
-  "i18n": {
-    "ru": {
-      "widget.name": "Календарь заказов",
-      "widget.description": "Виджет для отображения сделок по дате заказа",
-      "widget.short_description": "Просмотр сделок в календаре",
-      "months": [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь"
-      ],
-      "weekdays": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-      "noDeals": "На эту дату сделок нет",
-      "fields": {
-        "delivery": "Доставка",
-        "exactTime": "Точное время",
-        "address": "Адрес"
-      }
-    },
-    "en": {
-      "widget.name": "Orders Calendar",
-      "widget.description": "Widget for displaying deals by order date",
-      "widget.short_description": "View deals in calendar",
-      "months": [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December"
-      ],
-      "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      "noDeals": "No deals for this date",
-      "fields": {
-        "delivery": "Delivery",
-        "exactTime": "Exact time",
-        "address": "Address"
-      }
-    }
-  },
   "settings": {
     "deal_date_field_id": {
       "name": "deal_date_field_id",
-      "title": "ID поля 'Дата заказа'",
+      "title": "settings.deal_date_field",
       "type": "number",
       "default": 885453,
       "required": true

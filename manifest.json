@@ -39,6 +39,5 @@
       "default": 892009,
       "required": false
     }
-  },
-  "required_fields": [885453, 892009, 892003, 887367]
+  }
 }

@@ -29,8 +29,8 @@ class OrdersCalendar {
 
   loadFieldIds() {
     this.FIELD_IDS = {
-      ORDER_DATE: window.widgetSettings?.deal_date_field || 885453,
-      DELIVERY_RANGE: 892009,
+      ORDER_DATE: window.widgetSettings?.deal_date_field_id || 885453,
+      DELIVERY_RANGE: window.widgetSettings?.delivery_range_field || 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,
     };
@@ -93,12 +93,12 @@ class OrdersCalendar {
 
     var authButton = document.getElementById("authButton");
     if (authButton) {
-      authButton.textContent = this.getTranslation("auth.button");
+      authButton.textContent = this.getTranslation("widget.api_key");
     }
 
     var dealsTitle = document.getElementById("deals-title");
     if (dealsTitle) {
-      dealsTitle.textContent = this.getTranslation("deals.list_title").replace(
+      dealsTitle.textContent = this.getTranslation("widget.deal_date_field").replace(
         "{date}",
         ""
       );
@@ -106,7 +106,10 @@ class OrdersCalendar {
   }
 
   getCurrentMonthTitle() {
-    var months = this.getTranslation("calendar.months");
+    var months = this.lang === "ru" 
+      ? ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+      : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    
     return `${months[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
   }
 
@@ -123,7 +126,7 @@ class OrdersCalendar {
       var deals = await this.fetchDeals(year, month);
       this.renderCalendarGrid(year, month, deals);
     } catch (error) {
-      this.showError(this.getTranslation("errors.fetch_deals"));
+      this.showError(this.getTranslation("errors.apiFailed"));
       console.error("Render error:", error);
     }
   }
@@ -134,7 +137,9 @@ class OrdersCalendar {
 
     var firstDay = new Date(year, month, 1).getDay();
     var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var weekdays = this.getTranslation("calendar.weekdays");
+    var weekdays = this.lang === "ru" 
+      ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     var html = '<div class="weekdays">';
     weekdays.forEach(function(day) {
@@ -171,7 +176,7 @@ class OrdersCalendar {
         return function() {
           this.renderDeals(day.dataset.date, deals);
         }.bind(this);
-      }).bind(this)(days[i]));
+      })(days[i]));
     }
   }
 
@@ -189,9 +194,9 @@ class OrdersCalendar {
     });
 
     if (dealList.length === 0) {
-      dealsContainer.innerHTML = `<div class="no-deals">${this.getTranslation(
-        "deals.empty"
-      )}</div>`;
+      dealsContainer.innerHTML = `<div class="no-deals">${
+        this.lang === "ru" ? "Нет заказов на эту дату" : "No orders for this date"
+      }</div>`;
       return;
     }
 
@@ -212,13 +217,9 @@ class OrdersCalendar {
 
   renderDealFields(deal) {
     var fields = {
-      [this.FIELD_IDS.DELIVERY_RANGE]: this.getTranslation(
-        "deals.fields.delivery_range"
-      ),
-      [this.FIELD_IDS.EXACT_TIME]: this.getTranslation(
-        "deals.fields.exact_time"
-      ),
-      [this.FIELD_IDS.ADDRESS]: this.getTranslation("deals.fields.address"),
+      [this.FIELD_IDS.DELIVERY_RANGE]: this.lang === "ru" ? "Диапазон доставки" : "Delivery range",
+      [this.FIELD_IDS.EXACT_TIME]: this.lang === "ru" ? "К точному времени" : "Exact time",
+      [this.FIELD_IDS.ADDRESS]: this.lang === "ru" ? "Адрес" : "Address",
     };
 
     var fieldsHTML = "";
@@ -232,7 +233,7 @@ class OrdersCalendar {
       
       if (value) {
         fieldsHTML += `<div class="deal-field"><strong>${name}:</strong> ${
-          value || this.getTranslation("deals.fields.not_specified")
+          value || (this.lang === "ru" ? "не указано" : "not specified")
         }</div>`;
       }
     }
@@ -241,7 +242,7 @@ class OrdersCalendar {
 
   async fetchDeals(year, month) {
     if (!this.accessToken) {
-      this.showError(this.getTranslation("auth.error"));
+      this.showError(this.lang === "ru" ? "Ошибка авторизации" : "Auth error");
       return {};
     }
 
@@ -276,7 +277,7 @@ class OrdersCalendar {
 
       return this.processDealsData(await response.json());
     } catch (error) {
-      this.showError(this.getTranslation("errors.fetch_deals"));
+      this.showError(this.lang === "ru" ? "Ошибка загрузки сделок" : "Failed to load deals");
       console.error("Fetch deals error:", error);
       return {};
     }
@@ -305,22 +306,18 @@ class OrdersCalendar {
   }
 
   setupEventListeners() {
-    document
-      .getElementById("prevMonth")
-      ?.addEventListener("click", function() {
-        this.navigateMonth(-1);
-      }.bind(this));
-    document
-      .getElementById("nextMonth")
-      ?.addEventListener("click", function() {
-        this.navigateMonth(1);
-      }.bind(this));
+    document.getElementById("prevMonth")?.addEventListener("click", function() {
+      this.navigateMonth(-1);
+    }.bind(this));
+    
+    document.getElementById("nextMonth")?.addEventListener("click", function() {
+      this.navigateMonth(1);
+    }.bind(this));
 
     document.getElementById("authButton")?.addEventListener("click", function() {
       var params = new URLSearchParams({
         client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
-        redirect_uri:
-          "https://alerom2006.github.io/Calendar/oauth_callback.html",
+        redirect_uri: "https://alerom2006.github.io/Calendar/oauth_callback.html",
         state: this.widgetInstanceId,
       });
       window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
@@ -359,8 +356,7 @@ document.addEventListener("DOMContentLoaded", function() {
     console.error("Widget initialization error:", error);
     var errorElement = document.getElementById("error-alert");
     if (errorElement) {
-      errorElement.textContent =
-        window.i18n?.errors?.initialization || "Widget loading error";
+      errorElement.textContent = "Widget loading error";
       errorElement.classList.remove("d-none");
     }
   }

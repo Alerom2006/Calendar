@@ -3,53 +3,18 @@
     "name": "Orders Calendar",
     "description": "Widget for displaying deals filtered by order date",
     "short_description": "View deals in calendar",
-    "tour_description": "View deals filtered by order date"
-  },
-  "calendar": {
-    "title": "Orders Calendar",
-    "header": {
-      "previous": "Previous",
-      "next": "Next"
-    },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    "months": [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December"
-    ]
-  },
-  "deals": {
-    "list_title": "Deals for {date}",
-    "empty": "No deals for this date",
-    "fields": {
-      "id": "ID",
-      "name": "Name",
-      "price": "Amount",
-      "delivery_range": "Delivery range",
-      "exact_time": "Exact time",
-      "address": "Address",
-      "not_specified": "Not specified"
-    }
-  },
-  "auth": {
-    "button": "Authorize",
-    "message": "Authorization required for widget operation",
-    "error": "Authorization error"
-  },
-  "errors": {
-    "fetch_deals": "Error fetching deals. Check console.",
-    "connection": "Server connection error"
+    "tour_description": "View deals filtered by order date",
+    "api_key": "API Key",
+    "account": "Account",
+    "language": "Language",
+    "deal_date_field": "Order date field ID",
+    "delivery_range": "Delivery range field ID"
   },
   "settings": {
-    "deal_date_field": "Order date field ID"
+    "api_key": "API Key for integration",
+    "account": "Account subdomain",
+    "language": "Interface language",
+    "deal_date_field": "Custom field ID for order date",
+    "delivery_range_field": "Custom field ID for delivery range"
   }
 }

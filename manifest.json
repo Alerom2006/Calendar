@@ -8,15 +8,19 @@
     "interface_version": 2,
     "init_once": true,
     "locale": ["ru", "en"],
+    "installation": true,
     "is_resizable": false,
     "is_settings": true,
-    "installation": true,
     "size": {
       "width": 4,
       "height": 4
+    },
+    "support": {
+      "link": "https://alerom2006.github.io/Calendar/",
+      "email": "your@email.com"
     }
   },
-  "locations": ["lcard-1", "settings"],
+  "locations": ["lcard-1", "settings", "digital_pipeline"],
   "integration": {
     "url": "https://alerom2006.github.io/Calendar/index.html",
     "type": "widget",
@@ -33,21 +37,22 @@
     "style": "style.css",
     "template": "index.html"
   },
+  "tour": {
+    "is_tour": false
+  },
   "settings": {
     "deal_date_field_id": {
-      "name": "deal_date_field_id",
-      "title": "ID поля 'Дата заказа'",
+      "name": "widget.deal_date_field",
       "type": "number",
       "default": 885453,
       "required": true
+    },
+    "delivery_range_field": {
+      "name": "widget.delivery_range",
+      "type": "number",
+      "default": 892009,
+      "required": false
     }
   },
-  "required_fields": [885453, 892009, 892003, 887367],
-  "support": {
-    "link": "https://alerom2006.github.io/Calendar/",
-    "email": "your@email.com"
-  },
-  "tour": {
-    "is_tour": false
-  }
+  "required_fields": [885453, 892009, 892003, 887367]
 }

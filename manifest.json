@@ -9,34 +9,12 @@
     "init_once": true,
     "locale": ["ru", "en"],
     "installation": true,
-    "is_resizable": false,
-    "is_settings": true,
-    "size": {
-      "width": 4,
-      "height": 4
-    },
     "support": {
       "link": "https://alerom2006.github.io/Calendar/",
       "email": "your@email.com"
     }
   },
   "locations": ["lcard-1", "settings"],
-  "integration": {
-    "url": "https://alerom2006.github.io/Calendar/index.html",
-    "type": "widget",
-    "code": "calendar_orders_widget_v2"
-  },
-  "oauth2": {
-    "client_id": "f178be80-a7bf-40e5-8e70-196a5d4a775c",
-    "client_secret": "Yigwx6gQjYq0dXSJm23v1qIRURpUg3raaaQnOjBE7jGtjNns2SY3HCar17IjNBVQ",
-    "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html",
-    "scope": "crm"
-  },
-  "frontend": {
-    "script": "script.js",
-    "style": "style.css",
-    "template": "index.html"
-  },
   "tour": {
     "is_tour": true,
     "tour_images": {

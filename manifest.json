@@ -27,8 +27,8 @@
     "code": "calendar_orders_widget_v2"
   },
   "oauth2": {
-    "client_id": "91a1aa6f-ba8c-4b8d-b56a-66888cc00139",
-    "client_secret": "RpWTWvYiYUbebulsn8zKqYHh5TjL75WbuKH0ruZmE0YkHQORbnqE9eVuznk1NG1z",
+    "client_id": "f178be80-a7bf-40e5-8e70-196a5d4a775c",
+    "client_secret": "Yigwx6gQjYq0dXSJm23v1qIRURpUg3raaaQnOjBE7jGtjNns2SY3HCar17IjNBVQ",
     "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html",
     "scope": "crm"
   },

@@ -1,8 +1,9 @@
 class OrdersCalendar {
-  varructor() {
+  constructor() {
     this.widgetInstanceId = Date.now();
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
+    this.accessToken = null;
     this.loadFieldIds();
     this.init();
   }
@@ -37,7 +38,7 @@ class OrdersCalendar {
 
   detectLanguage() {
     try {
-      return (window.AmoCRM?.varant("lang") || "ru").startsWith("ru")
+      return (window.AmoCRM?.variant("lang") || "ru").startsWith("ru")
         ? "ru"
         : "en";
     } catch (e) {
@@ -106,9 +107,7 @@ class OrdersCalendar {
 
   getCurrentMonthTitle() {
     var months = this.getTranslation("calendar.months");
-    return `${
-      months[this.currentDate.getMonth()]
-    } ${this.currentDate.getFullYear()}`;
+    return `${months[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
   }
 
   async renderCalendar() {
@@ -138,7 +137,9 @@ class OrdersCalendar {
     var weekdays = this.getTranslation("calendar.weekdays");
 
     var html = '<div class="weekdays">';
-    weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
+    weekdays.forEach(function(day) {
+      html += `<div class="weekday">${day}</div>`;
+    });
     html += '</div><div class="days">';
 
     // Empty cells
@@ -164,11 +165,14 @@ class OrdersCalendar {
     calendarElement.innerHTML = html + "</div>";
 
     // Add click handlers
-    calendarElement.querySelectorAll(".day:not(.empty)").forEach((day) => {
-      day.addEventListener("click", () =>
-        this.renderDeals(day.dataset.date, deals)
-      );
-    });
+    var days = calendarElement.querySelectorAll(".day:not(.empty)");
+    for (var i = 0; i < days.length; i++) {
+      days[i].addEventListener("click", (function(day) {
+        return function() {
+          this.renderDeals(day.dataset.date, deals);
+        }.bind(this);
+      }).bind(this)(days[i]));
+    }
   }
 
   renderDeals(date, deals) {
@@ -191,18 +195,19 @@ class OrdersCalendar {
       return;
     }
 
-    dealsContainer.innerHTML = dealList
-      .map(
-        (deal) => `
-      <div class="deal-card" onclick="window.AmoCRM?.openCard?.('lead', ${
-        deal.id
-      })">
-        <div class="deal-name">${deal.name}</div>
-        ${this.renderDealFields(deal)}
-      </div>
-    `
-      )
-      .join("");
+    var dealsHTML = "";
+    for (var i = 0; i < dealList.length; i++) {
+      var deal = dealList[i];
+      dealsHTML += `
+        <div class="deal-card" onclick="window.AmoCRM?.openCard?.('lead', ${
+          deal.id
+        })">
+          <div class="deal-name">${deal.name}</div>
+          ${this.renderDealFields(deal)}
+        </div>
+      `;
+    }
+    dealsContainer.innerHTML = dealsHTML;
   }
 
   renderDealFields(deal) {
@@ -216,17 +221,22 @@ class OrdersCalendar {
       [this.FIELD_IDS.ADDRESS]: this.getTranslation("deals.fields.address"),
     };
 
-    return Object.entries(fields)
-      .map(([id, name]) => {
-        var value = deal.custom_fields_values?.find((f) => f.field_id == id)
-          ?.values?.[0]?.value;
-        return value
-          ? `<div class="deal-field"><strong>${name}:</strong> ${
-              value || this.getTranslation("deals.fields.not_specified")
-            }</div>`
-          : "";
-      })
-      .join("");
+    var fieldsHTML = "";
+    var fieldKeys = Object.keys(fields);
+    for (var i = 0; i < fieldKeys.length; i++) {
+      var id = fieldKeys[i];
+      var name = fields[id];
+      var value = deal.custom_fields_values?.find(function(f) {
+        return f.field_id == id;
+      })?.values?.[0]?.value;
+      
+      if (value) {
+        fieldsHTML += `<div class="deal-field"><strong>${name}:</strong> ${
+          value || this.getTranslation("deals.fields.not_specified")
+        }</div>`;
+      }
+    }
+    return fieldsHTML;
   }
 
   async fetchDeals(year, month) {
@@ -275,10 +285,10 @@ class OrdersCalendar {
   processDealsData(data) {
     if (!data?._embedded?.leads) return {};
 
-    return data._embedded.leads.reduce((acc, deal) => {
-      var dateField = deal.custom_fields_values?.find(
-        (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
-      );
+    return data._embedded.leads.reduce(function(acc, deal) {
+      var dateField = deal.custom_fields_values?.find(function(f) {
+        return f.field_id == this.FIELD_IDS.ORDER_DATE;
+      }.bind(this));
       var date =
         dateField?.values?.[0]?.value?.split(" ")[0] ||
         new Date(deal.created_at * 1000).toISOString().split("T")[0];
@@ -286,7 +296,7 @@ class OrdersCalendar {
       if (!acc[date]) acc[date] = [];
       acc[date].push(deal);
       return acc;
-    }, {});
+    }.bind(this), {});
   }
 
   async navigateMonth(offset) {
@@ -297,12 +307,16 @@ class OrdersCalendar {
   setupEventListeners() {
     document
       .getElementById("prevMonth")
-      ?.addEventListener("click", () => this.navigateMonth(-1));
+      ?.addEventListener("click", function() {
+        this.navigateMonth(-1);
+      }.bind(this));
     document
       .getElementById("nextMonth")
-      ?.addEventListener("click", () => this.navigateMonth(1));
+      ?.addEventListener("click", function() {
+        this.navigateMonth(1);
+      }.bind(this));
 
-    document.getElementById("authButton")?.addEventListener("click", () => {
+    document.getElementById("authButton")?.addEventListener("click", function() {
       var params = new URLSearchParams({
         client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
         redirect_uri:
@@ -310,7 +324,7 @@ class OrdersCalendar {
         state: this.widgetInstanceId,
       });
       window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
-    });
+    }.bind(this));
   }
 
   toggleAuthSection() {
@@ -331,10 +345,12 @@ class OrdersCalendar {
 }
 
 // Initialize widget
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function() {
   try {
     if (window.AmoCRM) {
-      window.AmoCRM.onReady(() => new OrdersCalendar());
+      window.AmoCRM.onReady(function() {
+        new OrdersCalendar();
+      });
     } else {
       console.warn("AmoCRM API not loaded, running in standalone mode");
       new OrdersCalendar();

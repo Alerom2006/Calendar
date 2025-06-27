@@ -20,7 +20,7 @@
       "email": "your@email.com"
     }
   },
-  "locations": ["lcard-1", "settings", "digital_pipeline"],
+  "locations": ["lcard-1", "settings"],
   "integration": {
     "url": "https://alerom2006.github.io/Calendar/index.html",
     "type": "widget",

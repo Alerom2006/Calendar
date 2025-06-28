@@ -1,14 +1,12 @@
 class OrdersCalendar {
   constructor() {
-    this.widgetInstanceId = Date.now().toString();
+    this.widgetInstanceId = `widget-${Date.now()}`;
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
     this.accessToken = null;
     this.isLoading = false;
     this.loadingTimeout = null;
-    this.loadingRetries = 0;
-    this.MAX_RETRIES = 3;
-    this.settingsHandlerInstalled = false;
+    this.dealsData = {}; // Кэш для данных о сделках
     this.loadFieldIds();
     this.init();
   }
@@ -16,8 +14,9 @@ class OrdersCalendar {
   async init() {
     try {
       // Проверка доступности API amoCRM
-      if (!window.AmoCRM) {
-        console.warn("AmoCRM API не доступен - автономный режим");
+      if (typeof AmoCRM !== "undefined") {
+        await this.initAmoCRM();
+      } else {
         this.showStandaloneWarning();
       }
 
@@ -26,168 +25,83 @@ class OrdersCalendar {
       await this.setupSettingsHandlers();
       await this.renderCalendar();
       this.setupEventListeners();
-      this.toggleAuthSection();
     } catch (error) {
-      console.error("Ошибка инициализации:", error);
-      this.handleCriticalError("Ошибка загрузки виджета");
+      console.error("Init error:", error);
+      this.showError("Ошибка инициализации виджета");
     }
   }
 
-  async setupSettingsHandlers() {
-    // Основной метод настройки
-    await this.tryStandardSettingsSetup();
-
-    // Fallback через 2 секунды если основной не сработал
-    setTimeout(() => {
-      if (!this.settingsHandlerInstalled) {
-        this.installFallbackSettingsHandler();
-      }
-    }, 2000);
-  }
-
-  async tryStandardSettingsSetup() {
-    try {
-      if (!window.AmoCRM?.widgets?.settings) {
-        console.log("API настроек недоступно");
-        return;
-      }
-
-      const settings = await window.AmoCRM.widgets.settings(
-        this.widgetInstanceId
-      );
-
-      if (settings && typeof settings.onSave === "function") {
-        settings.onSave(async () => {
-          console.log("Стандартный обработчик сохранения настроек");
-          await this.handleSettingsSave();
-          return true;
+  async initAmoCRM() {
+    return new Promise((resolve) => {
+      if (typeof AmoCRM !== "undefined" && AmoCRM.onReady) {
+        AmoCRM.onReady(() => {
+          console.log("AmoCRM API ready");
+          resolve();
         });
-        this.settingsHandlerInstalled = true;
-        console.log("Стандартный обработчик настроек установлен");
+      } else {
+        resolve();
       }
-    } catch (error) {
-      console.error("Ошибка настройки стандартного обработчика:", error);
-    }
-  }
-
-  installFallbackSettingsHandler() {
-    console.log("Попытка установки fallback обработчика");
-    const saveButton = document.querySelector(
-      '[data-qa="save-settings-button"], .settings-save-btn'
-    );
-
-    if (saveButton) {
-      saveButton.addEventListener("click", () => {
-        setTimeout(() => {
-          console.log("Fallback обработчик сохранения настроек");
-          this.handleSettingsSave();
-        }, 500);
-      });
-      this.settingsHandlerInstalled = true;
-      console.log("Fallback обработчик настроек установлен");
-    } else {
-      console.warn("Не удалось найти кнопку сохранения настроек");
-    }
-  }
-
-  async handleSettingsSave() {
-    try {
-      this.showLoading(true);
-      console.log("Обновление настроек...");
-      await this.loadFieldIds();
-      await this.renderCalendar();
-    } catch (error) {
-      console.error("Ошибка обработки сохранения:", error);
-    } finally {
-      this.showLoading(false);
-    }
+    });
   }
 
   loadFieldIds() {
-    const defaultSettings = {
-      deal_date_field_id: 885453,
-      delivery_range_field: 892009,
-    };
-
     this.FIELD_IDS = {
-      ORDER_DATE:
-        window.widgetSettings?.deal_date_field_id ||
-        defaultSettings.deal_date_field_id,
-      DELIVERY_RANGE:
-        window.widgetSettings?.delivery_range_field ||
-        defaultSettings.delivery_range_field,
+      ORDER_DATE: window.widgetSettings?.deal_date_field_id || 885453,
+      DELIVERY_RANGE: window.widgetSettings?.delivery_range_field || 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,
     };
-
-    console.log("Поля загружены:", this.FIELD_IDS);
+    console.log("Field IDs loaded:", this.FIELD_IDS);
   }
 
-  detectLanguage() {
+  async setupSettingsHandlers() {
     try {
-      return (
-        window.AmoCRM?.variant("lang") ||
-        navigator.language ||
-        "ru"
-      ).startsWith("ru")
-        ? "ru"
-        : "en";
-    } catch (e) {
-      return "ru";
+      if (typeof AmoCRM === "undefined" || !AmoCRM.widgets?.settings) {
+        console.log("Settings API not available");
+        return;
+      }
+
+      const settings = await AmoCRM.widgets.settings(this.widgetInstanceId);
+
+      if (settings?.onSave) {
+        settings.onSave(async () => {
+          console.log("Settings saved");
+          this.loadFieldIds();
+          await this.renderCalendar();
+          return true;
+        });
+      }
+    } catch (error) {
+      console.error("Settings handler error:", error);
     }
-  }
-
-  getTranslation(key) {
-    const keys = key.split(".");
-    let result = window.i18n || {};
-
-    for (const k of keys) {
-      result = result?.[k];
-      if (result === undefined) return key;
-    }
-
-    return result || key;
   }
 
   async checkAuth() {
     try {
       this.showLoading(true);
-      this.accessToken = await this.getAccessToken();
-
-      if (!this.accessToken) {
-        console.warn("Токен доступа не получен");
+      if (typeof AmoCRM !== "undefined" && AmoCRM.widgets?.system) {
+        const system = await AmoCRM.widgets.system(this.widgetInstanceId);
+        this.accessToken = system?.access_token || null;
       }
     } catch (error) {
-      console.error("Ошибка авторизации:", error);
+      console.error("Auth error:", error);
     } finally {
       this.showLoading(false);
     }
   }
 
-  async getAccessToken() {
-    try {
-      if (window.AmoCRM?.widgets?.system) {
-        const system = await window.AmoCRM.widgets.system(
-          this.widgetInstanceId
-        );
-        return system?.access_token || null;
-      }
-      return null;
-    } catch (error) {
-      console.error("Ошибка получения токена:", error);
-      return null;
-    }
-  }
-
   setupUI() {
+    // Обновляем текущий месяц/год
     const monthYearElement = document.getElementById("currentMonthYear");
     if (monthYearElement) {
       monthYearElement.textContent = this.getCurrentMonthTitle();
     }
 
+    // Обновляем текст кнопки авторизации
     const authButton = document.getElementById("authButton");
     if (authButton) {
-      authButton.textContent = this.getTranslation("widget.api_key");
+      authButton.textContent =
+        this.lang === "ru" ? "Авторизоваться в amoCRM" : "Authorize in amoCRM";
     }
   }
 
@@ -236,19 +150,28 @@ class OrdersCalendar {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth();
 
-      document.getElementById("currentMonthYear").textContent =
-        this.getCurrentMonthTitle();
-      const deals = await this.fetchDeals(year, month);
-      this.renderCalendarGrid(year, month, deals);
+      // Обновляем заголовок
+      const monthYearElement = document.getElementById("currentMonthYear");
+      if (monthYearElement) {
+        monthYearElement.textContent = this.getCurrentMonthTitle();
+      }
+
+      // Загружаем данные
+      this.dealsData = await this.fetchDeals(year, month);
+
+      // Рендерим календарь
+      this.renderCalendarGrid(year, month);
     } catch (error) {
-      console.error("Ошибка отрисовки календаря:", error);
-      this.showError(this.getTranslation("errors.apiFailed"));
+      console.error("Render error:", error);
+      this.showError(
+        this.lang === "ru" ? "Ошибка загрузки данных" : "Data loading error"
+      );
     } finally {
       this.showLoading(false);
     }
   }
 
-  renderCalendarGrid(year, month, deals) {
+  renderCalendarGrid(year, month) {
     const calendarElement = document.getElementById("calendar");
     if (!calendarElement) return;
 
@@ -265,15 +188,17 @@ class OrdersCalendar {
     });
     html += '</div><div class="days">';
 
+    // Пустые дни в начале месяца
     for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
       html += '<div class="day empty"></div>';
     }
 
+    // Дни месяца
     for (let day = 1; day <= daysInMonth; day++) {
       const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
         day
       ).padStart(2, "0")}`;
-      const dealCount = deals[date]?.length || 0;
+      const dealCount = this.dealsData[date]?.length || 0;
 
       html += `
         <div class="day ${dealCount ? "has-deals" : ""}" data-date="${date}">
@@ -285,15 +210,92 @@ class OrdersCalendar {
 
     calendarElement.innerHTML = html + "</div>";
 
+    // Назначаем обработчики кликов
     document.querySelectorAll(".day:not(.empty)").forEach((day) => {
-      day.addEventListener("click", () =>
-        this.renderDeals(day.dataset.date, deals)
-      );
+      day.addEventListener("click", () => {
+        this.renderDeals(day.dataset.date);
+      });
     });
   }
 
+  renderDeals(date) {
+    const dealsContainer = document.getElementById("deals");
+    const dateElement = document.getElementById("selected-date");
+
+    if (!dealsContainer || !dateElement) return;
+
+    // Форматируем дату
+    dateElement.textContent = new Date(date).toLocaleDateString(this.lang, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+    const deals = this.dealsData[date] || [];
+
+    if (deals.length === 0) {
+      dealsContainer.innerHTML = `
+        <div class="no-deals">
+          ${
+            this.lang === "ru"
+              ? "Нет сделок на эту дату"
+              : "No deals for this date"
+          }
+        </div>
+      `;
+      return;
+    }
+
+    // Рендерим список сделок
+    dealsContainer.innerHTML = deals
+      .map(
+        (deal) => `
+      <div class="deal-card">
+        <div class="deal-name">${deal.name || "Без названия"}</div>
+        ${this.renderDealFields(deal)}
+      </div>
+    `
+      )
+      .join("");
+  }
+
+  renderDealFields(deal) {
+    const fields = [
+      {
+        id: this.FIELD_IDS.DELIVERY_RANGE,
+        name: this.lang === "ru" ? "Доставка" : "Delivery",
+      },
+      {
+        id: this.FIELD_IDS.EXACT_TIME,
+        name: this.lang === "ru" ? "Время" : "Time",
+      },
+      {
+        id: this.FIELD_IDS.ADDRESS,
+        name: this.lang === "ru" ? "Адрес" : "Address",
+      },
+    ];
+
+    return fields
+      .map((field) => {
+        const value = deal.custom_fields_values?.find(
+          (f) => f.field_id == field.id
+        )?.values?.[0]?.value;
+        return value
+          ? `
+        <div class="deal-field">
+          <strong>${field.name}:</strong> ${value}
+        </div>
+      `
+          : "";
+      })
+      .join("");
+  }
+
   async fetchDeals(year, month) {
-    if (!this.accessToken) return {};
+    if (!this.accessToken) {
+      console.log("No access token - skipping API request");
+      return {};
+    }
 
     try {
       const startDate = new Date(year, month, 1).toISOString().split("T")[0];
@@ -315,16 +317,17 @@ class OrdersCalendar {
         }
       );
 
-      if (!response.ok) throw new Error(`HTTP ошибка: ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
       return this.processDealsData(await response.json());
     } catch (error) {
-      console.error("Ошибка загрузки сделок:", error);
+      console.error("Fetch deals error:", error);
       return {};
     }
   }
 
   processDealsData(data) {
     if (!data?._embedded?.leads) return {};
+
     return data._embedded.leads.reduce((acc, deal) => {
       const dateField = deal.custom_fields_values?.find(
         (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
@@ -332,6 +335,7 @@ class OrdersCalendar {
       const date =
         dateField?.values?.[0]?.value?.split(" ")[0] ||
         new Date(deal.created_at * 1000).toISOString().split("T")[0];
+
       if (!acc[date]) acc[date] = [];
       acc[date].push(deal);
       return acc;
@@ -344,15 +348,19 @@ class OrdersCalendar {
   }
 
   setupEventListeners() {
-    document
-      .getElementById("prevMonth")
-      ?.addEventListener("click", () => this.navigateMonth(-1));
-    document
-      .getElementById("nextMonth")
-      ?.addEventListener("click", () => this.navigateMonth(1));
-    document
-      .getElementById("authButton")
-      ?.addEventListener("click", () => this.handleAuth());
+    // Навигация по месяцам
+    document.getElementById("prevMonth")?.addEventListener("click", () => {
+      this.navigateMonth(-1);
+    });
+
+    document.getElementById("nextMonth")?.addEventListener("click", () => {
+      this.navigateMonth(1);
+    });
+
+    // Авторизация
+    document.getElementById("authButton")?.addEventListener("click", () => {
+      this.handleAuth();
+    });
   }
 
   handleAuth() {
@@ -364,54 +372,11 @@ class OrdersCalendar {
     window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
   }
 
-  toggleAuthSection() {
-    const authSection = document.getElementById("auth-section");
-    if (authSection) {
-      authSection.style.display = this.accessToken ? "none" : "block";
-    }
-  }
-
-  async showLoading(show) {
-    if (this.loadingTimeout) clearTimeout(this.loadingTimeout);
-
+  showLoading(show) {
     this.isLoading = show;
     const loader = document.getElementById("loader");
-
     if (loader) {
       loader.style.display = show ? "block" : "none";
-    }
-
-    if (show) {
-      this.loadingTimeout = setTimeout(() => {
-        if (this.isLoading) {
-          this.loadingRetries++;
-          if (this.loadingRetries >= this.MAX_RETRIES) {
-            this.handleCriticalError("Превышено время ожидания");
-          } else {
-            console.warn(`Повторная попытка #${this.loadingRetries}`);
-            this.showLoading(false);
-            this.init();
-          }
-        }
-      }, 15000);
-    } else {
-      this.loadingRetries = 0;
-    }
-  }
-
-  handleCriticalError(message) {
-    console.error("CRITICAL:", message);
-    this.showLoading(false);
-
-    const errorElement = document.getElementById("error-alert");
-    if (errorElement) {
-      errorElement.innerHTML = `
-        ${message}
-        <button onclick="location.reload()" class="btn btn-sm btn-danger mt-2">
-          Перезагрузить виджет
-        </button>
-      `;
-      errorElement.classList.remove("d-none");
     }
   }
 
@@ -424,39 +389,27 @@ class OrdersCalendar {
   }
 
   showStandaloneWarning() {
+    console.warn("Running in standalone mode");
     const warning = document.createElement("div");
     warning.className = "alert alert-warning";
     warning.textContent =
       this.lang === "ru"
-        ? "Виджет работает в автономном режиме (без интеграции с amoCRM)"
-        : "Widget is running in standalone mode (without amoCRM integration)";
+        ? "Виджет работает без интеграции с amoCRM"
+        : "Widget running without amoCRM integration";
     document.body.prepend(warning);
   }
 }
 
-// Инициализация с улучшенной обработкой ошибок
+// Инициализация виджета
 document.addEventListener("DOMContentLoaded", () => {
   try {
-    if (window.AmoCRM) {
-      window.AmoCRM.onReady(() => {
-        new OrdersCalendar();
-      }).catch((error) => {
-        console.error("Ошибка готовности amoCRM:", error);
-        new OrdersCalendar();
-      });
-    } else {
-      new OrdersCalendar();
-    }
+    new OrdersCalendar();
   } catch (error) {
-    console.error("Критическая ошибка инициализации:", error);
+    console.error("Widget initialization failed:", error);
     const errorElement = document.getElementById("error-alert");
     if (errorElement) {
-      errorElement.innerHTML = `
-        Ошибка загрузки виджета
-        <button onclick="location.reload()" class="btn btn-sm btn-danger mt-2">
-          Перезагрузить
-        </button>
-      `;
+      errorElement.textContent = "Ошибка загрузки виджета";
+      errorElement.classList.remove("d-none");
     }
   }
 });

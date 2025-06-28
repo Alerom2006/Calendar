@@ -30,13 +30,13 @@
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "default": 885453,
+      "default": "885453",
       "required": true
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "default": 892009,
+      "default": "892009",
       "required": false
     }
   }

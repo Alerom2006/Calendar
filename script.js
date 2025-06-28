@@ -37,7 +37,7 @@ class OrdersCalendar {
   loadFieldIds() {
     const defaultSettings = {
       deal_date_field_id: 885453, // ID поля даты заказа по умолчанию
-      delivery_range_field: 892009 // ID поля диапазона доставки по умолчанию
+      delivery_range_field: 892009, // ID поля диапазона доставки по умолчанию
     };
 
     this.FIELD_IDS = {
@@ -48,7 +48,7 @@ class OrdersCalendar {
         window.widgetSettings?.delivery_range_field ||
         defaultSettings.delivery_range_field,
       EXACT_TIME: 892003, // ID поля точного времени
-      ADDRESS: 887367 // ID поля адреса
+      ADDRESS: 887367, // ID поля адреса
     };
   }
 
@@ -56,8 +56,10 @@ class OrdersCalendar {
   async setupSettingsHandlers() {
     try {
       if (window.AmoCRM?.widgets?.settings) {
-        const settings = await window.AmoCRM.widgets.settings(this.widgetInstanceId);
-        
+        const settings = await window.AmoCRM.widgets.settings(
+          this.widgetInstanceId
+        );
+
         if (settings?.onSave) {
           settings.onSave(async () => {
             try {
@@ -75,7 +77,7 @@ class OrdersCalendar {
         }
       }
     } catch (error) {
-      console.error('Ошибка настройки обработчиков:', error);
+      console.error("Ошибка настройки обработчиков:", error);
       this.showError("Ошибка при настройке обработчиков сохранения");
     }
   }
@@ -96,12 +98,12 @@ class OrdersCalendar {
   getTranslation(key) {
     const keys = key.split(".");
     let result = window.i18n || {};
-    
+
     for (const k of keys) {
       result = result?.[k];
       if (result === undefined) return key;
     }
-    
+
     return result || key;
   }
 
@@ -127,7 +129,9 @@ class OrdersCalendar {
   async getAccessToken() {
     try {
       if (window.AmoCRM?.widgets?.system) {
-        const system = await window.AmoCRM.widgets.system(this.widgetInstanceId);
+        const system = await window.AmoCRM.widgets.system(
+          this.widgetInstanceId
+        );
         return system?.access_token || null;
       }
       return null;
@@ -157,13 +161,40 @@ class OrdersCalendar {
 
   // Получение названия текущего месяца и года
   getCurrentMonthTitle() {
-    const months = this.lang === "ru"
-      ? ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", 
-         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
-      : ["January", "February", "March", "April", "May", "June",
-         "July", "August", "September", "October", "November", "December"];
+    const months =
+      this.lang === "ru"
+        ? [
+            "Январь",
+            "Февраль",
+            "Март",
+            "Апрель",
+            "Май",
+            "Июнь",
+            "Июль",
+            "Август",
+            "Сентябрь",
+            "Октябрь",
+            "Ноябрь",
+            "Декабрь",
+          ]
+        : [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
 
-    return `${months[this.currentDate.getMonth()]} ${this.currentDate.getFullYear()}`;
+    return `${
+      months[this.currentDate.getMonth()]
+    } ${this.currentDate.getFullYear()}`;
   }
 
   // Отрисовка календаря
@@ -175,7 +206,7 @@ class OrdersCalendar {
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth();
 
-      document.getElementById("currentMonthYear").textContent = 
+      document.getElementById("currentMonthYear").textContent =
         this.getCurrentMonthTitle();
 
       const deals = await this.fetchDeals(year, month);
@@ -195,12 +226,13 @@ class OrdersCalendar {
 
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const weekdays = this.lang === "ru"
-      ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const weekdays =
+      this.lang === "ru"
+        ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     let html = '<div class="weekdays">';
-    weekdays.forEach(day => {
+    weekdays.forEach((day) => {
       html += `<div class="weekday">${day}</div>`;
     });
     html += '</div><div class="days">';
@@ -212,7 +244,9 @@ class OrdersCalendar {
 
     // Дни месяца
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+        day
+      ).padStart(2, "0")}`;
       const dealCount = deals[date]?.length || 0;
 
       html += `
@@ -226,7 +260,7 @@ class OrdersCalendar {
     calendarElement.innerHTML = html + "</div>";
 
     // Обработчики кликов по дням
-    document.querySelectorAll(".day:not(.empty)").forEach(day => {
+    document.querySelectorAll(".day:not(.empty)").forEach((day) => {
       day.addEventListener("click", () => {
         this.renderDeals(day.dataset.date, deals);
       });
@@ -244,44 +278,55 @@ class OrdersCalendar {
     dateElement.textContent = new Date(date).toLocaleDateString(this.lang, {
       day: "numeric",
       month: "long",
-      year: "numeric"
+      year: "numeric",
     });
 
     if (dealList.length === 0) {
       dealsContainer.innerHTML = `
         <div class="no-deals">
-          ${this.lang === "ru" 
-            ? "Нет заказов на эту дату" 
-            : "No orders for this date"}
+          ${
+            this.lang === "ru"
+              ? "Нет заказов на эту дату"
+              : "No orders for this date"
+          }
         </div>
       `;
       return;
     }
 
     dealsContainer.innerHTML = dealList
-      .map(deal => `
-        <div class="deal-card" onclick="window.AmoCRM?.openCard?.('lead', ${deal.id})">
+      .map(
+        (deal) => `
+        <div class="deal-card" onclick="window.AmoCRM?.openCard?.('lead', ${
+          deal.id
+        })">
           <div class="deal-name">${deal.name}</div>
           ${this.renderDealFields(deal)}
         </div>
-      `)
+      `
+      )
       .join("");
   }
 
   // Отрисовка полей сделки
   renderDealFields(deal) {
     const fields = {
-      [this.FIELD_IDS.DELIVERY_RANGE]: this.lang === "ru" ? "Диапазон доставки" : "Delivery range",
-      [this.FIELD_IDS.EXACT_TIME]: this.lang === "ru" ? "К точному времени" : "Exact time",
-      [this.FIELD_IDS.ADDRESS]: this.lang === "ru" ? "Адрес" : "Address"
+      [this.FIELD_IDS.DELIVERY_RANGE]:
+        this.lang === "ru" ? "Диапазон доставки" : "Delivery range",
+      [this.FIELD_IDS.EXACT_TIME]:
+        this.lang === "ru" ? "К точному времени" : "Exact time",
+      [this.FIELD_IDS.ADDRESS]: this.lang === "ru" ? "Адрес" : "Address",
     };
 
     return Object.entries(fields)
       .map(([id, name]) => {
-        const value = deal.custom_fields_values?.find(f => f.field_id == id)?.values?.[0]?.value;
+        const value = deal.custom_fields_values?.find((f) => f.field_id == id)
+          ?.values?.[0]?.value;
         return value
           ? `<div class="deal-field">
-               <strong>${name}:</strong> ${value || (this.lang === "ru" ? "не указано" : "not specified")}
+               <strong>${name}:</strong> ${
+              value || (this.lang === "ru" ? "не указано" : "not specified")
+            }
              </div>`
           : "";
       })
@@ -302,7 +347,7 @@ class OrdersCalendar {
       const params = new URLSearchParams({
         "filter[custom_fields_values][field_id]": this.FIELD_IDS.ORDER_DATE,
         "filter[custom_fields_values][from]": startDate,
-        "filter[custom_fields_values][to]": endDate
+        "filter[custom_fields_values][to]": endDate,
       });
 
       const response = await fetch(
@@ -310,8 +355,8 @@ class OrdersCalendar {
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
-            "X-Requested-With": "XMLHttpRequest"
-          }
+            "X-Requested-With": "XMLHttpRequest",
+          },
         }
       );
 
@@ -326,7 +371,9 @@ class OrdersCalendar {
 
       return this.processDealsData(await response.json());
     } catch (error) {
-      this.showError(`${this.getTranslation("errors.apiFailed")}: ${error.message}`);
+      this.showError(
+        `${this.getTranslation("errors.apiFailed")}: ${error.message}`
+      );
       console.error("Ошибка загрузки сделок:", error);
       return {};
     }
@@ -338,10 +385,11 @@ class OrdersCalendar {
 
     return data._embedded.leads.reduce((acc, deal) => {
       const dateField = deal.custom_fields_values?.find(
-        f => f.field_id == this.FIELD_IDS.ORDER_DATE
+        (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
       );
-      const date = dateField?.values?.[0]?.value?.split(" ")[0] || 
-                  new Date(deal.created_at * 1000).toISOString().split("T")[0];
+      const date =
+        dateField?.values?.[0]?.value?.split(" ")[0] ||
+        new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
       if (!acc[date]) acc[date] = [];
       acc[date].push(deal);
@@ -368,8 +416,9 @@ class OrdersCalendar {
     document.getElementById("authButton")?.addEventListener("click", () => {
       const params = new URLSearchParams({
         client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
-        redirect_uri: "https://alerom2006.github.io/Calendar/oauth_callback.html",
-        state: this.widgetInstanceId
+        redirect_uri:
+          "https://alerom2006.github.io/Calendar/oauth_callback.html",
+        state: this.widgetInstanceId,
       });
       window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${params}`;
     });
@@ -396,7 +445,7 @@ class OrdersCalendar {
     if (loader) {
       loader.style.display = show ? "block" : "none";
     }
-    
+
     // Устанавливаем таймаут для предотвращения бесконечной загрузки
     if (show) {
       this.loadingTimeout = setTimeout(() => {
@@ -423,9 +472,10 @@ class OrdersCalendar {
     console.warn("Виджет работает без интеграции с amoCRM");
     const warning = document.createElement("div");
     warning.className = "alert alert-warning";
-    warning.textContent = this.lang === "ru"
-      ? "Виджет работает в автономном режиме (без интеграции с amoCRM)"
-      : "Widget is running in standalone mode (without amoCRM integration)";
+    warning.textContent =
+      this.lang === "ru"
+        ? "Виджет работает в автономном режиме (без интеграции с amoCRM)"
+        : "Widget is running in standalone mode (without amoCRM integration)";
     document.body.prepend(warning);
   }
 }
@@ -436,7 +486,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.AmoCRM) {
       window.AmoCRM.onReady(() => {
         new OrdersCalendar();
-      }).catch(error => {
+      }).catch((error) => {
         console.error("Ошибка готовности amoCRM:", error);
         new OrdersCalendar(); // Пробуем запустить в автономном режиме
       });

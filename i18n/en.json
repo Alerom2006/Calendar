@@ -14,7 +14,11 @@
     "api_key": "API Key for integration",
     "account": "Account subdomain",
     "language": "Interface language",
-    "deal_date_field": "Custom field ID for order date",
+    "deal_date_field_id": "Custom field ID for order date",
     "delivery_range_field": "Custom field ID for delivery range"
+  },
+  "errors": {
+    "timeout": "Response waiting time exceeded",
+    "settings_save": "Error saving settings"
   }
 }

@@ -14,7 +14,7 @@
       "email": "your@email.com"
     }
   },
-  "locations": ["lcard-1", "settings"],
+  "locations": ["lcard-1", "settings", "deal_detail"],
   "tour": {
     "is_tour": true,
     "tour_images": {

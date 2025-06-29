@@ -434,20 +434,14 @@ class OrdersCalendar {
   }
 
   handleAuth() {
-    const params = {
-      client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
-      redirect_uri: encodeURIComponent(
-        "https://alerom2006.github.io/Calendar/oauth_callback.html"
-      ),
-      state: this.widgetInstanceId,
-      mode: "popup", // Добавьте этот параметр
-    };
-    window.open(
-      `https://spacebakery1.amocrm.ru/oauth2/authorize?${new URLSearchParams(
-        params
-      )}`,
-      "_blank"
-    );
+    window.location.href = `https://spacebakery1.amocrm.ru/oauth2/authorize?${new URLSearchParams(
+      {
+        client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
+        redirect_uri:
+          "https://alerom2006.github.io/Calendar/oauth_callback.html",
+        state: this.widgetInstanceId,
+      }
+    )}`;
   }
 
   showLoading(show) {

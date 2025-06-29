@@ -1,5 +1,5 @@
 class OrdersCalendar {
-  constructor() {
+  varructor() {
     this.widgetInstanceId = `widget-${Date.now()}`;
     this.currentDate = new Date();
     this.lang = this.detectLanguage();
@@ -9,6 +9,10 @@ class OrdersCalendar {
     this.dealsData = {}; // Кэш для данных о сделках
     this.loadFieldIds();
     this.init();
+  }
+
+  detectLanguage() {
+    return navigator.language.startsWith("ru") ? "ru" : "en";
   }
 
   async init() {
@@ -26,8 +30,12 @@ class OrdersCalendar {
       await this.renderCalendar();
       this.setupEventListeners();
     } catch (error) {
-      console.error("Init error:", error);
-      this.showError("Ошибка инициализации виджета");
+      console.error("Ошибка инициализации:", error);
+      this.showError(
+        this.lang === "ru"
+          ? "Ошибка инициализации виджета"
+          : "Widget initialization error"
+      );
     }
   }
 
@@ -35,7 +43,7 @@ class OrdersCalendar {
     return new Promise((resolve) => {
       if (typeof AmoCRM !== "undefined" && AmoCRM.onReady) {
         AmoCRM.onReady(() => {
-          console.log("AmoCRM API ready");
+          console.log("AmoCRM API готово");
           resolve();
         });
       } else {
@@ -51,28 +59,43 @@ class OrdersCalendar {
       EXACT_TIME: 892003,
       ADDRESS: 887367,
     };
-    console.log("Field IDs loaded:", this.FIELD_IDS);
+    console.log("Загружены ID полей:", this.FIELD_IDS);
   }
 
   async setupSettingsHandlers() {
     try {
-      if (typeof AmoCRM === "undefined" || !AmoCRM.widgets?.settings) {
-        console.log("Settings API not available");
+      // Проверяем доступность API AmoCRM и виджета настроек
+      if (
+        typeof AmoCRM === "undefined" ||
+        !AmoCRM.widgets ||
+        !AmoCRM.widgets.settings
+      ) {
+        console.log("API настроек недоступно");
         return;
       }
 
-      const settings = await AmoCRM.widgets.settings(this.widgetInstanceId);
-
-      if (settings?.onSave) {
-        settings.onSave(async () => {
-          console.log("Settings saved");
-          this.loadFieldIds();
-          await this.renderCalendar();
-          return true;
+      // Получаем экземпляр настроек с обработкой ошибок
+      var settings = await AmoCRM.widgets
+        .settings(this.widgetInstanceId)
+        .catch((error) => {
+          console.error("Ошибка при получении настроек:", error);
+          return null;
         });
+
+      if (!settings || typeof settings.onSave !== "function") {
+        console.log("Метод settings.onSave недоступен");
+        return;
       }
+
+      // Настраиваем обработчик сохранения
+      settings.onSave(async () => {
+        console.log("Настройки сохранены");
+        this.loadFieldIds();
+        await this.renderCalendar();
+        return true; // Важно: возвращаем true для подтверждения сохранения
+      });
     } catch (error) {
-      console.error("Settings handler error:", error);
+      console.error("Ошибка обработчика настроек:", error);
     }
   }
 
@@ -80,11 +103,11 @@ class OrdersCalendar {
     try {
       this.showLoading(true);
       if (typeof AmoCRM !== "undefined" && AmoCRM.widgets?.system) {
-        const system = await AmoCRM.widgets.system(this.widgetInstanceId);
+        var system = await AmoCRM.widgets.system(this.widgetInstanceId);
         this.accessToken = system?.access_token || null;
       }
     } catch (error) {
-      console.error("Auth error:", error);
+      console.error("Ошибка авторизации:", error);
     } finally {
       this.showLoading(false);
     }
@@ -92,13 +115,13 @@ class OrdersCalendar {
 
   setupUI() {
     // Обновляем текущий месяц/год
-    const monthYearElement = document.getElementById("currentMonthYear");
+    var monthYearElement = document.getElementById("currentMonthYear");
     if (monthYearElement) {
       monthYearElement.textContent = this.getCurrentMonthTitle();
     }
 
     // Обновляем текст кнопки авторизации
-    const authButton = document.getElementById("authButton");
+    var authButton = document.getElementById("authButton");
     if (authButton) {
       authButton.textContent =
         this.lang === "ru" ? "Авторизоваться в amoCRM" : "Authorize in amoCRM";
@@ -106,7 +129,7 @@ class OrdersCalendar {
   }
 
   getCurrentMonthTitle() {
-    const months =
+    var months =
       this.lang === "ru"
         ? [
             "Январь",
@@ -144,14 +167,15 @@ class OrdersCalendar {
 
   async renderCalendar() {
     if (this.isLoading) return;
+    this.isLoading = true;
 
     try {
       this.showLoading(true);
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth();
+      var year = this.currentDate.getFullYear();
+      var month = this.currentDate.getMonth();
 
       // Обновляем заголовок
-      const monthYearElement = document.getElementById("currentMonthYear");
+      var monthYearElement = document.getElementById("currentMonthYear");
       if (monthYearElement) {
         monthYearElement.textContent = this.getCurrentMonthTitle();
       }
@@ -162,43 +186,44 @@ class OrdersCalendar {
       // Рендерим календарь
       this.renderCalendarGrid(year, month);
     } catch (error) {
-      console.error("Render error:", error);
+      console.error("Ошибка отрисовки:", error);
       this.showError(
         this.lang === "ru" ? "Ошибка загрузки данных" : "Data loading error"
       );
     } finally {
+      this.isLoading = false;
       this.showLoading(false);
     }
   }
 
   renderCalendarGrid(year, month) {
-    const calendarElement = document.getElementById("calendar");
+    var calendarElement = document.getElementById("calendar");
     if (!calendarElement) return;
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const weekdays =
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var weekdays =
       this.lang === "ru"
         ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
         : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    let html = '<div class="weekdays">';
+    var html = '<div class="weekdays">';
     weekdays.forEach((day) => {
       html += `<div class="weekday">${day}</div>`;
     });
     html += '</div><div class="days">';
 
     // Пустые дни в начале месяца
-    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+    for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
       html += '<div class="day empty"></div>';
     }
 
     // Дни месяца
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+    for (var day = 1; day <= daysInMonth; day++) {
+      var date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
         day
       ).padStart(2, "0")}`;
-      const dealCount = this.dealsData[date]?.length || 0;
+      var dealCount = this.dealsData[date]?.length || 0;
 
       html += `
         <div class="day ${dealCount ? "has-deals" : ""}" data-date="${date}">
@@ -219,8 +244,8 @@ class OrdersCalendar {
   }
 
   renderDeals(date) {
-    const dealsContainer = document.getElementById("deals");
-    const dateElement = document.getElementById("selected-date");
+    var dealsContainer = document.getElementById("deals");
+    var dateElement = document.getElementById("selected-date");
 
     if (!dealsContainer || !dateElement) return;
 
@@ -231,7 +256,7 @@ class OrdersCalendar {
       year: "numeric",
     });
 
-    const deals = this.dealsData[date] || [];
+    var deals = this.dealsData[date] || [];
 
     if (deals.length === 0) {
       dealsContainer.innerHTML = `
@@ -260,7 +285,7 @@ class OrdersCalendar {
   }
 
   renderDealFields(deal) {
-    const fields = [
+    var fields = [
       {
         id: this.FIELD_IDS.DELIVERY_RANGE,
         name: this.lang === "ru" ? "Доставка" : "Delivery",
@@ -277,7 +302,7 @@ class OrdersCalendar {
 
     return fields
       .map((field) => {
-        const value = deal.custom_fields_values?.find(
+        var value = deal.custom_fields_values?.find(
           (f) => f.field_id == field.id
         )?.values?.[0]?.value;
         return value
@@ -293,35 +318,46 @@ class OrdersCalendar {
 
   async fetchDeals(year, month) {
     if (!this.accessToken) {
-      console.log("No access token - skipping API request");
+      console.log("Нет токена доступа - пропускаем запрос к API");
       return {};
     }
 
-    try {
-      const startDate = new Date(year, month, 1).toISOString().split("T")[0];
-      const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
+    var controller = new AbortController();
+    var timeoutId = setTimeout(() => controller.abort(), 10000); // Таймаут 10 секунд
 
-      const params = new URLSearchParams({
+    try {
+      var startDate = new Date(year, month, 1).toISOString().split("T")[0];
+      var endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
+
+      var params = new URLSearchParams({
         "filter[custom_fields_values][field_id]": this.FIELD_IDS.ORDER_DATE,
         "filter[custom_fields_values][from]": startDate,
         "filter[custom_fields_values][to]": endDate,
       });
 
-      const response = await fetch(
+      var response = await fetch(
         `https://spacebakery1.amocrm.ru/api/v4/leads?${params}`,
         {
           headers: {
             Authorization: `Bearer ${this.accessToken}`,
             "X-Requested-With": "XMLHttpRequest",
           },
+          signal: controller.signal,
         }
       );
 
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP ошибка: ${response.status}`);
       return this.processDealsData(await response.json());
     } catch (error) {
-      console.error("Fetch deals error:", error);
+      console.error("Ошибка загрузки сделок:", error);
+      this.showError(
+        this.lang === "ru"
+          ? "Ошибка при загрузке сделок"
+          : "Error loading deals"
+      );
       return {};
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -329,10 +365,10 @@ class OrdersCalendar {
     if (!data?._embedded?.leads) return {};
 
     return data._embedded.leads.reduce((acc, deal) => {
-      const dateField = deal.custom_fields_values?.find(
+      var dateField = deal.custom_fields_values?.find(
         (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
       );
-      const date =
+      var date =
         dateField?.values?.[0]?.value?.split(" ")[0] ||
         new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
@@ -364,7 +400,7 @@ class OrdersCalendar {
   }
 
   handleAuth() {
-    const params = new URLSearchParams({
+    var params = new URLSearchParams({
       client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
       redirect_uri: "https://alerom2006.github.io/Calendar/oauth_callback.html",
       state: this.widgetInstanceId,
@@ -374,14 +410,14 @@ class OrdersCalendar {
 
   showLoading(show) {
     this.isLoading = show;
-    const loader = document.getElementById("loader");
+    var loader = document.getElementById("loader");
     if (loader) {
       loader.style.display = show ? "block" : "none";
     }
   }
 
   showError(message) {
-    const errorElement = document.getElementById("error-alert");
+    var errorElement = document.getElementById("error-alert");
     if (errorElement) {
       errorElement.textContent = message;
       errorElement.classList.remove("d-none");
@@ -389,8 +425,8 @@ class OrdersCalendar {
   }
 
   showStandaloneWarning() {
-    console.warn("Running in standalone mode");
-    const warning = document.createElement("div");
+    console.warn("Запуск в автономном режиме");
+    var warning = document.createElement("div");
     warning.className = "alert alert-warning";
     warning.textContent =
       this.lang === "ru"
@@ -401,14 +437,21 @@ class OrdersCalendar {
 }
 
 // Инициализация виджета
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   try {
-    new OrdersCalendar();
+    var widget = new OrdersCalendar();
+
+    // Добавляем небольшую задержку для полной загрузки
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Скрываем индикатор загрузки, если он все еще отображается
+    widget.showLoading(false);
   } catch (error) {
-    console.error("Widget initialization failed:", error);
-    const errorElement = document.getElementById("error-alert");
+    console.error("Ошибка инициализации виджета:", error);
+    var errorElement = document.getElementById("error-alert");
     if (errorElement) {
-      errorElement.textContent = "Ошибка загрузки виджета";
+      errorElement.textContent =
+        "Ошибка загрузки виджета. Пожалуйста, обновите страницу.";
       errorElement.classList.remove("d-none");
     }
   }

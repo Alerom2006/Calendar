@@ -60,3 +60,25 @@
     transform: rotate(360deg);
   }
 }
+.deal-widget-mode {
+  padding: 15px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.deal-widget h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.deal-date {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 12px;
+}
+
+#openCalendar {
+  width: 100%;
+}

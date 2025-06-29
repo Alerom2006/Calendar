@@ -13,8 +13,11 @@
       if (!code || !state) {
         alert("Ошибка авторизации: отсутствует код или состояние.");
       } else {
-        fetch("https://your-proxy-server.com/amo-oauth", {
+        fetch(`https://spacebakery1.amocrm.ru/oauth2/access_token`, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
             client_secret:

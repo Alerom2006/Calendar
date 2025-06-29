@@ -12,7 +12,16 @@ class OrdersCalendar {
       ADDRESS: 887367,
     };
     this.dealsData = {};
+    this.currentDealId = this.getDealIdFromUrl();
     this.init();
+  }
+
+  getDealIdFromUrl() {
+    if (typeof AmoCRM !== "undefined" && AmoCRM.constant("entity_id")) {
+      return AmoCRM.constant("entity_id");
+    }
+    const match = window.location.pathname.match(/leads\/detail\/(\d+)/);
+    return match ? match[1] : null;
   }
 
   async init() {
@@ -21,14 +30,24 @@ class OrdersCalendar {
       await this.checkAuth();
       this.loadFieldIdsFromSettings();
       this.setupUI();
-      await this.safeSetupSettingsHandlers();
-      await this.renderCalendar();
+
+      if (this.isDealPage()) {
+        await this.loadDealData();
+      } else {
+        await this.safeSetupSettingsHandlers();
+        await this.renderCalendar();
+      }
+
       this.setupEventListeners();
     } catch (error) {
       this.showError(
         this.translate("Ошибка инициализации", "Initialization error")
       );
     }
+  }
+
+  isDealPage() {
+    return !!this.currentDealId;
   }
 
   async waitForAmoCRM() {
@@ -40,88 +59,6 @@ class OrdersCalendar {
       if (AmoCRM.onReady) AmoCRM.onReady(resolve);
       else setTimeout(resolve, 1500);
     });
-  }
-
-  async safeSetupSettingsHandlers() {
-    if (!this.isAmoApiCompletelyReady()) return;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const settings = await this.getProtectedSettingsInstance();
-    if (!settings) return;
-    this.setupSaveHandlerWithFallbacks(settings);
-  }
-
-  isAmoApiCompletelyReady() {
-    try {
-      return [
-        "AmoCRM",
-        "AmoCRM.widgets",
-        "AmoCRM.widgets.settings",
-        "AmoCRM.onReady",
-      ].every((method) =>
-        method.split(".").reduce((obj, part) => obj && obj[part], window)
-      );
-    } catch (e) {
-      return false;
-    }
-  }
-
-  async getProtectedSettingsInstance() {
-    try {
-      if (typeof AmoCRM.widgets.settings !== "function") return null;
-      const settings = await AmoCRM.widgets.settings(this.widgetInstanceId);
-      return settings && typeof settings === "object" ? settings : null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  setupSaveHandlerWithFallbacks(settings) {
-    if (typeof settings.onSave === "function") {
-      try {
-        settings.onSave(async () => {
-          await this.handleSettingsSave();
-          return true;
-        });
-        return;
-      } catch (e) {}
-    }
-
-    if (typeof settings.setOnSave === "function") {
-      try {
-        settings.setOnSave(async () => {
-          await this.handleSettingsSave();
-          return true;
-        });
-        return;
-      } catch (e) {}
-    }
-
-    if (Object.getPrototypeOf(settings).hasOwnProperty("onSave")) {
-      try {
-        Object.getPrototypeOf(settings).onSave = async () => {
-          await this.handleSettingsSave();
-          return true;
-        };
-        return;
-      } catch (e) {}
-    }
-  }
-
-  async handleSettingsSave() {
-    try {
-      this.loadFieldIdsFromSettings();
-      await this.renderCalendar();
-    } catch (error) {}
-  }
-
-  loadFieldIdsFromSettings() {
-    if (window.widgetSettings) {
-      this.FIELD_IDS.ORDER_DATE =
-        window.widgetSettings.deal_date_field_id || this.FIELD_IDS.ORDER_DATE;
-      this.FIELD_IDS.DELIVERY_RANGE =
-        window.widgetSettings.delivery_range_field ||
-        this.FIELD_IDS.DELIVERY_RANGE;
-    }
   }
 
   async checkAuth() {
@@ -144,12 +81,123 @@ class OrdersCalendar {
     );
   }
 
+  loadFieldIdsFromSettings() {
+    if (window.widgetSettings) {
+      this.FIELD_IDS.ORDER_DATE =
+        window.widgetSettings.deal_date_field_id || this.FIELD_IDS.ORDER_DATE;
+      this.FIELD_IDS.DELIVERY_RANGE =
+        window.widgetSettings.delivery_range_field ||
+        this.FIELD_IDS.DELIVERY_RANGE;
+    }
+  }
+
   setupUI() {
-    this.updateElementText("currentMonthYear", this.getCurrentMonthTitle());
-    this.updateElementText(
-      "authButton",
-      this.translate("Авторизоваться в amoCRM", "Authorize in amoCRM")
+    if (this.isDealPage()) {
+      document
+        .getElementById("widget_container")
+        ?.classList.add("deal-widget-mode");
+    } else {
+      this.updateElementText("currentMonthYear", this.getCurrentMonthTitle());
+      this.updateElementText(
+        "authButton",
+        this.translate("Авторизоваться в amoCRM", "Authorize in amoCRM")
+      );
+    }
+  }
+
+  async loadDealData() {
+    if (!this.accessToken || !this.currentDealId) return;
+
+    try {
+      this.showLoading(true);
+      const response = await fetch(
+        `https://spacebakery1.amocrm.ru/api/v4/leads/${this.currentDealId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        }
+      );
+
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
+      const deal = await response.json();
+      this.renderDealWidget(deal);
+    } catch (error) {
+      this.showError(
+        this.translate("Ошибка загрузки сделки", "Deal loading error")
+      );
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  renderDealWidget(deal) {
+    const container = document.getElementById("widget_container");
+    if (!container) return;
+
+    const dateField = deal.custom_fields_values?.find(
+      (f) => f.field_id == this.FIELD_IDS.ORDER_DATE
     );
+    const dateValue =
+      dateField?.values?.[0]?.value ||
+      this.translate("Дата не указана", "Date not set");
+
+    container.innerHTML = `
+      <div class="deal-widget">
+        <h3>${this.translate("Календарь заказов", "Orders Calendar")}</h3>
+        <div class="deal-date">
+          <strong>${this.translate("Дата заказа:", "Order date:")}</strong>
+          <span>${dateValue}</span>
+        </div>
+        <button id="openCalendar" class="btn btn-primary mt-2">
+          ${this.translate("Открыть календарь", "Open calendar")}
+        </button>
+      </div>
+    `;
+  }
+
+  async safeSetupSettingsHandlers() {
+    if (!this.isSettingsApiAvailable()) return;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const settings = await this.getProtectedSettingsInstance();
+    if (!settings) return;
+    this.setupSaveHandlerWithFallbacks(settings);
+  }
+
+  isSettingsApiAvailable() {
+    try {
+      return ["AmoCRM", "AmoCRM.widgets", "AmoCRM.widgets.settings"].every(
+        (method) =>
+          method.split(".").reduce((obj, part) => obj && obj[part], window)
+      );
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async getProtectedSettingsInstance() {
+    try {
+      if (typeof AmoCRM.widgets.settings !== "function") return null;
+      return await AmoCRM.widgets.settings(this.widgetInstanceId);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  setupSaveHandlerWithFallbacks(settings) {
+    if (typeof settings.onSave === "function") {
+      settings.onSave(async () => {
+        await this.handleSettingsSave();
+        return true;
+      });
+    }
+  }
+
+  async handleSettingsSave() {
+    this.loadFieldIdsFromSettings();
+    await this.renderCalendar();
   }
 
   updateElementText(elementId, text) {
@@ -373,6 +421,16 @@ class OrdersCalendar {
     document
       .getElementById("authButton")
       ?.addEventListener("click", () => this.handleAuth());
+    document
+      .getElementById("openCalendar")
+      ?.addEventListener("click", () => this.openFullCalendar());
+  }
+
+  openFullCalendar() {
+    window.open(
+      "https://spacebakery1.amocrm.ru/private/widgets/calendar",
+      "_blank"
+    );
   }
 
   handleAuth() {
@@ -412,30 +470,9 @@ class OrdersCalendar {
 
 function initializeWidget() {
   try {
-    if (
-      !document.getElementById("calendar") ||
-      !document.getElementById("error-alert")
-    )
-      return;
-    const initTimeout = setTimeout(() => {}, 5000);
     const widget = new OrdersCalendar();
-    clearTimeout(initTimeout);
-    setTimeout(() => {
-      if (widget.isLoading) {
-        widget.showLoading(false);
-        widget.showError("Виджет завис при инициализации");
-      }
-    }, 10000);
   } catch (error) {
-    const errorElement =
-      document.getElementById("error-alert") || document.createElement("div");
-    errorElement.textContent = `ОШИБКА: ${
-      typeof error === "string" ? error : error.message || "Неизвестная ошибка"
-    }`;
-    errorElement.className = "alert alert-danger";
-    errorElement.style.display = "block";
-    if (!document.body.contains(errorElement))
-      document.body.prepend(errorElement);
+    console.error("Widget initialization failed:", error);
   }
 }
 

@@ -1,7 +1,8 @@
 define(["jquery"], function ($) {
-  var OrdersCalendar = function () {
+  var CustomWidget = function () {
     var self = this;
 
+    // Инициализация системных объектов
     this.system =
       this.system ||
       function () {
@@ -21,6 +22,7 @@ define(["jquery"], function ($) {
     var accessToken = null;
     var isLoading = false;
 
+    // ID полей
     var FIELD_IDS = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
@@ -28,25 +30,29 @@ define(["jquery"], function ($) {
       ADDRESS: 887367,
     };
 
-    var dealsData = {};
-    var currentDealId = system.entity_id || self.getDealIdFromUrl();
-
     this.callbacks = {
       init: function () {
         try {
-          self.loadFieldIdsFromSettings();
+          // Загрузка ID полей из настроек
+          if (self.settings.deal_date_field_id) {
+            FIELD_IDS.ORDER_DATE =
+              parseInt(self.settings.deal_date_field_id) ||
+              FIELD_IDS.ORDER_DATE;
+          }
+          if (self.settings.delivery_range_field) {
+            FIELD_IDS.DELIVERY_RANGE =
+              parseInt(self.settings.delivery_range_field) ||
+              FIELD_IDS.DELIVERY_RANGE;
+          }
+
+          // Проверка авторизации
           if (typeof AmoCRM !== "undefined") {
             self.checkAuth();
           }
-          self.setupUI();
-          if (self.isDealPage()) {
-            self.loadDealData();
-          } else {
-            self.renderCalendar();
-          }
+
           return true;
         } catch (error) {
-          console.error("Initialization error:", error);
+          console.error("Init error:", error);
           return false;
         }
       },
@@ -54,24 +60,27 @@ define(["jquery"], function ($) {
       render: function () {
         return true;
       },
+
       bind_actions: function () {
         return true;
       },
+
       settings: function () {
         return true;
       },
 
-      onSave: function (newSettings) {
+      // Ключевое исправление для onSave
+      onSave: function (settings) {
         try {
-          self.settings = newSettings;
+          // Сохраняем настройки
+          self.settings = settings;
+
+          // Обновляем ID полей
           FIELD_IDS.ORDER_DATE =
-            parseInt(newSettings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
+            parseInt(settings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
           FIELD_IDS.DELIVERY_RANGE =
-            parseInt(newSettings.delivery_range_field) ||
-            FIELD_IDS.DELIVERY_RANGE;
-          if (!self.isDealPage()) {
-            self.renderCalendar();
-          }
+            parseInt(settings.delivery_range_field) || FIELD_IDS.DELIVERY_RANGE;
+
           return true;
         } catch (error) {
           console.error("Save error:", error);
@@ -111,339 +120,16 @@ define(["jquery"], function ($) {
       },
     };
 
-    this.loadFieldIdsFromSettings = function () {
-      if (self.settings.deal_date_field_id) {
-        FIELD_IDS.ORDER_DATE =
-          parseInt(self.settings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
-      }
-      if (self.settings.delivery_range_field) {
-        FIELD_IDS.DELIVERY_RANGE =
-          parseInt(self.settings.delivery_range_field) ||
-          FIELD_IDS.DELIVERY_RANGE;
-      }
-    };
-
-    this.getDealIdFromUrl = function () {
-      var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
-      return match ? match[1] : null;
-    };
-
-    this.isDealPage = function () {
-      return !!currentDealId;
-    };
-
+    // Метод проверки авторизации
     this.checkAuth = function () {
       if (typeof AmoCRM.widgets.system === "function") {
         AmoCRM.widgets.system(widgetInstanceId).then(function (systemApi) {
           accessToken = systemApi.access_token;
-          localStorage.setItem(
-            "amo_access_token_" + widgetInstanceId,
-            accessToken
-          );
         });
-      }
-    };
-
-    this.setupUI = function () {
-      if (self.isDealPage()) {
-        $("#widget_container").addClass("deal-widget-mode");
-      } else {
-        $("#currentMonthYear").text(self.getMonthTitle());
-        $("#authButton").text(langs.authButton || "Авторизоваться");
-      }
-    };
-
-    this.getMonthTitle = function () {
-      var months = langs.months || [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь",
-      ];
-      return months[currentDate.getMonth()] + " " + currentDate.getFullYear();
-    };
-
-    this.loadDealData = function () {
-      if (!accessToken || !currentDealId) return;
-
-      self.showLoading(true);
-
-      $.ajax({
-        url: `https://${system.account}.amocrm.ru/api/v4/leads/${currentDealId}`,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "X-Requested-With": "XMLHttpRequest",
-        },
-        success: function (deal) {
-          self.renderDealWidget(deal);
-        },
-        error: function (error) {
-          console.error("Error loading deal:", error);
-          self.showError("Ошибка загрузки сделки");
-        },
-        complete: function () {
-          self.showLoading(false);
-        },
-      });
-    };
-
-    this.renderDealWidget = function (deal) {
-      var container = $("#widget_container");
-      if (!container.length) return;
-
-      var dateField = deal.custom_fields_values?.find(
-        (f) => f.field_id == FIELD_IDS.ORDER_DATE
-      );
-      var dateValue = dateField?.values?.[0]?.value || "Дата не указана";
-
-      container.html(`
-        <div class="deal-widget">
-          <h3>Календарь заказов</h3>
-          <div class="deal-date">
-            <strong>Дата заказа:</strong>
-            <span>${dateValue}</span>
-          </div>
-          <button id="openCalendar" class="btn btn-primary mt-2">
-            Открыть календарь
-          </button>
-        </div>
-      `);
-    };
-
-    this.renderCalendar = function () {
-      if (isLoading) return;
-      isLoading = true;
-      self.showLoading(true);
-
-      var year = currentDate.getFullYear();
-      var month = currentDate.getMonth();
-
-      $("#currentMonthYear").text(self.getMonthTitle());
-
-      self
-        .fetchDeals(year, month)
-        .then(function (data) {
-          dealsData = data;
-          self.renderCalendarGrid(year, month);
-        })
-        .catch(function (error) {
-          console.error("Error loading deals:", error);
-          self.showError("Ошибка загрузки данных");
-        })
-        .finally(function () {
-          isLoading = false;
-          self.showLoading(false);
-        });
-    };
-
-    this.renderCalendarGrid = function (year, month) {
-      var calendarElement = $("#calendar");
-      if (!calendarElement.length) return;
-
-      var firstDay = new Date(year, month, 1).getDay();
-      var daysInMonth = new Date(year, month + 1, 0).getDate();
-      var weekdays = langs.weekdays || [
-        "Пн",
-        "Вт",
-        "Ср",
-        "Чт",
-        "Пт",
-        "Сб",
-        "Вс",
-      ];
-
-      var html = '<div class="weekdays">';
-      weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
-      html += '</div><div class="days">';
-
-      for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
-        html += '<div class="day empty"></div>';
-      }
-
-      for (var day = 1; day <= daysInMonth; day++) {
-        var date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-          day
-        ).padStart(2, "0")}`;
-        var dealCount = dealsData[date]?.length || 0;
-        html += `<div class="day ${
-          dealCount ? "has-deals" : ""
-        }" data-date="${date}">
-          ${day}${
-          dealCount ? `<span class="deal-count">${dealCount}</span>` : ""
-        }
-        </div>`;
-      }
-
-      calendarElement.html(html + "</div>");
-      $(".day:not(.empty)")
-        .off("click")
-        .on("click", function () {
-          self.renderDeals($(this).data("date"));
-        });
-    };
-
-    this.renderDeals = function (date) {
-      var dealsContainer = $("#deals");
-      var dateElement = $("#selected-date");
-      if (!dealsContainer.length || !dateElement.length) return;
-
-      dateElement.text(
-        new Date(date).toLocaleDateString("ru", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      );
-
-      var deals = dealsData[date] || [];
-      dealsContainer.html(
-        deals.length
-          ? deals.map((deal) => self.renderDealCard(deal)).join("")
-          : `<div class="no-deals">Нет сделок на эту дату</div>`
-      );
-    };
-
-    this.renderDealCard = function (deal) {
-      return `
-        <div class="deal-card">
-          <div class="deal-name">${deal.name || "Без названия"}</div>
-          ${self.renderDealFields(deal)}
-        </div>
-      `;
-    };
-
-    this.renderDealFields = function (deal) {
-      var fields = [
-        { id: FIELD_IDS.DELIVERY_RANGE, name: "Доставка" },
-        { id: FIELD_IDS.EXACT_TIME, name: "Время" },
-        { id: FIELD_IDS.ADDRESS, name: "Адрес" },
-      ];
-
-      return fields
-        .map((field) => {
-          var value = deal.custom_fields_values?.find(
-            (f) => f.field_id == field.id
-          )?.values?.[0]?.value;
-          return value
-            ? `
-          <div class="deal-field">
-            <strong>${field.name}:</strong> ${value}
-          </div>
-        `
-            : "";
-        })
-        .join("");
-    };
-
-    this.fetchDeals = function (year, month) {
-      if (!accessToken) return Promise.resolve({});
-
-      var startDate = new Date(year, month, 1).toISOString().split("T")[0];
-      var endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
-
-      return $.ajax({
-        url: `https://${system.account}.amocrm.ru/api/v4/leads`,
-        data: {
-          "filter[custom_fields_values][field_id]": FIELD_IDS.ORDER_DATE,
-          "filter[custom_fields_values][from]": startDate,
-          "filter[custom_fields_values][to]": endDate,
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "X-Requested-With": "XMLHttpRequest",
-        },
-        timeout: 15000,
-      })
-        .then(function (data) {
-          return self.processDealsData(data);
-        })
-        .catch(function (error) {
-          console.error("Error loading deals:", error);
-          return {};
-        });
-    };
-
-    this.processDealsData = function (data) {
-      if (!data?._embedded?.leads) return {};
-
-      return data._embedded.leads.reduce(function (acc, deal) {
-        var dateField = deal.custom_fields_values?.find(
-          (f) => f.field_id == FIELD_IDS.ORDER_DATE
-        );
-        var date =
-          dateField?.values?.[0]?.value?.split(" ")[0] ||
-          new Date(deal.created_at * 1000).toISOString().split("T")[0];
-
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(deal);
-        return acc;
-      }, {});
-    };
-
-    this.navigateMonth = function (offset) {
-      currentDate.setMonth(currentDate.getMonth() + offset);
-      self.renderCalendar();
-    };
-
-    this.setupEventListeners = function () {
-      $("#prevMonth")
-        .off("click")
-        .on("click", function () {
-          self.navigateMonth(-1);
-        });
-      $("#nextMonth")
-        .off("click")
-        .on("click", function () {
-          self.navigateMonth(1);
-        });
-      $("#authButton").off("click").on("click", self.handleAuth);
-      $(document)
-        .off("click", "#openCalendar")
-        .on("click", "#openCalendar", self.openFullCalendar);
-    };
-
-    this.openFullCalendar = function () {
-      window.open(
-        `https://${system.account}.amocrm.ru/private/widgets/calendar`,
-        "_blank"
-      );
-    };
-
-    this.handleAuth = function () {
-      window.location.href = `https://${
-        system.account
-      }.amocrm.ru/oauth2/authorize?${$.param({
-        client_id: "f178be80-a7bf-40e5-8e70-196a5d4a775c",
-        redirect_uri:
-          "https://alerom2006.github.io/Calendar/oauth_callback.html",
-        state: widgetInstanceId,
-      })}`;
-    };
-
-    this.showLoading = function (show) {
-      $("#loader").toggle(show);
-    };
-
-    this.showError = function (message) {
-      var errorElement = $("#error-alert");
-      if (errorElement.length) {
-        errorElement.text(message).removeClass("d-none");
-        setTimeout(function () {
-          errorElement.addClass("d-none");
-        }, 5000);
       }
     };
 
     return this;
   };
-
-  return OrdersCalendar;
+  return CustomWidget;
 });

@@ -2,7 +2,6 @@ define(["jquery"], function ($) {
   var OrdersCalendar = function () {
     var self = this;
 
-    // 1. Инициализация системных объектов с защитой от undefined
     this.system =
       this.system ||
       function () {
@@ -22,10 +21,9 @@ define(["jquery"], function ($) {
     var accessToken = null;
     var isLoading = false;
 
-    // 2. ID полей с учетом настроек из manifest.json
     var FIELD_IDS = {
-      ORDER_DATE: 885453, // Значение по умолчанию
-      DELIVERY_RANGE: 892009, // Значение по умолчанию
+      ORDER_DATE: 885453,
+      DELIVERY_RANGE: 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,
     };
@@ -33,32 +31,19 @@ define(["jquery"], function ($) {
     var dealsData = {};
     var currentDealId = system.entity_id || self.getDealIdFromUrl();
 
-    // 3. ОСНОВНЫЕ CALLBACK-ФУНКЦИИ
-
     this.callbacks = {
-      // Инициализация виджета
       init: function () {
         try {
-          console.log("Widget initialization started");
-
-          // Загрузка ID полей из настроек
           self.loadFieldIdsFromSettings();
-
-          // Проверка авторизации
           if (typeof AmoCRM !== "undefined") {
             self.checkAuth();
           }
-
-          // Настройка интерфейса
           self.setupUI();
-
-          // Загрузка данных в зависимости от контекста
           if (self.isDealPage()) {
             self.loadDealData();
           } else {
             self.renderCalendar();
           }
-
           return true;
         } catch (error) {
           console.error("Initialization error:", error);
@@ -66,52 +51,34 @@ define(["jquery"], function ($) {
         }
       },
 
-      // Рендеринг виджета
       render: function () {
         return true;
       },
-
-      // Привязка действий
       bind_actions: function () {
         return true;
       },
-
-      // Настройки виджета
       settings: function () {
-        console.log("Widget settings opened");
         return true;
       },
 
-      // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: обработчик сохранения настроек
       onSave: function (newSettings) {
         try {
-          console.log("Saving settings:", newSettings);
-
-          // Сохраняем новые настройки
           self.settings = newSettings;
-
-          // Обновляем ID полей
           FIELD_IDS.ORDER_DATE =
             parseInt(newSettings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
           FIELD_IDS.DELIVERY_RANGE =
             parseInt(newSettings.delivery_range_field) ||
             FIELD_IDS.DELIVERY_RANGE;
-
-          console.log("Updated field IDs:", FIELD_IDS);
-
-          // Перерисовываем виджет
           if (!self.isDealPage()) {
             self.renderCalendar();
           }
-
-          return true; // Важно: возвращаем true при успешном сохранении
+          return true;
         } catch (error) {
-          console.error("Error saving settings:", error);
-          return false; // Возвращаем false при ошибке
+          console.error("Save error:", error);
+          return false;
         }
       },
 
-      // Остальные обязательные callback-функции
       dpSettings: function () {
         return true;
       },
@@ -144,9 +111,6 @@ define(["jquery"], function ($) {
       },
     };
 
-    // 4. ОСНОВНЫЕ МЕТОДЫ ВИДЖЕТА
-
-    // Загрузка ID полей из настроек
     this.loadFieldIdsFromSettings = function () {
       if (self.settings.deal_date_field_id) {
         FIELD_IDS.ORDER_DATE =
@@ -157,21 +121,17 @@ define(["jquery"], function ($) {
           parseInt(self.settings.delivery_range_field) ||
           FIELD_IDS.DELIVERY_RANGE;
       }
-      console.log("Loaded field IDs:", FIELD_IDS);
     };
 
-    // Получение ID сделки из URL
     this.getDealIdFromUrl = function () {
       var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
       return match ? match[1] : null;
     };
 
-    // Проверка, находимся ли на странице сделки
     this.isDealPage = function () {
       return !!currentDealId;
     };
 
-    // Проверка авторизации
     this.checkAuth = function () {
       if (typeof AmoCRM.widgets.system === "function") {
         AmoCRM.widgets.system(widgetInstanceId).then(function (systemApi) {
@@ -184,7 +144,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Настройка интерфейса
     this.setupUI = function () {
       if (self.isDealPage()) {
         $("#widget_container").addClass("deal-widget-mode");
@@ -194,7 +153,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Форматирование заголовка месяца
     this.getMonthTitle = function () {
       var months = langs.months || [
         "Январь",
@@ -213,7 +171,6 @@ define(["jquery"], function ($) {
       return months[currentDate.getMonth()] + " " + currentDate.getFullYear();
     };
 
-    // Загрузка данных сделки
     this.loadDealData = function () {
       if (!accessToken || !currentDealId) return;
 
@@ -238,7 +195,6 @@ define(["jquery"], function ($) {
       });
     };
 
-    // Отображение виджета сделки
     this.renderDealWidget = function (deal) {
       var container = $("#widget_container");
       if (!container.length) return;
@@ -262,7 +218,6 @@ define(["jquery"], function ($) {
       `);
     };
 
-    // Рендер календаря
     this.renderCalendar = function () {
       if (isLoading) return;
       isLoading = true;
@@ -289,7 +244,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    // Рендер сетки календаря
     this.renderCalendarGrid = function (year, month) {
       var calendarElement = $("#calendar");
       if (!calendarElement.length) return;
@@ -310,12 +264,10 @@ define(["jquery"], function ($) {
       weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
       html += '</div><div class="days">';
 
-      // Пустые ячейки
       for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
         html += '<div class="day empty"></div>';
       }
 
-      // Дни месяца
       for (var day = 1; day <= daysInMonth; day++) {
         var date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
           day
@@ -338,7 +290,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    // Рендер списка сделок
     this.renderDeals = function (date) {
       var dealsContainer = $("#deals");
       var dateElement = $("#selected-date");
@@ -360,7 +311,6 @@ define(["jquery"], function ($) {
       );
     };
 
-    // Рендер карточки сделки
     this.renderDealCard = function (deal) {
       return `
         <div class="deal-card">
@@ -370,7 +320,6 @@ define(["jquery"], function ($) {
       `;
     };
 
-    // Рендер полей сделки
     this.renderDealFields = function (deal) {
       var fields = [
         { id: FIELD_IDS.DELIVERY_RANGE, name: "Доставка" },
@@ -394,7 +343,6 @@ define(["jquery"], function ($) {
         .join("");
     };
 
-    // Загрузка сделок за период
     this.fetchDeals = function (year, month) {
       if (!accessToken) return Promise.resolve({});
 
@@ -423,7 +371,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    // Обработка данных сделок
     this.processDealsData = function (data) {
       if (!data?._embedded?.leads) return {};
 
@@ -441,13 +388,11 @@ define(["jquery"], function ($) {
       }, {});
     };
 
-    // Навигация по месяцам
     this.navigateMonth = function (offset) {
       currentDate.setMonth(currentDate.getMonth() + offset);
       self.renderCalendar();
     };
 
-    // Настройка обработчиков событий
     this.setupEventListeners = function () {
       $("#prevMonth")
         .off("click")
@@ -465,7 +410,6 @@ define(["jquery"], function ($) {
         .on("click", "#openCalendar", self.openFullCalendar);
     };
 
-    // Открытие полного календаря
     this.openFullCalendar = function () {
       window.open(
         `https://${system.account}.amocrm.ru/private/widgets/calendar`,
@@ -473,7 +417,6 @@ define(["jquery"], function ($) {
       );
     };
 
-    // Обработка авторизации
     this.handleAuth = function () {
       window.location.href = `https://${
         system.account
@@ -485,12 +428,10 @@ define(["jquery"], function ($) {
       })}`;
     };
 
-    // Управление индикатором загрузки
     this.showLoading = function (show) {
       $("#loader").toggle(show);
     };
 
-    // Отображение ошибок
     this.showError = function (message) {
       var errorElement = $("#error-alert");
       if (errorElement.length) {

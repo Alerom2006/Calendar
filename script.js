@@ -6,28 +6,71 @@ define(["jquery"], function ($) {
     this.system =
       this.system ||
       function () {
-        return {};
+        return {
+          account: "spacebakery1",
+          entity_id: null,
+        };
       };
-    this.langs = this.langs || {};
-    this.settings = this.settings || {};
+
+    this.langs = this.langs || {
+      // Значения по умолчанию для русской локализации
+      widgetName: "Календарь заказов",
+      orderDate: "Дата заказа:",
+      openCalendar: "Открыть календарь",
+      dateNotSet: "Дата не указана",
+      noName: "Без названия",
+      delivery: "Доставка",
+      time: "Время",
+      address: "Адрес",
+      noDeals: "Нет сделок на эту дату",
+      authButton: "Авторизоваться в amoCRM",
+      months: [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь",
+      ],
+      weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+      errors: {
+        initialization: "Ошибка инициализации",
+        dealLoading: "Ошибка загрузки сделки",
+        dataLoading: "Ошибка загрузки данных",
+        dealsLoading: "Ошибка при загрузке сделок",
+      },
+    };
+
+    this.settings = this.settings || {
+      deal_date_field_id: 885453,
+      delivery_range_field: 892009,
+    };
 
     var system = self.system();
     var langs = self.langs;
     var currentDate = new Date();
     var widgetInstanceId = "widget-" + Date.now();
-    var accessToken = null;
+    var accessToken = localStorage.getItem(
+      "amo_access_token_" + widgetInstanceId
+    );
     var isLoading = false;
 
-    // ID полей с значениями по умолчанию
+    // ID полей с защитой от undefined
     var FIELD_IDS = {
-      ORDER_DATE: 885453,
-      DELIVERY_RANGE: 892009,
+      ORDER_DATE: parseInt(self.settings.deal_date_field_id) || 885453,
+      DELIVERY_RANGE: parseInt(self.settings.delivery_range_field) || 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,
     };
 
     var dealsData = {};
-    var currentDealId = null;
+    var currentDealId = system.entity_id || self.getDealIdFromUrl();
 
     /* ========== ОСНОВНЫЕ CALLBACK-ФУНКЦИИ ========== */
 
@@ -35,12 +78,13 @@ define(["jquery"], function ($) {
       // Инициализация виджета
       init: function () {
         try {
-          console.log("Инициализация виджета", system, langs, self.settings);
+          console.log("Инициализация виджета", system);
 
-          // Загрузка ID полей из настроек
-          self.loadFieldIds();
+          // Проверка авторизации
+          if (!accessToken && typeof AmoCRM !== "undefined") {
+            self.checkAuth();
+          }
 
-          currentDealId = self.getDealId();
           self.setupUI();
 
           if (self.isDealPage()) {
@@ -53,7 +97,7 @@ define(["jquery"], function ($) {
           return true;
         } catch (error) {
           console.error("Ошибка инициализации:", error);
-          self.showError("Ошибка инициализации виджета");
+          self.showError(langs.errors.initialization);
           return false;
         }
       },
@@ -67,24 +111,40 @@ define(["jquery"], function ($) {
       },
 
       settings: function () {
-        console.log("Открытие настроек виджета");
+        console.log("Настройки виджета открыты");
         return true;
       },
 
-      onSave: function (settings) {
+      // Ключевое исправление для ошибки "onSave"
+      onSave: function (newSettings) {
         try {
-          console.log("Сохранение настроек:", settings);
-          self.settings = settings;
-          self.loadFieldIds();
-          self.renderCalendar();
-          return true;
+          console.log("Сохранение настроек:", newSettings);
+
+          // Обновляем текущие настройки
+          self.settings = newSettings;
+
+          // Обновляем ID полей с проверкой
+          FIELD_IDS.ORDER_DATE =
+            parseInt(newSettings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
+          FIELD_IDS.DELIVERY_RANGE =
+            parseInt(newSettings.delivery_range_field) ||
+            FIELD_IDS.DELIVERY_RANGE;
+
+          console.log("Обновленные ID полей:", FIELD_IDS);
+
+          // Перерисовываем виджет
+          if (!self.isDealPage()) {
+            self.renderCalendar();
+          }
+
+          return true; // Обязательно возвращаем true при успехе
         } catch (error) {
           console.error("Ошибка сохранения настроек:", error);
           return false;
         }
       },
 
-      // Обязательные callback-функции
+      // Остальные обязательные callback-функции
       dpSettings: function () {
         return true;
       },
@@ -119,34 +179,38 @@ define(["jquery"], function ($) {
 
     /* ========== ОСНОВНЫЕ МЕТОДЫ ВИДЖЕТА ========== */
 
-    // Загрузка ID полей из настроек
-    this.loadFieldIds = function () {
-      if (self.settings.deal_date_field_id) {
-        FIELD_IDS.ORDER_DATE =
-          parseInt(self.settings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
-      }
-      if (self.settings.delivery_range_field) {
-        FIELD_IDS.DELIVERY_RANGE =
-          parseInt(self.settings.delivery_range_field) ||
-          FIELD_IDS.DELIVERY_RANGE;
-      }
-      console.log("Текущие ID полей:", FIELD_IDS);
-    };
-
-    // Получение ID текущей сделки
-    this.getDealId = function () {
-      if (system && system.entity_id) {
-        return system.entity_id;
-      }
-
-      // Альтернативный способ получения ID сделки из URL
+    // Получение ID сделки из URL
+    this.getDealIdFromUrl = function () {
       var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
       return match ? match[1] : null;
     };
 
-    // Проверка, находимся ли на странице сделки
+    // Проверка страницы сделки
     this.isDealPage = function () {
       return !!currentDealId;
+    };
+
+    // Проверка авторизации
+    this.checkAuth = function () {
+      if (
+        typeof AmoCRM !== "undefined" &&
+        AmoCRM.widgets &&
+        AmoCRM.widgets.system
+      ) {
+        AmoCRM.widgets
+          .system(widgetInstanceId)
+          .then(function (systemApi) {
+            accessToken = systemApi.access_token;
+            localStorage.setItem(
+              "amo_access_token_" + widgetInstanceId,
+              accessToken
+            );
+            self.renderCalendar();
+          })
+          .catch(function (error) {
+            console.error("Ошибка авторизации:", error);
+          });
+      }
     };
 
     // Настройка интерфейса
@@ -155,27 +219,15 @@ define(["jquery"], function ($) {
         $("#widget_container").addClass("deal-widget-mode");
       } else {
         $("#currentMonthYear").text(self.getMonthTitle());
-        $("#authButton").text(langs.authButton || "Авторизоваться");
+        $("#authButton").text(langs.authButton);
       }
     };
 
     // Форматирование заголовка месяца
     this.getMonthTitle = function () {
-      var months = langs.months || [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь",
-      ];
-      return months[currentDate.getMonth()] + " " + currentDate.getFullYear();
+      return (
+        langs.months[currentDate.getMonth()] + " " + currentDate.getFullYear()
+      );
     };
 
     // Загрузка данных сделки
@@ -195,7 +247,7 @@ define(["jquery"], function ($) {
         },
         error: function (error) {
           console.error("Ошибка загрузки сделки:", error);
-          self.showError(langs.dealLoadingError || "Ошибка загрузки сделки");
+          self.showError(langs.errors.dealLoading);
         },
         complete: function () {
           self.showLoading(false);
@@ -211,18 +263,17 @@ define(["jquery"], function ($) {
       var dateField = deal.custom_fields_values?.find(
         (f) => f.field_id == FIELD_IDS.ORDER_DATE
       );
-      var dateValue =
-        dateField?.values?.[0]?.value || langs.dateNotSet || "Дата не указана";
+      var dateValue = dateField?.values?.[0]?.value || langs.dateNotSet;
 
       container.html(`
         <div class="deal-widget">
-          <h3>${langs.widgetName || "Календарь заказов"}</h3>
+          <h3>${langs.widgetName}</h3>
           <div class="deal-date">
-            <strong>${langs.orderDate || "Дата заказа:"}</strong>
+            <strong>${langs.orderDate}</strong>
             <span>${dateValue}</span>
           </div>
           <button id="openCalendar" class="btn btn-primary mt-2">
-            ${langs.openCalendar || "Открыть календарь"}
+            ${langs.openCalendar}
           </button>
         </div>
       `);
@@ -247,7 +298,7 @@ define(["jquery"], function ($) {
         })
         .catch(function (error) {
           console.error("Ошибка загрузки данных:", error);
-          self.showError(langs.dataLoadingError || "Ошибка загрузки данных");
+          self.showError(langs.errors.dataLoading);
         })
         .finally(function () {
           isLoading = false;
@@ -262,18 +313,11 @@ define(["jquery"], function ($) {
 
       var firstDay = new Date(year, month, 1).getDay();
       var daysInMonth = new Date(year, month + 1, 0).getDate();
-      var weekdays = langs.weekdays || [
-        "Пн",
-        "Вт",
-        "Ср",
-        "Чт",
-        "Пт",
-        "Сб",
-        "Вс",
-      ];
 
       var html = '<div class="weekdays">';
-      weekdays.forEach((day) => (html += `<div class="weekday">${day}</div>`));
+      langs.weekdays.forEach(function (day) {
+        html += `<div class="weekday">${day}</div>`;
+      });
       html += '</div><div class="days">';
 
       // Пустые ячейки для первого дня недели
@@ -304,14 +348,14 @@ define(["jquery"], function ($) {
         });
     };
 
-    // Рендер списка сделок на выбранную дату
+    // Рендер списка сделок
     this.renderDeals = function (date) {
       var dealsContainer = $("#deals");
       var dateElement = $("#selected-date");
       if (!dealsContainer.length || !dateElement.length) return;
 
       dateElement.text(
-        new Date(date).toLocaleDateString(langs.locale || "ru", {
+        new Date(date).toLocaleDateString("ru", {
           day: "numeric",
           month: "long",
           year: "numeric",
@@ -319,37 +363,33 @@ define(["jquery"], function ($) {
       );
 
       var deals = dealsData[date] || [];
-      dealsContainer.html(
-        deals.length
-          ? deals.map((deal) => self.renderDealCard(deal)).join("")
-          : `<div class="no-deals">${
-              langs.noDeals || "Нет сделок на эту дату"
-            }</div>`
-      );
-    };
-
-    // Рендер карточки сделки
-    this.renderDealCard = function (deal) {
-      return `
-        <div class="deal-card">
-          <div class="deal-name">${
-            deal.name || langs.noName || "Без названия"
-          }</div>
-          ${self.renderDealFields(deal)}
-        </div>
-      `;
+      if (deals.length) {
+        var dealsHtml = deals
+          .map(function (deal) {
+            return `
+            <div class="deal-card">
+              <div class="deal-name">${deal.name || langs.noName}</div>
+              ${self.renderDealFields(deal)}
+            </div>
+          `;
+          })
+          .join("");
+        dealsContainer.html(dealsHtml);
+      } else {
+        dealsContainer.html(`<div class="no-deals">${langs.noDeals}</div>`);
+      }
     };
 
     // Рендер полей сделки
     this.renderDealFields = function (deal) {
       var fields = [
-        { id: FIELD_IDS.DELIVERY_RANGE, name: langs.delivery || "Доставка" },
-        { id: FIELD_IDS.EXACT_TIME, name: langs.time || "Время" },
-        { id: FIELD_IDS.ADDRESS, name: langs.address || "Адрес" },
+        { id: FIELD_IDS.DELIVERY_RANGE, name: langs.delivery },
+        { id: FIELD_IDS.EXACT_TIME, name: langs.time },
+        { id: FIELD_IDS.ADDRESS, name: langs.address },
       ];
 
       return fields
-        .map((field) => {
+        .map(function (field) {
           var value = deal.custom_fields_values?.find(
             (f) => f.field_id == field.id
           )?.values?.[0]?.value;
@@ -385,17 +425,17 @@ define(["jquery"], function ($) {
         timeout: 15000,
       })
         .then(function (data) {
-          return self.processDeals(data);
+          return self.processDealsData(data);
         })
         .catch(function (error) {
           console.error("Ошибка загрузки сделок:", error);
-          self.showError(langs.dealsLoadingError || "Ошибка загрузки сделок");
+          self.showError(langs.errors.dealsLoading);
           return {};
         });
     };
 
     // Обработка данных сделок
-    this.processDeals = function (data) {
+    this.processDealsData = function (data) {
       if (!data?._embedded?.leads) return {};
 
       return data._embedded.leads.reduce(function (acc, deal) {
@@ -458,7 +498,7 @@ define(["jquery"], function ($) {
 
     // Управление индикатором загрузки
     this.showLoading = function (show) {
-      $("#loader").toggle(show);
+      $("#loader").css("display", show ? "block" : "none");
     };
 
     // Отображение ошибок

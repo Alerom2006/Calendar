@@ -82,3 +82,13 @@
 #openCalendar {
   width: 100%;
 }
+.calendar-widget {
+  font-family: "Roboto", sans-serif;
+  padding: 15px;
+}
+
+.error-container {
+  background: #ffecec;
+  padding: 15px;
+  border: 1px solid #ffbdbd;
+}

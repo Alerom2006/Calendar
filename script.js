@@ -4,27 +4,26 @@ define(["jquery"], function ($) {
     var system = self.system();
     var langs = self.langs;
 
-    // Константы и переменные
+    // Фиксированные конфигурации (без настроек)
     this.widgetInstanceId = "widget-" + Date.now();
     this.currentDate = new Date();
     this.lang = system.lang || "ru";
     this.accessToken = system.access_token || null;
     this.isLoading = false;
     this.FIELD_IDS = {
-      ORDER_DATE: 885453,
-      DELIVERY_RANGE: 892009,
-      EXACT_TIME: 892003,
-      ADDRESS: 887367,
+      ORDER_DATE: 885453, // Фиксированное значение
+      DELIVERY_RANGE: 892009, // Фиксированное значение
+      EXACT_TIME: 892003, // Фиксированное значение
+      ADDRESS: 887367, // Фиксированное значение
     };
     this.dealsData = {};
     this.currentDealId = null;
 
-    // Основные callback-функции виджета
+    // Основные callback-функции
     this.callbacks = {
       init: function () {
         try {
           self.currentDealId = self.getDealIdFromUrl();
-          self.loadFieldIdsFromSettings();
           self.setupUI();
 
           if (self.isDealPage()) {
@@ -32,7 +31,6 @@ define(["jquery"], function ($) {
           } else {
             self.renderCalendar();
           }
-
           return true;
         } catch (error) {
           console.error("Ошибка инициализации:", error);
@@ -67,38 +65,19 @@ define(["jquery"], function ($) {
         $(document).on("click", ".day:not(.empty)", function () {
           self.renderDeals($(this).data("date"));
         });
-
         return true;
       },
 
-      settings: function (settings) {
-        try {
-          // Загрузка текущих настроек
-          self.loadFieldIdsFromSettings(settings);
-
-          // Обработчик сохранения настроек
-          settings.onSave(function (newSettings) {
-            try {
-              self.loadFieldIdsFromSettings(newSettings);
-              self.renderCalendar();
-              return true;
-            } catch (error) {
-              console.error("Ошибка сохранения настроек:", error);
-              return false;
-            }
-          });
-
-          return true;
-        } catch (error) {
-          console.error("Ошибка в настройках:", error);
-          return false;
-        }
+      // Пустые заглушки для обязательных методов
+      settings: function () {
+        return true;
       },
-
       onSave: function () {
         return true;
       },
-
+      dpSettings: function () {
+        return true;
+      },
       destroy: function () {
         $(document).off("click", "#prevMonth");
         $(document).off("click", "#nextMonth");
@@ -107,49 +86,20 @@ define(["jquery"], function ($) {
         $(document).off("click", ".day:not(.empty)");
         return true;
       },
-
-      dpSettings: function () {
-        return true;
-      },
     };
 
     // ========== Основные методы виджета ========== //
 
-    /**
-     * Получает ID сделки из URL или системных параметров
-     */
     this.getDealIdFromUrl = function () {
-      if (system.entity_id) {
-        return system.entity_id;
-      }
+      if (system.entity_id) return system.entity_id;
       var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
       return match ? match[1] : null;
     };
 
-    /**
-     * Проверяет, находится ли виджет на странице сделки
-     */
     this.isDealPage = function () {
       return !!this.currentDealId;
     };
 
-    /**
-     * Загружает ID полей из настроек виджета
-     */
-    this.loadFieldIdsFromSettings = function (settings) {
-      var effectiveSettings = settings || self.get_settings();
-      if (effectiveSettings) {
-        this.FIELD_IDS.ORDER_DATE =
-          effectiveSettings.deal_date_field_id || this.FIELD_IDS.ORDER_DATE;
-        this.FIELD_IDS.DELIVERY_RANGE =
-          effectiveSettings.delivery_range_field ||
-          this.FIELD_IDS.DELIVERY_RANGE;
-      }
-    };
-
-    /**
-     * Настраивает интерфейс в зависимости от контекста
-     */
     this.setupUI = function () {
       if (this.isDealPage()) {
         $("#widget_container").addClass("deal-widget-mode");
@@ -161,9 +111,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    /**
-     * Возвращает название текущего месяца и года
-     */
     this.getCurrentMonthTitle = function () {
       var months =
         this.lang === "ru"
@@ -195,7 +142,6 @@ define(["jquery"], function ($) {
               "November",
               "December",
             ];
-
       return (
         months[this.currentDate.getMonth()] +
         " " +
@@ -203,16 +149,10 @@ define(["jquery"], function ($) {
       );
     };
 
-    /**
-     * Показывает/скрывает индикатор загрузки
-     */
     this.showLoading = function (show) {
       $("#loader").css("display", show ? "block" : "none");
     };
 
-    /**
-     * Показывает сообщение об ошибке
-     */
     this.showError = function (message) {
       var errorElement = $("#error-alert");
       if (errorElement.length) {
@@ -223,9 +163,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    /**
-     * Рендерит календарь на текущий месяц
-     */
     this.renderCalendar = function () {
       if (this.isLoading) return;
       this.isLoading = true;
@@ -254,9 +191,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    /**
-     * Рендерит сетку календаря для указанного месяца и года
-     */
     this.renderCalendarGrid = function (year, month) {
       var calendarElement = $("#calendar");
       if (!calendarElement.length) return;
@@ -274,12 +208,10 @@ define(["jquery"], function ($) {
       });
       html += '</div><div class="days">';
 
-      // Пустые ячейки для первого дня месяца
       for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
         html += '<div class="day empty"></div>';
       }
 
-      // Ячейки с днями месяца
       for (var day = 1; day <= daysInMonth; day++) {
         var date =
           year +
@@ -304,9 +236,6 @@ define(["jquery"], function ($) {
       calendarElement.html(html + "</div>");
     };
 
-    /**
-     * Рендерит список сделок для указанной даты
-     */
     this.renderDeals = function (date) {
       var dealsContainer = $("#deals");
       var dateElement = $("#selected-date");
@@ -344,9 +273,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    /**
-     * Рендерит поля сделки
-     */
     this.renderDealFields = function (deal) {
       var fields = [
         {
@@ -374,9 +300,6 @@ define(["jquery"], function ($) {
         .join("");
     };
 
-    /**
-     * Загружает сделки за указанный месяц
-     */
     this.fetchDeals = function (year, month) {
       if (!this.accessToken) return Promise.resolve({});
 
@@ -411,9 +334,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    /**
-     * Обрабатывает данные о сделках
-     */
     this.processDealsData = function (data) {
       if (!data?._embedded?.leads) return {};
 
@@ -432,17 +352,11 @@ define(["jquery"], function ($) {
       }, {});
     };
 
-    /**
-     * Переключает месяц в календаре
-     */
     this.navigateMonth = function (offset) {
       this.currentDate.setMonth(this.currentDate.getMonth() + offset);
       this.renderCalendar();
     };
 
-    /**
-     * Загружает данные сделки для режима просмотра одной сделки
-     */
     this.loadDealData = function () {
       if (!this.accessToken || !this.currentDealId) return;
 
@@ -474,9 +388,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    /**
-     * Рендерит виджет для просмотра одной сделки
-     */
     this.renderDealWidget = function (deal) {
       var container = $("#widget_container");
       if (!container.length) return;
@@ -510,9 +421,6 @@ define(["jquery"], function ($) {
       );
     };
 
-    /**
-     * Обрабатывает авторизацию через OAuth
-     */
     this.handleAuth = function () {
       window.location.href =
         "https://" +
@@ -526,9 +434,6 @@ define(["jquery"], function ($) {
         });
     };
 
-    /**
-     * Открывает полную версию календаря
-     */
     this.openFullCalendar = function () {
       window.open(
         "https://" + system.account + ".amocrm.ru/private/widgets/calendar",

@@ -4,7 +4,7 @@ define(["jquery"], function ($) {
     var system = self.system();
     var langs = self.langs;
 
-    // Фиксированные конфигурации (без настроек)
+    // Фиксированные конфигурации (игнорируем настройки из manifest)
     this.widgetInstanceId = "widget-" + Date.now();
     this.currentDate = new Date();
     this.lang = system.lang || "ru";
@@ -68,16 +68,22 @@ define(["jquery"], function ($) {
         return true;
       },
 
-      // Пустые заглушки для обязательных методов
-      settings: function () {
+      settings: function (settings) {
+        // Обязательная заглушка для настроек
+        settings.onSave(function () {
+          return true; // Всегда подтверждаем сохранение
+        });
         return true;
       },
+
       onSave: function () {
         return true;
       },
+
       dpSettings: function () {
         return true;
       },
+
       destroy: function () {
         $(document).off("click", "#prevMonth");
         $(document).off("click", "#nextMonth");

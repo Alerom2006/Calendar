@@ -14,7 +14,7 @@
       "email": "your@email.com"
     }
   },
-  "locations": ["lcard-1", "deal_detail"],
+  "locations": ["lcard-1", "settings", "deal_detail"],
   "tour": {
     "is_tour": true,
     "tour_images": {
@@ -27,11 +27,17 @@
     "tour_description": "widget.tour_description"
   },
   "settings": {
-    "dummy_field": {
-      "name": "widget.dummy_field",
+    "deal_date_field_id": {
+      "name": "widget.deal_date_field",
+      "type": "text",
+      "required": true,
+      "default": "885453"
+    },
+    "delivery_range_field": {
+      "name": "widget.delivery_range",
       "type": "text",
       "required": false,
-      "default": ""
+      "default": "892009"
     }
   }
 }

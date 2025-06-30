@@ -5,7 +5,7 @@ define(["jquery"], function ($) {
     var langs = self.langs;
 
     // Константы и переменные
-    this.widgetInstanceId = `widget-${Date.now()}`;
+    this.widgetInstanceId = "widget-" + Date.now();
     this.currentDate = new Date();
     this.lang = system.lang || "ru";
     this.accessToken = system.access_token || null;
@@ -19,7 +19,7 @@ define(["jquery"], function ($) {
     this.dealsData = {};
     this.currentDealId = null;
 
-    // Основные методы виджета
+    // Основные callback-функции виджета
     this.callbacks = {
       init: function () {
         try {
@@ -73,8 +73,10 @@ define(["jquery"], function ($) {
 
       settings: function (settings) {
         try {
+          // Загрузка текущих настроек
           self.loadFieldIdsFromSettings(settings);
 
+          // Обработчик сохранения настроек
           settings.onSave(function (newSettings) {
             try {
               self.loadFieldIdsFromSettings(newSettings);
@@ -85,9 +87,16 @@ define(["jquery"], function ($) {
               return false;
             }
           });
+
+          return true;
         } catch (error) {
           console.error("Ошибка в настройках:", error);
+          return false;
         }
+      },
+
+      onSave: function () {
+        return true;
       },
 
       destroy: function () {
@@ -98,9 +107,17 @@ define(["jquery"], function ($) {
         $(document).off("click", ".day:not(.empty)");
         return true;
       },
+
+      dpSettings: function () {
+        return true;
+      },
     };
 
-    // Вспомогательные методы
+    // ========== Основные методы виджета ========== //
+
+    /**
+     * Получает ID сделки из URL или системных параметров
+     */
     this.getDealIdFromUrl = function () {
       if (system.entity_id) {
         return system.entity_id;
@@ -109,19 +126,30 @@ define(["jquery"], function ($) {
       return match ? match[1] : null;
     };
 
+    /**
+     * Проверяет, находится ли виджет на странице сделки
+     */
     this.isDealPage = function () {
       return !!this.currentDealId;
     };
 
+    /**
+     * Загружает ID полей из настроек виджета
+     */
     this.loadFieldIdsFromSettings = function (settings) {
-      if (settings) {
+      var effectiveSettings = settings || self.get_settings();
+      if (effectiveSettings) {
         this.FIELD_IDS.ORDER_DATE =
-          settings.deal_date_field_id || this.FIELD_IDS.ORDER_DATE;
+          effectiveSettings.deal_date_field_id || this.FIELD_IDS.ORDER_DATE;
         this.FIELD_IDS.DELIVERY_RANGE =
-          settings.delivery_range_field || this.FIELD_IDS.DELIVERY_RANGE;
+          effectiveSettings.delivery_range_field ||
+          this.FIELD_IDS.DELIVERY_RANGE;
       }
     };
 
+    /**
+     * Настраивает интерфейс в зависимости от контекста
+     */
     this.setupUI = function () {
       if (this.isDealPage()) {
         $("#widget_container").addClass("deal-widget-mode");
@@ -133,6 +161,9 @@ define(["jquery"], function ($) {
       }
     };
 
+    /**
+     * Возвращает название текущего месяца и года
+     */
     this.getCurrentMonthTitle = function () {
       var months =
         this.lang === "ru"
@@ -172,17 +203,29 @@ define(["jquery"], function ($) {
       );
     };
 
+    /**
+     * Показывает/скрывает индикатор загрузки
+     */
     this.showLoading = function (show) {
       $("#loader").css("display", show ? "block" : "none");
     };
 
+    /**
+     * Показывает сообщение об ошибке
+     */
     this.showError = function (message) {
       var errorElement = $("#error-alert");
       if (errorElement.length) {
         errorElement.text(message).removeClass("d-none");
+        setTimeout(function () {
+          errorElement.addClass("d-none");
+        }, 5000);
       }
     };
 
+    /**
+     * Рендерит календарь на текущий месяц
+     */
     this.renderCalendar = function () {
       if (this.isLoading) return;
       this.isLoading = true;
@@ -211,6 +254,9 @@ define(["jquery"], function ($) {
         });
     };
 
+    /**
+     * Рендерит сетку календаря для указанного месяца и года
+     */
     this.renderCalendarGrid = function (year, month) {
       var calendarElement = $("#calendar");
       if (!calendarElement.length) return;
@@ -228,10 +274,12 @@ define(["jquery"], function ($) {
       });
       html += '</div><div class="days">';
 
+      // Пустые ячейки для первого дня месяца
       for (var i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
         html += '<div class="day empty"></div>';
       }
 
+      // Ячейки с днями месяца
       for (var day = 1; day <= daysInMonth; day++) {
         var date =
           year +
@@ -239,7 +287,7 @@ define(["jquery"], function ($) {
           String(month + 1).padStart(2, "0") +
           "-" +
           String(day).padStart(2, "0");
-        var dealCount = this.dealsData[date]?.length || 0;
+        var dealCount = self.dealsData[date]?.length || 0;
         html +=
           '<div class="day ' +
           (dealCount ? "has-deals" : "") +
@@ -256,6 +304,9 @@ define(["jquery"], function ($) {
       calendarElement.html(html + "</div>");
     };
 
+    /**
+     * Рендерит список сделок для указанной даты
+     */
     this.renderDeals = function (date) {
       var dealsContainer = $("#deals");
       var dateElement = $("#selected-date");
@@ -272,18 +323,16 @@ define(["jquery"], function ($) {
       var deals = this.dealsData[date] || [];
       if (deals.length) {
         var html = deals
-          .map(
-            function (deal) {
-              return (
-                '<div class="deal-card">' +
-                '<div class="deal-name">' +
-                (deal.name || langs.widget?.no_name || "Без названия") +
-                "</div>" +
-                this.renderDealFields(deal) +
-                "</div>"
-              );
-            }.bind(this)
-          )
+          .map(function (deal) {
+            return (
+              '<div class="deal-card">' +
+              '<div class="deal-name">' +
+              (deal.name || langs.widget?.no_name || "Без названия") +
+              "</div>" +
+              self.renderDealFields(deal) +
+              "</div>"
+            );
+          })
           .join("");
         dealsContainer.html(html);
       } else {
@@ -295,6 +344,9 @@ define(["jquery"], function ($) {
       }
     };
 
+    /**
+     * Рендерит поля сделки
+     */
     this.renderDealFields = function (deal) {
       var fields = [
         {
@@ -322,6 +374,9 @@ define(["jquery"], function ($) {
         .join("");
     };
 
+    /**
+     * Загружает сделки за указанный месяц
+     */
     this.fetchDeals = function (year, month) {
       if (!this.accessToken) return Promise.resolve({});
 
@@ -344,50 +399,50 @@ define(["jquery"], function ($) {
         },
         timeout: 15000,
       })
-        .then(
-          function (data) {
-            return this.processDealsData(data);
-          }.bind(this)
-        )
-        .fail(
-          function (error) {
-            console.error("Ошибка при загрузке сделок:", error);
-            this.showError(
-              langs.errors?.deals_loading || "Ошибка при загрузке сделок"
-            );
-            return {};
-          }.bind(this)
-        );
+        .then(function (data) {
+          return self.processDealsData(data);
+        })
+        .fail(function (error) {
+          console.error("Ошибка при загрузке сделок:", error);
+          self.showError(
+            langs.errors?.deals_loading || "Ошибка при загрузке сделок"
+          );
+          return {};
+        });
     };
 
+    /**
+     * Обрабатывает данные о сделках
+     */
     this.processDealsData = function (data) {
       if (!data?._embedded?.leads) return {};
 
-      return data._embedded.leads.reduce(
-        function (acc, deal) {
-          var dateField = deal.custom_fields_values?.find(
-            function (f) {
-              return f.field_id == this.FIELD_IDS.ORDER_DATE;
-            }.bind(this)
-          );
+      return data._embedded.leads.reduce(function (acc, deal) {
+        var dateField = deal.custom_fields_values?.find(function (f) {
+          return f.field_id == self.FIELD_IDS.ORDER_DATE;
+        });
 
-          var date =
-            dateField?.values?.[0]?.value?.split(" ")[0] ||
-            new Date(deal.created_at * 1000).toISOString().split("T")[0];
+        var date =
+          dateField?.values?.[0]?.value?.split(" ")[0] ||
+          new Date(deal.created_at * 1000).toISOString().split("T")[0];
 
-          if (!acc[date]) acc[date] = [];
-          acc[date].push(deal);
-          return acc;
-        }.bind(this),
-        {}
-      );
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(deal);
+        return acc;
+      }, {});
     };
 
+    /**
+     * Переключает месяц в календаре
+     */
     this.navigateMonth = function (offset) {
       this.currentDate.setMonth(this.currentDate.getMonth() + offset);
       this.renderCalendar();
     };
 
+    /**
+     * Загружает данные сделки для режима просмотра одной сделки
+     */
     this.loadDealData = function () {
       if (!this.accessToken || !this.currentDealId) return;
 
@@ -419,15 +474,16 @@ define(["jquery"], function ($) {
         });
     };
 
+    /**
+     * Рендерит виджет для просмотра одной сделки
+     */
     this.renderDealWidget = function (deal) {
       var container = $("#widget_container");
       if (!container.length) return;
 
-      var dateField = deal.custom_fields_values?.find(
-        function (f) {
-          return f.field_id == this.FIELD_IDS.ORDER_DATE;
-        }.bind(this)
-      );
+      var dateField = deal.custom_fields_values?.find(function (f) {
+        return f.field_id == self.FIELD_IDS.ORDER_DATE;
+      });
 
       var dateValue =
         dateField?.values?.[0]?.value ||
@@ -454,6 +510,9 @@ define(["jquery"], function ($) {
       );
     };
 
+    /**
+     * Обрабатывает авторизацию через OAuth
+     */
     this.handleAuth = function () {
       window.location.href =
         "https://" +
@@ -467,6 +526,9 @@ define(["jquery"], function ($) {
         });
     };
 
+    /**
+     * Открывает полную версию календаря
+     */
     this.openFullCalendar = function () {
       window.open(
         "https://" + system.account + ".amocrm.ru/private/widgets/calendar",

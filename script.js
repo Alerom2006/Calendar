@@ -1,10 +1,8 @@
 class OrdersCalendarWidget {
   constructor() {
-    this.widgetInstance = null;
+    this.widget = null;
     this.currentDate = new Date();
     this.lang = "ru";
-    this.accessToken = null;
-    this.dealsData = {};
     this.fieldIds = {
       orderDate: 885453,
       deliveryRange: 892009,
@@ -13,16 +11,17 @@ class OrdersCalendarWidget {
 
   async init() {
     try {
-      await this.waitForAmoReady();
-      this.widgetInstance = await this.createWidgetInstance();
-      await this.setupWidget();
+      await this.waitForAMO();
+      this.setupWidget();
+      await this.loadSettings();
+      await this.render();
     } catch (error) {
-      console.error("Widget init failed:", error);
-      this.showError("Ошибка инициализации виджета");
+      console.error("Widget init error:", error);
+      this.showError("Ошибка загрузки виджета");
     }
   }
 
-  async waitForAmoReady() {
+  async waitForAMO() {
     return new Promise((resolve) => {
       if (typeof AmoCRM !== "undefined" && AmoCRM.onReady) {
         AmoCRM.onReady(resolve);
@@ -32,150 +31,150 @@ class OrdersCalendarWidget {
     });
   }
 
-  async createWidgetInstance() {
-    return new Promise((resolve) => {
-      if (typeof AmoCRM === "undefined" || !AmoCRM.widgets) {
-        resolve(null);
-        return;
-      }
-
-      AmoCRM.widgets.create(
-        "OrdersCalendarWidget",
-        (widget) => resolve(widget),
-        { ext_id: "com.alerom.calendar" }
-      );
-    });
-  }
-
-  async setupWidget() {
-    if (!this.widgetInstance) {
+  setupWidget() {
+    if (typeof AmoCRM === "undefined" || !AmoCRM.widgets) {
       this.showStandaloneWarning();
       return;
     }
 
-    this.lang = this.widgetInstance.getLang() || "ru";
-    this.accessToken = this.widgetInstance.getToken();
-
-    await this.loadSettings();
-    this.setupEventListeners();
-    await this.renderCalendar();
+    this.widget = AmoCRM.widgets.create("OrdersCalendar", {
+      onSave: async () => {
+        await this.handleSettingsSave();
+        return { status: "success" };
+      },
+      onInit: async () => {
+        this.accessToken = this.widget.getToken();
+        this.lang = this.widget.getLang() || "ru";
+      },
+    });
   }
 
   async loadSettings() {
     try {
-      const settings = await this.widgetInstance.loadSettings();
-      if (settings) {
-        this.fieldIds.orderDate =
-          settings.deal_date_field_id || this.fieldIds.orderDate;
-        this.fieldIds.deliveryRange =
-          settings.delivery_range_field || this.fieldIds.deliveryRange;
-      }
+      const settings = (await this.widget?.loadSettings()) || {};
+      this.fieldIds.orderDate =
+        settings.deal_date_field_id || this.fieldIds.orderDate;
+      this.fieldIds.deliveryRange =
+        settings.delivery_range_field || this.fieldIds.deliveryRange;
     } catch (error) {
-      console.error("Settings load error:", error);
+      console.warn("Settings load error:", error);
     }
   }
 
-  async renderCalendar() {
+  async handleSettingsSave() {
+    await this.loadSettings();
+    await this.render();
+  }
+
+  async render() {
     try {
-      this.widgetInstance.showLoading(true);
+      this.widget?.showLoading(true);
+      const deals = await this.fetchDeals();
 
-      const year = this.currentDate.getFullYear();
-      const month = this.currentDate.getMonth();
-      this.dealsData = await this.fetchDeals(year, month);
-
-      this.widgetInstance.render({
-        template: this.getCalendarTemplate(year, month),
+      this.widget?.render({
+        template: this.getTemplate(deals),
         data: {
-          monthTitle: this.getMonthTitle(),
-          deals: this.dealsData,
+          month: this.getMonthName(),
+          year: this.currentDate.getFullYear(),
         },
       });
-    } catch (error) {
-      console.error("Render error:", error);
-      this.showError("Ошибка загрузки данных");
     } finally {
-      this.widgetInstance.showLoading(false);
+      this.widget?.showLoading(false);
     }
   }
 
-  getCalendarTemplate(year, month) {
-    const weekdays =
-      this.lang === "ru"
-        ? ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-    let html = `<div class="calendar">
-      <div class="calendar-header">
-        <button class="prev-month">&lt;</button>
-        <h2>${this.getMonthTitle()}</h2>
-        <button class="next-month">&gt;</button>
-      </div>
-      <div class="weekdays">${weekdays
-        .map((day) => `<div>${day}</div>`)
-        .join("")}</div>
-      <div class="days">`;
-
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
-      html += '<div class="empty"></div>';
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-        day
-      ).padStart(2, "0")}`;
-      const dealsCount = this.dealsData[date]?.length || 0;
-      html += `<div class="day" data-date="${date}">
-        ${day}${dealsCount ? `<span class="badge">${dealsCount}</span>` : ""}
-      </div>`;
-    }
-
-    return html + "</div></div>";
-  }
-
-  async fetchDeals(year, month) {
+  async fetchDeals() {
     if (!this.accessToken) return {};
 
     try {
-      const startDate = new Date(year, month, 1).toISOString().split("T")[0];
-      const endDate = new Date(year, month + 1, 0).toISOString().split("T")[0];
-
-      const response = await this.widgetInstance.request({
-        url: `/api/v4/leads?${new URLSearchParams({
-          "filter[custom_fields_values][field_id]": this.fieldIds.orderDate,
-          "filter[custom_fields_values][from]": startDate,
-          "filter[custom_fields_values][to]": endDate,
-        })}`,
-        method: "GET",
+      const response = await fetch(this.getDealsUrl(), {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "X-Requested-With": "XMLHttpRequest",
+        },
       });
 
-      return this.processDealsData(response.data);
+      return response.ok ? this.processData(await response.json()) : {};
     } catch (error) {
-      console.error("Fetch deals error:", error);
+      console.error("Fetch error:", error);
       return {};
     }
   }
 
-  processDealsData(data) {
-    if (!data?._embedded?.leads) return {};
+  getDealsUrl() {
+    const start = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth(),
+      1
+    )
+      .toISOString()
+      .split("T")[0];
+    const end = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth() + 1,
+      0
+    )
+      .toISOString()
+      .split("T")[0];
 
-    return data._embedded.leads.reduce((acc, deal) => {
-      const dateField = deal.custom_fields_values?.find(
-        (f) => f.field_id == this.fieldIds.orderDate
-      );
-      const date =
-        dateField?.values?.[0]?.value?.split(" ")[0] ||
-        new Date(deal.created_at * 1000).toISOString().split("T")[0];
-
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(deal);
-      return acc;
-    }, {});
+    return `https://${this.widget.getDomain()}/api/v4/leads?${new URLSearchParams(
+      {
+        "filter[custom_fields_values][field_id]": this.fieldIds.orderDate,
+        "filter[custom_fields_values][from]": start,
+        "filter[custom_fields_values][to]": end,
+      }
+    )}`;
   }
 
-  getMonthTitle() {
+  getTemplate(deals) {
+    return `
+      <div class="calendar">
+        ${this.getHeader()}
+        ${this.getDaysGrid(deals)}
+      </div>
+    `;
+  }
+
+  getHeader() {
+    return `
+      <div class="header">
+        <button class="prev">&lt;</button>
+        <h2>${this.getMonthName()} ${this.currentDate.getFullYear()}</h2>
+        <button class="next">&gt;</button>
+      </div>
+    `;
+  }
+
+  getDaysGrid(deals) {
+    const days = [];
+    const daysInMonth = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth() + 1,
+      0
+    ).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${this.currentDate.getFullYear()}-${(
+        this.currentDate.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+      days.push(`
+        <div class="day" data-date="${date}">
+          ${day}
+          ${
+            deals[date]?.length
+              ? `<span class="count">${deals[date].length}</span>`
+              : ""
+          }
+        </div>
+      `);
+    }
+
+    return `<div class="days">${days.join("")}</div>`;
+  }
+
+  getMonthName() {
     const months =
       this.lang === "ru"
         ? [
@@ -206,89 +205,26 @@ class OrdersCalendarWidget {
             "November",
             "December",
           ];
-
-    return `${
-      months[this.currentDate.getMonth()]
-    } ${this.currentDate.getFullYear()}`;
-  }
-
-  setupEventListeners() {
-    this.widgetInstance.on("prevMonth", () => this.navigateMonth(-1));
-    this.widgetInstance.on("nextMonth", () => this.navigateMonth(1));
-    this.widgetInstance.on("dayClick", (date) => this.showDeals(date));
-
-    this.widgetInstance.on("settingsSave", async () => {
-      await this.loadSettings();
-      await this.renderCalendar();
-      return true;
-    });
-  }
-
-  async navigateMonth(offset) {
-    this.currentDate.setMonth(this.currentDate.getMonth() + offset);
-    await this.renderCalendar();
-  }
-
-  showDeals(date) {
-    const deals = this.dealsData[date] || [];
-    this.widgetInstance.render({
-      template: `
-        <div class="deals-list">
-          <h3>Сделки на ${new Date(date).toLocaleDateString(this.lang)}</h3>
-          ${
-            deals.length
-              ? deals
-                  .map(
-                    (deal) => `
-              <div class="deal-card">
-                <div class="deal-name">${deal.name || "Без названия"}</div>
-                ${this.renderDealFields(deal)}
-              </div>
-            `
-                  )
-                  .join("")
-              : '<div class="no-deals">Нет сделок на эту дату</div>'
-          }
-        </div>
-      `,
-    });
-  }
-
-  renderDealFields(deal) {
-    const fields = [
-      { id: this.fieldIds.deliveryRange, name: "Доставка" },
-      { id: this.fieldIds.exactTime, name: "Время" },
-      { id: this.fieldIds.address, name: "Адрес" },
-    ];
-
-    return fields
-      .map((field) => {
-        const value = deal.custom_fields_values?.find(
-          (f) => f.field_id == field.id
-        )?.values?.[0]?.value;
-
-        return value
-          ? `
-        <div class="deal-field">
-          <strong>${field.name}:</strong> ${value}
-        </div>
-      `
-          : "";
-      })
-      .join("");
+    return months[this.currentDate.getMonth()];
   }
 
   showError(message) {
-    this.widgetInstance.render({
-      template: `<div class="error-message">${message}</div>`,
-    });
+    const container = document.getElementById("widget-container");
+    if (container) {
+      container.innerHTML = `<div class="error">${message}</div>`;
+    }
   }
 
   showStandaloneWarning() {
-    console.warn("Widget runs without amoCRM integration");
+    console.warn("Widget runs in standalone mode");
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  new OrdersCalendarWidget().init();
-});
+// Инициализация с защитой от ошибок
+try {
+  document.addEventListener("DOMContentLoaded", () => {
+    new OrdersCalendarWidget().init();
+  });
+} catch (error) {
+  console.error("Global widget error:", error);
+}

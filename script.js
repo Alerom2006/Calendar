@@ -1,194 +1,230 @@
-class OrdersCalendar {
+class OrdersCalendarWidget {
   constructor() {
-    this.safeMode = false;
-    this.init();
+    this.widget = null;
+    this.currentDate = new Date();
+    this.lang = "ru";
+    this.fieldIds = {
+      orderDate: 885453,
+      deliveryRange: 892009,
+    };
   }
 
   async init() {
     try {
-      await this.detectEnvironment();
+      await this.waitForAMO();
+      this.setupWidget();
       await this.loadSettings();
-      await this.setupWidget();
-      this.renderUI();
+      await this.render();
     } catch (error) {
-      this.handleCriticalError(error);
+      console.error("Widget init error:", error);
+      this.showError("Ошибка загрузки виджета");
     }
   }
 
-  async detectEnvironment() {
-    if (typeof AmoCRM === "undefined") {
-      this.safeMode = true;
+  async waitForAMO() {
+    return new Promise((resolve) => {
+      if (typeof AmoCRM !== "undefined" && AmoCRM.onReady) {
+        AmoCRM.onReady(resolve);
+      } else {
+        setTimeout(resolve, 1000);
+      }
+    });
+  }
+
+  setupWidget() {
+    if (typeof AmoCRM === "undefined" || !AmoCRM.widgets) {
+      this.showStandaloneWarning();
       return;
     }
 
-    try {
-      await new Promise((resolve) => {
-        if (AmoCRM.onReady) {
-          AmoCRM.onReady(resolve);
-        } else {
-          setTimeout(resolve, 1500);
-        }
-      });
-
-      if (!AmoCRM.widgets?.settings) {
-        this.safeMode = true;
-      }
-    } catch {
-      this.safeMode = true;
-    }
+    this.widget = AmoCRM.widgets.create("OrdersCalendar", {
+      onSave: async () => {
+        await this.handleSettingsSave();
+        return { status: "success" };
+      },
+      onInit: async () => {
+        this.accessToken = this.widget.getToken();
+        this.lang = this.widget.getLang() || "ru";
+      },
+    });
   }
 
   async loadSettings() {
-    this.settings = {
-      deal_date_field_id: 885453,
-      delivery_range_field: 892009,
-    };
-
-    if (this.safeMode) return;
-
     try {
-      const loadedSettings = await new Promise((resolve) => {
-        setTimeout(() => resolve(window.widgetSettings || {}), 1000);
-      });
-      Object.assign(this.settings, loadedSettings);
-    } catch {
-      this.safeMode = true;
+      const settings = (await this.widget?.loadSettings()) || {};
+      this.fieldIds.orderDate =
+        settings.deal_date_field_id || this.fieldIds.orderDate;
+      this.fieldIds.deliveryRange =
+        settings.delivery_range_field || this.fieldIds.deliveryRange;
+    } catch (error) {
+      console.warn("Settings load error:", error);
     }
   }
 
-  async setupWidget() {
-    if (this.safeMode) return;
+  async handleSettingsSave() {
+    await this.loadSettings();
+    await this.render();
+  }
+
+  async render() {
+    try {
+      this.widget?.showLoading(true);
+      const deals = await this.fetchDeals();
+
+      this.widget?.render({
+        template: this.getTemplate(deals),
+        data: {
+          month: this.getMonthName(),
+          year: this.currentDate.getFullYear(),
+        },
+      });
+    } finally {
+      this.widget?.showLoading(false);
+    }
+  }
+
+  async fetchDeals() {
+    if (!this.accessToken) return {};
 
     try {
-      this.widgetInstance = await new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          resolve(null);
-        }, 2000);
-
-        if (AmoCRM.widgets?.create) {
-          AmoCRM.widgets.create("OrdersCalendar", (widget) => {
-            clearTimeout(timeout);
-            resolve(widget);
-          });
-        } else {
-          clearTimeout(timeout);
-          resolve(null);
-        }
+      const response = await fetch(this.getDealsUrl(), {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "X-Requested-With": "XMLHttpRequest",
+        },
       });
 
-      if (!this.widgetInstance) {
-        this.safeMode = true;
+      return response.ok ? this.processData(await response.json()) : {};
+    } catch (error) {
+      console.error("Fetch error:", error);
+      return {};
+    }
+  }
+
+  getDealsUrl() {
+    const start = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth(),
+      1
+    )
+      .toISOString()
+      .split("T")[0];
+    const end = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth() + 1,
+      0
+    )
+      .toISOString()
+      .split("T")[0];
+
+    return `https://${this.widget.getDomain()}/api/v4/leads?${new URLSearchParams(
+      {
+        "filter[custom_fields_values][field_id]": this.fieldIds.orderDate,
+        "filter[custom_fields_values][from]": start,
+        "filter[custom_fields_values][to]": end,
       }
-    } catch {
-      this.safeMode = true;
-    }
+    )}`;
   }
 
-  renderUI() {
-    if (this.safeMode) {
-      this.renderStandaloneUI();
-      return;
-    }
-
-    try {
-      this.widgetInstance.render({
-        template: this.getMainTemplate(),
-        data: {},
-      });
-
-      this.widgetInstance.on("save", () => this.handleSave());
-    } catch {
-      this.safeMode = true;
-      this.renderStandaloneUI();
-    }
-  }
-
-  getMainTemplate() {
-    return `
-      <div class="calendar-widget">
-        <div class="header">
-          <h2>Календарь заказов</h2>
-        </div>
-        <div class="content">
-          ${this.getCalendarTemplate()}
-        </div>
-      </div>
-    `;
-  }
-
-  getCalendarTemplate() {
-    const date = new Date();
+  getTemplate(deals) {
     return `
       <div class="calendar">
-        <div class="month-header">
-          <button class="prev-month">&lt;</button>
-          <span>${this.getMonthName(date)} ${date.getFullYear()}</span>
-          <button class="next-month">&gt;</button>
-        </div>
-        <div class="days-grid"></div>
+        ${this.getHeader()}
+        ${this.getDaysGrid(deals)}
       </div>
     `;
   }
 
-  getMonthName(date) {
-    const months = [
-      "Январь",
-      "Февраль",
-      "Март",
-      "Апрель",
-      "Май",
-      "Июнь",
-      "Июль",
-      "Август",
-      "Сентябрь",
-      "Октябрь",
-      "Ноябрь",
-      "Декабрь",
-    ];
-    return months[date.getMonth()];
+  getHeader() {
+    return `
+      <div class="header">
+        <button class="prev">&lt;</button>
+        <h2>${this.getMonthName()} ${this.currentDate.getFullYear()}</h2>
+        <button class="next">&gt;</button>
+      </div>
+    `;
   }
 
-  renderStandaloneUI() {
-    const container =
-      document.getElementById("widget-container") || document.body;
-    container.innerHTML = this.getMainTemplate();
+  getDaysGrid(deals) {
+    const days = [];
+    const daysInMonth = new Date(
+      this.currentDate.getFullYear(),
+      this.currentDate.getMonth() + 1,
+      0
+    ).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${this.currentDate.getFullYear()}-${(
+        this.currentDate.getMonth() + 1
+      )
+        .toString()
+        .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+      days.push(`
+        <div class="day" data-date="${date}">
+          ${day}
+          ${
+            deals[date]?.length
+              ? `<span class="count">${deals[date].length}</span>`
+              : ""
+          }
+        </div>
+      `);
+    }
+
+    return `<div class="days">${days.join("")}</div>`;
   }
 
-  async handleSave() {
-    try {
-      if (this.safeMode) return false;
+  getMonthName() {
+    const months =
+      this.lang === "ru"
+        ? [
+            "Январь",
+            "Февраль",
+            "Март",
+            "Апрель",
+            "Май",
+            "Июнь",
+            "Июль",
+            "Август",
+            "Сентябрь",
+            "Октябрь",
+            "Ноябрь",
+            "Декабрь",
+          ]
+        : [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ];
+    return months[this.currentDate.getMonth()];
+  }
 
-      await this.loadSettings();
-      return { status: "success" };
-    } catch {
-      return { status: "error" };
+  showError(message) {
+    const container = document.getElementById("widget-container");
+    if (container) {
+      container.innerHTML = `<div class="error">${message}</div>`;
     }
   }
 
-  handleCriticalError(error) {
-    console.error("CRITICAL ERROR:", error);
-    const errorContainer = document.createElement("div");
-    errorContainer.className = "error-container";
-    errorContainer.innerHTML = `
-      <p>Виджет временно недоступен</p>
-      <button class="retry-btn">Попробовать снова</button>
-    `;
-    (document.getElementById("widget-container") || document.body).appendChild(
-      errorContainer
-    );
-
-    errorContainer.querySelector(".retry-btn").addEventListener("click", () => {
-      errorContainer.remove();
-      this.init();
-    });
+  showStandaloneWarning() {
+    console.warn("Widget runs in standalone mode");
   }
 }
 
-// Запуск с максимальной защитой
+// Инициализация с защитой от ошибок
 try {
   document.addEventListener("DOMContentLoaded", () => {
-    new OrdersCalendar();
+    new OrdersCalendarWidget().init();
   });
-} catch (e) {
-  console.error("Global initialization failed:", e);
+} catch (error) {
+  console.error("Global widget error:", error);
 }

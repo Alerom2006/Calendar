@@ -25,5 +25,13 @@
       ]
     },
     "tour_description": "widget.tour_description"
+  },
+  "settings": {
+    "dummy_field": {
+      "name": "widget.dummy_field",
+      "type": "text",
+      "required": false,
+      "default": ""
+    }
   }
 }

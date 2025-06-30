@@ -8,7 +8,8 @@
     "account": "Account",
     "language": "Language",
     "deal_date_field": "Order date field ID",
-    "delivery_range": "Delivery range field ID"
+    "delivery_range": "Delivery range field ID",
+    "dummy_field": "Not used"
   },
   "settings": {
     "api_key": "API Key for integration",

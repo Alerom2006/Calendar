@@ -8,7 +8,8 @@
     "account": "Аккаунт",
     "language": "Язык",
     "deal_date_field": "ID поля даты заказа",
-    "delivery_range": "ID поля диапазона доставки"
+    "delivery_range": "ID поля диапазона доставки",
+    "dummy_field": "Не используется"
   },
   "settings": {
     "api_key": "API-ключ для интеграции",

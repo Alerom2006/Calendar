@@ -2,66 +2,17 @@ define(["jquery"], function ($) {
   var OrdersCalendar = function () {
     var self = this;
 
-    this.system =
-      this.system ||
-      function () {
-        return {
-          account: "spacebakery1",
-          entity_id: null,
-        };
-      };
-
-    this.langs = this.langs || {
-      months: [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь",
-      ],
-      weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-      widgetName: "Календарь заказов",
-      orderDate: "Дата заказа:",
-      openCalendar: "Открыть календарь",
-      noDeals: "Нет сделок на эту дату",
-      noName: "Без названия",
-      delivery: "Доставка",
-      time: "Время",
-      address: "Адрес",
+    // 1. Объявляем все вспомогательные функции ПЕРВЫМИ
+    this.getDealIdFromUrl = function () {
+      var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
+      return match ? match[1] : null;
     };
 
-    this.settings = this.settings || {
-      deal_date_field_id: "885453",
-      delivery_range_field: "892009",
+    this.isDealPage = function () {
+      currentDealId = system.entity_id || self.getDealIdFromUrl();
+      return !!currentDealId;
     };
 
-    var system = self.system();
-    var langs = self.langs;
-    var currentDate = new Date();
-    var widgetInstanceId = "widget-" + Date.now();
-    var accessToken = localStorage.getItem(
-      "amo_access_token_" + widgetInstanceId
-    );
-    var isLoading = false;
-
-    var FIELD_IDS = {
-      ORDER_DATE: parseInt(self.settings.deal_date_field_id) || 885453,
-      DELIVERY_RANGE: parseInt(self.settings.delivery_range_field) || 892009,
-      EXACT_TIME: 892003,
-      ADDRESS: 887367,
-    };
-
-    var dealsData = {};
-    var currentDealId = system.entity_id || null;
-
-    // Методы виджета
     this.loadFieldIdsFromSettings = function () {
       if (self.settings.deal_date_field_id) {
         FIELD_IDS.ORDER_DATE =
@@ -74,16 +25,7 @@ define(["jquery"], function ($) {
       }
     };
 
-    this.getDealIdFromUrl = function () {
-      var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
-      return match ? match[1] : null;
-    };
-
-    this.isDealPage = function () {
-      currentDealId = system.entity_id || self.getDealIdFromUrl();
-      return !!currentDealId;
-    };
-
+    // 2. Объявляем основные методы
     this.checkAuth = function () {
       if (typeof AmoCRM.widgets.system === "function") {
         AmoCRM.widgets.system(widgetInstanceId).then(function (systemApi) {
@@ -375,7 +317,67 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Перенесенный объект callbacks
+    // 3. Объявляем переменные ПОСЛЕ функций
+    this.system =
+      this.system ||
+      function () {
+        return {
+          account: "spacebakery1",
+          entity_id: null,
+        };
+      };
+
+    this.langs = this.langs || {
+      months: [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь",
+      ],
+      weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+      widgetName: "Календарь заказов",
+      orderDate: "Дата заказа:",
+      openCalendar: "Открыть календарь",
+      noDeals: "Нет сделок на эту дату",
+      noName: "Без названия",
+      delivery: "Доставка",
+      time: "Время",
+      address: "Адрес",
+    };
+
+    this.settings = this.settings || {
+      deal_date_field_id: "885453",
+      delivery_range_field: "892009",
+    };
+
+    var system = self.system();
+    var langs = self.langs;
+    var currentDate = new Date();
+    var widgetInstanceId = "widget-" + Date.now();
+    var accessToken = localStorage.getItem(
+      "amo_access_token_" + widgetInstanceId
+    );
+    var isLoading = false;
+
+    var FIELD_IDS = {
+      ORDER_DATE: parseInt(self.settings.deal_date_field_id) || 885453,
+      DELIVERY_RANGE: parseInt(self.settings.delivery_range_field) || 892009,
+      EXACT_TIME: 892003,
+      ADDRESS: 887367,
+    };
+
+    var dealsData = {};
+    var currentDealId = system.entity_id || null;
+
+    // 4. Объект callbacks в самом конце, как рекомендовала техподдержка
     this.callbacks = {
       init: function () {
         try {

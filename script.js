@@ -51,15 +51,18 @@ define(["jquery"], function ($) {
       },
     };
 
+    this.getDealIdFromUrl = function () {
+      const match = window.location.pathname.match(/leads\/detail\/(\d+)/);
+      return match ? match[1] : null;
+    };
+
     this.initSystem = function () {
       return new Promise((resolve, reject) => {
         if (typeof AmoCRM === "undefined") {
-          self.log("AmoCRM API not available");
           return reject(new Error("AmoCRM API not available"));
         }
 
         if (typeof AmoCRM.widgets.system !== "function") {
-          self.log("AmoCRM.widgets.system is not a function");
           return reject(new Error("Invalid amoCRM API"));
         }
 
@@ -92,8 +95,7 @@ define(["jquery"], function ($) {
         return true;
       }
 
-      const match = window.location.pathname.match(/leads\/detail\/(\d+)/);
-      return !!match;
+      return !!self.getDealIdFromUrl();
     };
 
     this.loadDeals = function (dateFrom, dateTo) {
@@ -118,7 +120,41 @@ define(["jquery"], function ($) {
       });
     };
 
-    this.callbacks = {
+    this.log = function (...args) {
+      if (self.config.debugMode) {
+        console.log("[OrdersCalendar]", ...args);
+      }
+    };
+
+    this.setupUI = function () {
+      if (self.isDealPage()) {
+        self.renderDealView();
+      } else {
+        self.renderCalendarView();
+      }
+    };
+
+    this.applySettings = function (settings) {
+      if (settings.deal_date_field_id) {
+        self.fieldIds.ORDER_DATE =
+          parseInt(settings.deal_date_field_id) || self.fieldIds.ORDER_DATE;
+      }
+      if (settings.delivery_range_field) {
+        self.fieldIds.DELIVERY_RANGE =
+          parseInt(settings.delivery_range_field) ||
+          self.fieldIds.DELIVERY_RANGE;
+      }
+    };
+
+    this.renderDealView = function () {
+      // Реализация отображения сделки
+    };
+
+    this.renderCalendarView = function () {
+      // Реализация календаря
+    };
+
+    const callbacks = {
       init: function () {
         return self
           .initSystem()
@@ -192,27 +228,13 @@ define(["jquery"], function ($) {
       },
     };
 
-    this.log = function (...args) {
-      if (self.config.debugMode) {
-        console.log("[OrdersCalendar]", ...args);
-      }
-    };
-
-    this.setupUI = function () {
-      if (self.isDealPage()) {
-        self.renderDealView();
-      } else {
-        self.renderCalendarView();
-      }
-    };
-
     return {
       __amowidget__: true,
-      callbacks: self.callbacks,
+      callbacks: callbacks,
 
-      init: self.callbacks.init,
-      onSave: self.callbacks.onSave,
-      render: self.callbacks.render,
+      init: callbacks.init,
+      onSave: callbacks.onSave,
+      render: callbacks.render,
 
       _widget: self,
     };

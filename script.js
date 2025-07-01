@@ -1,37 +1,31 @@
 define(["jquery"], function ($) {
-  // 1. Основной конструктор
+  "use strict";
+
+  // 1. Основной конструктор виджета
   function OrdersCalendar() {
     // Сохраняем контекст
     const self = this;
 
-    // 2. Конфигурация
-    this.config = {
-      widgetInstanceId: "orders-calendar-" + Date.now(),
-      FIELD_IDS: {
-        ORDER_DATE: 885453,
-        DELIVERY_RANGE: 892009,
-        EXACT_TIME: 892003,
-        ADDRESS: 887367,
-      },
+    // 2. Конфигурация виджета
+    this.widgetConfig = {
+      instanceId: "orders-calendar-" + Math.random().toString(36).substr(2, 9),
+      isInitialized: false,
     };
 
-    // 3. Инициализация системы
+    // 3. Инициализация системы amoCRM
     this.initSystem = function () {
       return new Promise((resolve) => {
-        if (
-          typeof AmoCRM !== "undefined" &&
-          AmoCRM.widgets &&
-          AmoCRM.widgets.system
-        ) {
+        if (window.AmoCRM && AmoCRM.widgets && AmoCRM.widgets.system) {
           AmoCRM.widgets
             .system()
             .then(function (system) {
               self.system = system;
+              self.widgetConfig.isInitialized = true;
               resolve(true);
             })
-            .catch(resolve);
+            .catch(() => resolve(false));
         } else {
-          // Режим разработки без amoCRM
+          // Режим разработки (без amoCRM)
           self.system = {
             account: "spacebakery1",
             entity_id: null,
@@ -41,59 +35,79 @@ define(["jquery"], function ($) {
       });
     };
 
-    // 4. Callbacks для amoCRM
-    const callbacks = {
+    // 4. Объект callbacks ДОЛЖЕН быть объявлен как свойство экземпляра
+    this.callbacks = {
       init: function () {
-        return self
-          .initSystem()
-          .then(() => {
-            self.loadSettings();
-            self.setupUI();
-            return true;
-          })
-          .catch(() => false);
+        return self.initSystem().then((success) => {
+          if (!success) return false;
+
+          // Здесь может быть ваша дополнительная инициализация
+          return true;
+        });
       },
 
       onSave: function (newSettings) {
         try {
-          if (!newSettings) return false;
+          console.log("Received settings:", newSettings);
 
-          // Сохраняем настройки
-          self.settings = newSettings;
+          // Ваша логика обработки настроек
+          if (newSettings) {
+            // Сохраняем настройки
+            self.settings = newSettings;
 
-          // Перерисовываем виджет
-          if (self.renderCalendar) {
-            self.renderCalendar();
+            // Вызываем метод applySettings если он существует
+            if (typeof self.applySettings === "function") {
+              self.applySettings(newSettings);
+            }
+
+            return true;
           }
-
-          return true;
+          return false;
         } catch (e) {
-          console.error("Save error:", e);
+          console.error("Save settings error:", e);
           return false;
         }
       },
 
       // Обязательные пустые callback-и
-      render: () => true,
-      bind_actions: () => true,
-      settings: () => true,
-      dpSettings: () => true,
-      destroy: () => true,
+      render: function () {
+        return true;
+      },
+      bind_actions: function () {
+        return true;
+      },
+      settings: function () {
+        return true;
+      },
+      dpSettings: function () {
+        return true;
+      },
+      destroy: function () {
+        return true;
+      },
     };
 
     // 5. Возвращаем специальный объект для amoCRM
-    return {
-      callbacks: callbacks,
-      __amowidget__: true, // Важно для идентификации виджета
+    const widgetInterface = {
+      // Обязательное свойство для идентификации
+      __amowidget__: true,
 
-      // Публичные методы
-      init: callbacks.init,
-      onSave: callbacks.onSave,
+      // Основные callback-и
+      init: this.callbacks.init,
+      onSave: this.callbacks.onSave,
+      render: this.callbacks.render,
+
+      // Ссылка на основной объект для отладки
+      _widget: this,
     };
+
+    return widgetInterface;
   }
 
-  // 6. Регистрация виджета
-  if (typeof AmoCRM !== "undefined" && AmoCRM.Widgets) {
+  // 6. Явная регистрация виджета в системе amoCRM
+  if (window.AmoCRM && AmoCRM.Widget && AmoCRM.Widget.register) {
+    AmoCRM.Widget.register(OrdersCalendar);
+  } else if (window.AmoCRM && AmoCRM.Widgets && AmoCRM.Widgets.from) {
     AmoCRM.Widgets.from("OrdersCalendar", OrdersCalendar);
   }
 

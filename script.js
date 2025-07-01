@@ -59,99 +59,7 @@ define(["jquery"], function ($) {
     };
 
     var dealsData = {};
-    var currentDealId = system.entity_id || self.getDealIdFromUrl();
-
-    this.callbacks = {
-      init: function () {
-        try {
-          self.loadFieldIdsFromSettings();
-
-          if (typeof AmoCRM !== "undefined") {
-            self.checkAuth();
-          }
-
-          self.setupUI();
-
-          if (self.isDealPage()) {
-            self.loadDealData();
-          } else {
-            self.renderCalendar();
-          }
-
-          self.setupEventListeners();
-          return true;
-        } catch (error) {
-          console.error("Initialization error:", error);
-          self.showError("Ошибка инициализации");
-          return false;
-        }
-      },
-
-      render: function () {
-        return true;
-      },
-
-      bind_actions: function () {
-        return true;
-      },
-
-      settings: function () {
-        return true;
-      },
-
-      onSave: function (newSettings) {
-        try {
-          if (!newSettings) return false;
-
-          self.settings = newSettings;
-          FIELD_IDS.ORDER_DATE =
-            parseInt(newSettings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
-          FIELD_IDS.DELIVERY_RANGE =
-            parseInt(newSettings.delivery_range_field) ||
-            FIELD_IDS.DELIVERY_RANGE;
-
-          if (!self.isDealPage()) {
-            self.renderCalendar();
-          }
-
-          return true;
-        } catch (error) {
-          console.error("Save error:", error);
-          return false;
-        }
-      },
-
-      dpSettings: function () {
-        return true;
-      },
-      advancedSettings: function () {
-        return true;
-      },
-      destroy: function () {
-        return true;
-      },
-      contacts: {
-        selected: function () {
-          return true;
-        },
-      },
-      onSalesbotDesignerSave: function () {
-        return true;
-      },
-      leads: {
-        selected: function () {
-          return true;
-        },
-      },
-      todo: {
-        selected: function () {
-          return true;
-        },
-      },
-      onAddAsSource: function () {
-        return true;
-      },
-    };
+    var currentDealId = system.entity_id || null;
 
     // Методы виджета
     this.loadFieldIdsFromSettings = function () {
@@ -172,6 +80,7 @@ define(["jquery"], function ($) {
     };
 
     this.isDealPage = function () {
+      currentDealId = system.entity_id || self.getDealIdFromUrl();
       return !!currentDealId;
     };
 
@@ -464,6 +373,99 @@ define(["jquery"], function ($) {
           errorElement.addClass("d-none");
         }, 5000);
       }
+    };
+
+    // Перенесенный объект callbacks
+    this.callbacks = {
+      init: function () {
+        try {
+          self.loadFieldIdsFromSettings();
+
+          if (typeof AmoCRM !== "undefined") {
+            self.checkAuth();
+          }
+
+          self.setupUI();
+
+          if (self.isDealPage()) {
+            self.loadDealData();
+          } else {
+            self.renderCalendar();
+          }
+
+          self.setupEventListeners();
+          return true;
+        } catch (error) {
+          console.error("Initialization error:", error);
+          self.showError("Ошибка инициализации");
+          return false;
+        }
+      },
+
+      render: function () {
+        return true;
+      },
+
+      bind_actions: function () {
+        return true;
+      },
+
+      settings: function () {
+        return true;
+      },
+
+      onSave: function (newSettings) {
+        try {
+          if (!newSettings) return false;
+
+          self.settings = newSettings;
+          FIELD_IDS.ORDER_DATE =
+            parseInt(newSettings.deal_date_field_id) || FIELD_IDS.ORDER_DATE;
+          FIELD_IDS.DELIVERY_RANGE =
+            parseInt(newSettings.delivery_range_field) ||
+            FIELD_IDS.DELIVERY_RANGE;
+
+          if (!self.isDealPage()) {
+            self.renderCalendar();
+          }
+
+          return true;
+        } catch (error) {
+          console.error("Save error:", error);
+          return false;
+        }
+      },
+
+      dpSettings: function () {
+        return true;
+      },
+      advancedSettings: function () {
+        return true;
+      },
+      destroy: function () {
+        return true;
+      },
+      contacts: {
+        selected: function () {
+          return true;
+        },
+      },
+      onSalesbotDesignerSave: function () {
+        return true;
+      },
+      leads: {
+        selected: function () {
+          return true;
+        },
+      },
+      todo: {
+        selected: function () {
+          return true;
+        },
+      },
+      onAddAsSource: function () {
+        return true;
+      },
     };
 
     return this;

@@ -154,7 +154,8 @@ define(["jquery"], function ($) {
       // Реализация календаря
     };
 
-    const callbacks = {
+    // Инициализация callbacks как свойства this
+    this.callbacks = {
       init: function () {
         return self
           .initSystem()
@@ -228,16 +229,9 @@ define(["jquery"], function ($) {
       },
     };
 
-    return {
-      __amowidget__: true,
-      callbacks: callbacks,
-
-      init: callbacks.init,
-      onSave: callbacks.onSave,
-      render: callbacks.render,
-
-      _widget: self,
-    };
+    // Возвращаем this вместо объекта
+    this.__amowidget__ = true;
+    return this;
   }
 
   if (typeof AmoCRM !== "undefined") {

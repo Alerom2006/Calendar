@@ -6,7 +6,7 @@
     "short_description": "widget.short_description",
     "version": "1.0.4",
     "interface_version": 2,
-    "init_once": true,
+    "init_once": false,
     "locale": ["ru"],
     "installation": true,
     "support": {
@@ -14,11 +14,11 @@
       "email": "support@example.com"
     }
   },
-  "locations": ["lcard-1", "settings", "everywhere"],
+  "locations": ["lcard-1", "settings"],
   "tour": {
     "is_tour": true,
     "tour_images": {
-      "ru": ["/images/tour1.png"]
+      "ru": ["/images/logo.png"]
     },
     "tour_description": "widget.tour_description"
   },
@@ -26,14 +26,12 @@
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true,
-      "placeholder": "885453"
+      "required": true
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false,
-      "placeholder": "892009"
+      "required": false
     }
   }
 }

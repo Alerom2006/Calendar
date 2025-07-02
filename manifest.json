@@ -14,7 +14,7 @@
       "email": "your@email.com"
     }
   },
-  "locations": ["lcard-1", "settings", "deal_detail"],
+  "locations": ["lcard-1", "settings"],
   "tour": {
     "is_tour": true,
     "tour_images": {
@@ -29,15 +29,15 @@
   "settings": {
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
-      "type": "text",
+      "type": "number",
       "required": true,
-      "default": "885453"
+      "default": 885453
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
-      "type": "text",
+      "type": "number",
       "required": false,
-      "default": "892009"
+      "default": 892009
     }
   }
 }

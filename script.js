@@ -1,3 +1,23 @@
+console.log("=== Календарь заказов ===");
+console.log("Версия 1.0.4");
+console.log("URL:", window.location.href);
+
+// Проверка окружения
+if (typeof AmoCRM !== "undefined") {
+  console.log("AmoCRM API доступен");
+} else if (typeof AmoSDK !== "undefined") {
+  console.log("AmoSDK API доступен");
+} else {
+  console.warn("API amoCRM не обнаружено!");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM загружен");
+  const testDiv = document.createElement("div");
+  testDiv.textContent = "Тест виджета (должен быть виден)";
+  testDiv.style.cssText = "color:red;padding:10px;border:2px dashed red;";
+  document.body.appendChild(testDiv);
+});
 // Основной класс виджета календаря заказов
 class OrdersCalendarWidget {
   constructor() {

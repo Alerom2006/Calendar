@@ -8,7 +8,7 @@ define(["jquery"], function ($) {
     this.config = {
       widgetInstanceId:
         "orders-calendar-" + Math.random().toString(36).substr(2, 9),
-      version: "1.0.3",
+      version: "1.0.4",
       debugMode: false,
     };
 

@@ -2,20 +2,15 @@ define(["jquery"], function ($) {
   "use strict";
 
   function OrdersCalendarWidget() {
-    var self = this; // Изменил const на var для совместимости
+    this.__amowidget__ = true;
 
-    // Все свойства и методы объявляем в начале
-    this.__amowidget__ = true; // Добавил явно в начало
-
-    // Конфигурация
     this.config = {
       widgetInstanceId:
         "orders-calendar-" + Math.random().toString(36).substr(2, 9),
       version: "1.0.2",
-      debugMode: true, // Включил debugMode для логов
+      debugMode: true,
     };
 
-    // Состояние
     this.state = {
       initialized: false,
       system: null,
@@ -26,7 +21,6 @@ define(["jquery"], function ($) {
       selectedDate: null,
     };
 
-    // ID полей
     this.fieldIds = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
@@ -35,7 +29,6 @@ define(["jquery"], function ($) {
       STATUS: 887369,
     };
 
-    // Локализация
     this.i18n = {
       months: [
         "Январь",
@@ -65,22 +58,87 @@ define(["jquery"], function ($) {
       },
     };
 
-    // Все методы виджета
     this.getDealIdFromUrl = function () {
       try {
         var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
-        return match ? match[1] : null;
+        return match ? parseInt(match[1]) : null;
       } catch (e) {
-        this.log("Error in getDealIdFromUrl:", e);
+        console.error("Error in getDealIdFromUrl:", e);
         return null;
       }
     };
 
-    // ... (все остальные методы остаются без изменений) ...
+    this.initSystem = function () {
+      var self = this;
+      return new Promise(function (resolve, reject) {
+        if (typeof AmoCRM === "undefined") {
+          return reject(new Error("AmoCRM API not available"));
+        }
+        if (typeof AmoCRM.widgets.system !== "function") {
+          return reject(new Error("Invalid amoCRM API"));
+        }
+        AmoCRM.widgets
+          .system()
+          .then(function (system) {
+            self.state.system = system;
+            self.state.initialized = true;
+            resolve(true);
+          })
+          .catch(reject);
+      });
+    };
 
-    // Callbacks должны быть объявлены в самом конце
+    this.loadSettings = function () {
+      var self = this;
+      return new Promise(function (resolve) {
+        if (self.state.system && self.state.system.settings) {
+          self.applySettings(self.state.system.settings);
+        }
+        resolve(true);
+      });
+    };
+
+    this.isDealPage = function () {
+      if (!this.state.system) return false;
+      return !!this.state.system.entity_id || !!this.getDealIdFromUrl();
+    };
+
+    this.applySettings = function (settings) {
+      if (settings.deal_date_field_id) {
+        this.fieldIds.ORDER_DATE =
+          parseInt(settings.deal_date_field_id) || this.fieldIds.ORDER_DATE;
+      }
+      if (settings.delivery_range_field) {
+        this.fieldIds.DELIVERY_RANGE =
+          parseInt(settings.delivery_range_field) ||
+          this.fieldIds.DELIVERY_RANGE;
+      }
+    };
+
+    this.showLoader = function () {
+      $("#loader").show();
+    };
+
+    this.hideLoader = function () {
+      $("#loader").hide();
+    };
+
+    this.showError = function (message) {
+      $("#error-alert").text(message).removeClass("d-none");
+      setTimeout(function () {
+        $("#error-alert").addClass("d-none");
+      }, 5000);
+    };
+
+    this.log = function () {
+      if (this.config.debugMode) {
+        console.log.apply(console, arguments);
+      }
+    };
+
     this.callbacks = {
       init: function () {
+        var self = this._widget;
         try {
           return self
             .initSystem()
@@ -92,41 +150,38 @@ define(["jquery"], function ($) {
               return true;
             })
             .catch(function (err) {
-              self.log("Init error:", err);
+              console.error("Init error:", err);
               return false;
             });
         } catch (e) {
-          self.log("Callback init error:", e);
+          console.error("Callback init error:", e);
           return false;
         }
       },
 
       onSave: function (newSettings) {
+        var self = this._widget;
         try {
-          self.log("onSave called with:", newSettings);
           if (!newSettings) {
-            self.log("No settings provided");
+            console.error("No settings provided");
             return false;
           }
-
           self.applySettings(newSettings);
           return true;
         } catch (e) {
-          self.log("onSave error:", e);
+          console.error("onSave error:", e);
           return false;
         }
       },
 
       render: function () {
+        var self = this._widget;
         try {
-          if (!self.state.initialized) {
-            self.log("Widget not initialized in render");
-            return false;
-          }
+          if (!self.state.initialized) return false;
           self.setupUI();
           return true;
         } catch (e) {
-          self.log("Render error:", e);
+          console.error("Render error:", e);
           return false;
         }
       },
@@ -157,7 +212,6 @@ define(["jquery"], function ($) {
     return this;
   }
 
-  // Регистрация виджета
   if (typeof AmoCRM !== "undefined") {
     try {
       if (

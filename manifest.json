@@ -30,16 +30,12 @@
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true,
-      "placeholder": "885453",
-      "hint": "Введите ID поля с датой заказа"
+      "required": true
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false,
-      "placeholder": "892009",
-      "hint": "Введите ID поля с диапазоном доставки"
+      "required": false
     }
   }
 }

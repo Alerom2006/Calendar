@@ -14,7 +14,7 @@
       "email": "support@example.com"
     }
   },
-  "locations": ["lcard-1", "settings"],
+  "locations": ["lcard-1", "settings", "everywhere"],
   "tour": {
     "is_tour": true,
     "tour_images": {
@@ -26,12 +26,14 @@
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true
+      "required": true,
+      "placeholder": "885453"
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false
+      "required": false,
+      "placeholder": "892009"
     }
   }
 }

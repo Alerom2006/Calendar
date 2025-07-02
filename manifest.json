@@ -14,17 +14,7 @@
       "email": "support@example.com"
     }
   },
-  "locations": ["card_sdk"],
-  "card_sdk": {
-    "entity_types": ["leads"]
-  },
-  "tour": {
-    "is_tour": true,
-    "tour_images": {
-      "ru": ["/images/logo.png"]
-    },
-    "tour_description": "widget.tour_description"
-  },
+  "locations": ["lcard-1", "settings"],
   "settings": {
     "deal_date_field_id": {
       "name": "widget.deal_date_field",

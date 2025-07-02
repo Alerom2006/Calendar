@@ -15,11 +15,6 @@
     },
     "url": "https://alerom2006.github.io/Calendar/"
   },
-  "integration": {
-    "type": "widget",
-    "view": {
-      "leads": "sidebar"
-    },
     "oauth": {
       "client_id": "6696f2d5-76c2-47fd-bec9-da46d382d511",
       "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html"
@@ -37,6 +32,5 @@
       "type": "text",
       "required": false
     }
-  },
-  "required_scopes": ["leads_read", "contacts_read"]
+  }
 }

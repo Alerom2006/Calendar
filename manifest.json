@@ -1,9 +1,9 @@
 {
   "widget": {
     "manifest_version": "1.0",
-    "name": "Календарь заказов",
-    "description": "Виджет для отображения сделок по дате заказа",
-    "short_description": "Показывает заказы в календаре",
+    "name": "widget.name",
+    "description": "widget.description",
+    "short_description": "widget.short_description",
     "version": "1.0.4",
     "interface_version": 2,
     "init_once": false,
@@ -28,16 +28,14 @@
   "locations": ["lcard-1", "settings"],
   "settings": {
     "deal_date_field_id": {
-      "name": "ID поля даты заказа",
-      "type": "number",
-      "required": true,
-      "default": 885453
+      "name": "widget.deal_date_field",
+      "type": "text",
+      "required": true
     },
     "delivery_range_field": {
-      "name": "ID поля диапазона доставки",
-      "type": "number",
-      "required": false,
-      "default": 892009
+      "name": "widget.delivery_range",
+      "type": "text",
+      "required": false
     }
   },
   "required_scopes": ["leads_read", "contacts_read"]

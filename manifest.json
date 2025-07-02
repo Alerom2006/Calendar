@@ -12,19 +12,29 @@
     "support": {
       "link": "https://alerom2006.github.io/Calendar/",
       "email": "support@example.com"
-    }
+    },
+    "url": "https://alerom2006.github.io/Calendar/"
   },
   "locations": ["lcard-1", "settings"],
   "settings": {
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true
+      "required": true,
+      "default": 885453
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false
+      "required": false,
+      "default": 892009
     }
+  },
+  "tour": {
+    "is_tour": true,
+    "tour_images": {
+      "ru": ["https://alerom2006.github.io/Calendar/images/logo.png"]
+    },
+    "tour_description": "widget.tour_description"
   }
 }

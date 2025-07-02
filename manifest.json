@@ -14,7 +14,10 @@
       "email": "support@example.com"
     }
   },
-  "locations": ["lcard-1", "settings"],
+  "locations": ["card_sdk"],
+  "card_sdk": {
+    "entity_types": ["leads"]
+  },
   "tour": {
     "is_tour": true,
     "tour_images": {

@@ -15,11 +15,6 @@
     },
     "url": "https://alerom2006.github.io/Calendar/"
   },
-    "oauth": {
-      "client_id": "6696f2d5-76c2-47fd-bec9-da46d382d511",
-      "redirect_uri": "https://alerom2006.github.io/Calendar/oauth_callback.html"
-    }
-  },
   "locations": ["lcard-1", "settings"],
   "settings": {
     "deal_date_field_id": {

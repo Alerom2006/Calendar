@@ -2,138 +2,68 @@ define(["jquery"], function ($) {
   "use strict";
 
   function OrdersCalendarWidget() {
-    // Сохраняем контекст виджета
-    var widgetInstance = this;
+    // Фиксируем контекст виджета
+    const widget = this;
 
-    // Все свойства через widgetInstance
-    widgetInstance.__amowidget__ = true;
-    widgetInstance.config = {
-      widgetInstanceId:
-        "orders-calendar-" + Math.random().toString(36).substr(2, 9),
-      version: "1.0.2",
-      debugMode: true,
-    };
+    // Базовые настройки виджета
+    widget.__amowidget__ = true;
+    widget.version = "1.0.3";
 
-    widgetInstance.state = {
+    // Состояние виджета
+    widget.state = {
       initialized: false,
-      system: null,
-      settings: {},
-      currentView: "calendar",
-      currentDate: new Date(),
-      dealsData: {},
-      selectedDate: null,
+      settingsLoaded: false,
     };
 
-    widgetInstance.fieldIds = {
-      ORDER_DATE: 885453,
-      DELIVERY_RANGE: 892009,
-      EXACT_TIME: 892003,
-      ADDRESS: 887367,
-      STATUS: 887369,
-    };
+    // Метод сохранения настроек (исправленная версия)
+    widget.applySettings = function (settings) {
+      try {
+        if (!settings) return false;
 
-    // Основные методы виджета
-    widgetInstance.applySettings = function (settings) {
-      if (settings.deal_date_field_id) {
-        widgetInstance.fieldIds.ORDER_DATE =
-          parseInt(settings.deal_date_field_id) ||
-          widgetInstance.fieldIds.ORDER_DATE;
-      }
-      if (settings.delivery_range_field) {
-        widgetInstance.fieldIds.DELIVERY_RANGE =
-          parseInt(settings.delivery_range_field) ||
-          widgetInstance.fieldIds.DELIVERY_RANGE;
+        // Сохраняем настройки
+        widget.settings = settings;
+        widget.state.settingsLoaded = true;
+
+        return true;
+      } catch (e) {
+        console.error("Settings apply error:", e);
+        return false;
       }
     };
 
-    // Callbacks с прямым доступом к widgetInstance
-    widgetInstance.callbacks = {
+    // Callbacks для amoCRM API
+    widget.callbacks = {
       onSave: function (newSettings) {
-        try {
-          if (!newSettings) {
-            console.error("No settings provided");
-            return false;
-          }
-          // Прямой вызов без this._widget
-          widgetInstance.applySettings(newSettings);
-          return true;
-        } catch (e) {
-          console.error("onSave error:", e);
-          return false;
-        }
+        // Прямой вызов без использования this._widget
+        return widget.applySettings(newSettings);
       },
 
       init: function () {
-        return widgetInstance
-          .initSystem()
-          .then(function () {
-            return widgetInstance.loadSettings();
-          })
-          .then(function () {
-            widgetInstance.setupUI();
-            return true;
-          })
-          .catch(function (err) {
-            console.error("Init error:", err);
-            return false;
-          });
+        return new Promise((resolve) => {
+          widget.state.initialized = true;
+          resolve(true);
+        });
       },
 
       render: function () {
-        try {
-          if (!widgetInstance.state.initialized) return false;
-          widgetInstance.setupUI();
-          return true;
-        } catch (e) {
-          console.error("Render error:", e);
-          return false;
-        }
-      },
-
-      bind_actions: function () {
-        return true;
-      },
-      settings: function () {
-        return true;
-      },
-      dpSettings: function () {
-        return true;
-      },
-      destroy: function () {
-        return true;
-      },
-      advancedSettings: function () {
-        return true;
-      },
-      onInstall: function () {
-        return true;
-      },
-      onUpdate: function () {
-        return true;
+        return widget.state.initialized;
       },
     };
 
-    // Остальные методы виджета...
-
-    return widgetInstance;
+    return widget;
   }
 
-  // Регистрация виджета
+  // Безопасная регистрация виджета
   if (typeof AmoCRM !== "undefined") {
     try {
       if (
-        typeof AmoCRM.Widget !== "undefined" &&
-        typeof AmoCRM.Widget.register === "function"
-      ) {
-        AmoCRM.Widget.register(OrdersCalendarWidget);
-      } else if (
-        typeof AmoCRM.Widgets !== "undefined" &&
+        typeof AmoCRM.Widgets === "object" &&
         typeof AmoCRM.Widgets.from === "function"
       ) {
         AmoCRM.Widgets.from("OrdersCalendar", OrdersCalendarWidget);
       }
     } catch (e) {
-      console.error("Widget registration failed:", e);
+      console.error("Widget registration error:", e);
     }
   }
 

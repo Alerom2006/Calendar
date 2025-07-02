@@ -13,9 +13,10 @@ class OrdersCalendarWidget {
       dealsData: {},
       selectedDate: null,
       isLoading: false,
+      container: null, // Храним ссылку на DOM-контейнер
     };
 
-    // ID полей из amoCRM (можно переопределять в настройках)
+    // ID полей из amoCRM
     this.fieldIds = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
@@ -44,6 +45,10 @@ class OrdersCalendarWidget {
         load: "Ошибка загрузки данных",
         noDeals: "Нет сделок на выбранную дату",
       },
+      labels: {
+        dealsFor: "Сделки на",
+        selectDate: "выберите дату",
+      },
     };
 
     // Инициализация
@@ -53,7 +58,8 @@ class OrdersCalendarWidget {
   // Инициализация виджета
   async init() {
     try {
-      this.showLoader();
+      // Сначала создаем DOM-структуру
+      this.initUI();
 
       // Проверяем контекст выполнения
       if (!this.isInAmoCRM()) {
@@ -61,16 +67,9 @@ class OrdersCalendarWidget {
         return;
       }
 
-      // Загружаем настройки
+      // Затем загружаем данные
       await this.loadSettings();
-
-      // Инициализируем интерфейс
-      this.initUI();
-
-      // Загружаем данные
       await this.loadDealsData();
-
-      // Рендерим календарь
       this.renderCalendar();
     } catch (error) {
       console.error("Ошибка инициализации:", error);
@@ -112,11 +111,16 @@ class OrdersCalendarWidget {
     });
   }
 
-  // Инициализация интерфейса
+  // Инициализация интерфейса (исправленная версия)
   initUI() {
-    const container = document.createElement("div");
-    container.className = "orders-calendar-widget";
-    container.innerHTML = `
+    // Создаем основной контейнер
+    this.state.container = document.createElement("div");
+    this.state.container.className = "orders-calendar-widget";
+
+    // Добавляем всю структуру
+    this.state.container.innerHTML = `
+      <div class="widget-loading" style="display:none">Загрузка...</div>
+      <div class="error-message" style="display:none; color:red; padding:10px;"></div>
       <div class="calendar-header">
         <button class="nav-button prev-month">&lt;</button>
         <h2 class="current-month"></h2>
@@ -124,19 +128,18 @@ class OrdersCalendarWidget {
       </div>
       <div class="calendar-grid"></div>
       <div class="deals-list-container">
-        <h3 class="deals-title">Сделки на <span class="selected-date"></span></h3>
+        <h3 class="deals-title">${this.i18n.labels.dealsFor} <span class="selected-date">${this.i18n.labels.selectDate}</span></h3>
         <div class="deals-list"></div>
       </div>
-      <div class="loader"></div>
-      <div class="error-message"></div>
     `;
-    document.body.appendChild(container);
+
+    document.body.appendChild(this.state.container);
 
     // Назначение обработчиков событий
-    document
+    this.state.container
       .querySelector(".prev-month")
       .addEventListener("click", () => this.prevMonth());
-    document
+    this.state.container
       .querySelector(".next-month")
       .addEventListener("click", () => this.nextMonth());
   }
@@ -145,6 +148,7 @@ class OrdersCalendarWidget {
   async loadDealsData() {
     if (this.state.isLoading) return;
     this.state.isLoading = true;
+    this.showLoader();
 
     try {
       const now = new Date();
@@ -181,6 +185,7 @@ class OrdersCalendarWidget {
       throw error;
     } finally {
       this.state.isLoading = false;
+      this.hideLoader();
     }
   }
 
@@ -242,7 +247,7 @@ class OrdersCalendarWidget {
     const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1; // Коррекция для Пн-Вс
 
     // Обновляем заголовок
-    document.querySelector(
+    this.state.container.querySelector(
       ".current-month"
     ).textContent = `${this.i18n.months[month]} ${year}`;
 
@@ -277,10 +282,11 @@ class OrdersCalendarWidget {
       `;
     }
 
-    document.querySelector(".calendar-grid").innerHTML = calendarHTML;
+    this.state.container.querySelector(".calendar-grid").innerHTML =
+      calendarHTML;
 
     // Назначение обработчиков для дней
-    document.querySelectorAll(".day:not(.empty)").forEach((day) => {
+    this.state.container.querySelectorAll(".day:not(.empty)").forEach((day) => {
       day.addEventListener("click", () =>
         this.showDealsForDate(day.dataset.date)
       );
@@ -290,7 +296,7 @@ class OrdersCalendarWidget {
   // Показать сделки на выбранную дату
   showDealsForDate(date) {
     this.state.selectedDate = date;
-    document.querySelector(".selected-date").textContent = date;
+    this.state.container.querySelector(".selected-date").textContent = date;
 
     const deals = this.state.dealsData[date] || [];
     let dealsHTML = "";
@@ -321,10 +327,10 @@ class OrdersCalendarWidget {
         });
     }
 
-    document.querySelector(".deals-list").innerHTML = dealsHTML;
+    this.state.container.querySelector(".deals-list").innerHTML = dealsHTML;
 
     // Назначение обработчиков для сделок
-    document.querySelectorAll(".deal-item").forEach((deal) => {
+    this.state.container.querySelectorAll(".deal-item").forEach((deal) => {
       deal.addEventListener("click", (e) => {
         e.stopPropagation();
         this.openDealCard(deal.dataset.dealId);
@@ -358,42 +364,46 @@ class OrdersCalendarWidget {
     this.loadDealsData().then(() => this.renderCalendar());
   }
 
+  // Показ ошибок (исправленная версия)
+  showError(message) {
+    const errorEl = this.state.container.querySelector(".error-message");
+    if (errorEl) {
+      errorEl.textContent = message;
+      errorEl.style.display = "block";
+      setTimeout(() => (errorEl.style.display = "none"), 5000);
+    } else {
+      console.error("Элемент для ошибки не найден:", message);
+    }
+  }
+
   // Управление состоянием загрузки
   showLoader() {
-    document.body.classList.add("widget-loading");
+    const loader = this.state.container.querySelector(".widget-loading");
+    if (loader) loader.style.display = "block";
   }
 
   hideLoader() {
-    document.body.classList.remove("widget-loading");
-  }
-
-  // Показать сообщение об ошибке
-  showError(message) {
-    const errorEl = document.querySelector(".error-message");
-    errorEl.textContent = message;
-    errorEl.style.display = "block";
-    setTimeout(() => (errorEl.style.display = "none"), 5000);
+    const loader = this.state.container.querySelector(".widget-loading");
+    if (loader) loader.style.display = "none";
   }
 }
 
-// Инициализация виджета при загрузке
+// Инициализация виджета после загрузки DOM
 document.addEventListener("DOMContentLoaded", () => {
-  new OrdersCalendarWidget();
+  try {
+    new OrdersCalendarWidget();
+  } catch (error) {
+    console.error("Ошибка при создании виджета:", error);
+    // Fallback сообщение
+    const errorDiv = document.createElement("div");
+    errorDiv.style.color = "red";
+    errorDiv.style.padding = "10px";
+    errorDiv.textContent = "Ошибка загрузки виджета календаря";
+    document.body.appendChild(errorDiv);
+  }
 });
 
 // Для отладки в консоли
 if (typeof window !== "undefined") {
   window.OrdersCalendarWidget = OrdersCalendarWidget;
-}
-
-if (typeof AmoSDK !== "undefined") {
-  AmoSDK.addButton({
-    name: "Открыть календарь",
-    onClick: () => {
-      const widget = document.createElement("div");
-      widget.innerHTML =
-        "<h3>Тест виджета</h3><p>Если это видно, проблема в CSS/HTML</p>";
-      document.body.appendChild(widget);
-    },
-  });
 }

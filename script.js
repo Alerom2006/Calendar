@@ -385,3 +385,15 @@ document.addEventListener("DOMContentLoaded", () => {
 if (typeof window !== "undefined") {
   window.OrdersCalendarWidget = OrdersCalendarWidget;
 }
+
+if (typeof AmoSDK !== "undefined") {
+  AmoSDK.addButton({
+    name: "Открыть календарь",
+    onClick: () => {
+      const widget = document.createElement("div");
+      widget.innerHTML =
+        "<h3>Тест виджета</h3><p>Если это видно, проблема в CSS/HTML</p>";
+      document.body.appendChild(widget);
+    },
+  });
+}

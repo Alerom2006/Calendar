@@ -7,22 +7,18 @@
     "version": "1.0.3",
     "interface_version": 2,
     "init_once": true,
-    "locale": ["ru", "en"],
+    "locale": ["ru"],
     "installation": true,
     "support": {
-      "link": "https://alerom2006.github.io/Calendar/",
-      "email": "your@email.com"
+      "link": "https://example.com",
+      "email": "support@example.com"
     }
   },
   "locations": ["lcard-1", "settings"],
   "tour": {
     "is_tour": true,
     "tour_images": {
-      "ru": [
-        "/images/logo_main.png",
-        "/images/logo_main.png",
-        "/images/logo_main.png"
-      ]
+      "ru": ["/images/tour1.png"]
     },
     "tour_description": "widget.tour_description"
   },
@@ -30,12 +26,14 @@
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true
+      "required": true,
+      "placeholder": "885453"
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false
+      "required": false,
+      "placeholder": "892009"
     }
   }
 }

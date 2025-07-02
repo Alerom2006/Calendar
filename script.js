@@ -397,7 +397,7 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Callbacks для amoCRM API
+    // Callbacks для amoCRM API (перенесены в конец)
     this.callbacks = {
       init: function () {
         return self

@@ -2,16 +2,17 @@ define(["jquery"], function ($) {
   "use strict";
 
   function OrdersCalendarWidget() {
-    this.__amowidget__ = true;
+    var self = this;
+    self.__amowidget__ = true;
 
-    this.config = {
+    self.config = {
       widgetInstanceId:
         "orders-calendar-" + Math.random().toString(36).substr(2, 9),
       version: "1.0.2",
       debugMode: true,
     };
 
-    this.state = {
+    self.state = {
       initialized: false,
       system: null,
       settings: {},
@@ -21,7 +22,7 @@ define(["jquery"], function ($) {
       selectedDate: null,
     };
 
-    this.fieldIds = {
+    self.fieldIds = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
       EXACT_TIME: 892003,
@@ -29,7 +30,7 @@ define(["jquery"], function ($) {
       STATUS: 887369,
     };
 
-    this.i18n = {
+    self.i18n = {
       months: [
         "Январь",
         "Февраль",
@@ -58,7 +59,7 @@ define(["jquery"], function ($) {
       },
     };
 
-    this.getDealIdFromUrl = function () {
+    self.getDealIdFromUrl = function () {
       try {
         var match = window.location.pathname.match(/leads\/detail\/(\d+)/);
         return match ? parseInt(match[1]) : null;
@@ -68,8 +69,7 @@ define(["jquery"], function ($) {
       }
     };
 
-    this.initSystem = function () {
-      var self = this;
+    self.initSystem = function () {
       return new Promise(function (resolve, reject) {
         if (typeof AmoCRM === "undefined") {
           return reject(new Error("AmoCRM API not available"));
@@ -88,8 +88,7 @@ define(["jquery"], function ($) {
       });
     };
 
-    this.loadSettings = function () {
-      var self = this;
+    self.loadSettings = function () {
       return new Promise(function (resolve) {
         if (self.state.system && self.state.system.settings) {
           self.applySettings(self.state.system.settings);
@@ -98,47 +97,46 @@ define(["jquery"], function ($) {
       });
     };
 
-    this.isDealPage = function () {
-      if (!this.state.system) return false;
-      return !!this.state.system.entity_id || !!this.getDealIdFromUrl();
+    self.isDealPage = function () {
+      if (!self.state.system) return false;
+      return !!self.state.system.entity_id || !!self.getDealIdFromUrl();
     };
 
-    this.applySettings = function (settings) {
+    self.applySettings = function (settings) {
       if (settings.deal_date_field_id) {
-        this.fieldIds.ORDER_DATE =
-          parseInt(settings.deal_date_field_id) || this.fieldIds.ORDER_DATE;
+        self.fieldIds.ORDER_DATE =
+          parseInt(settings.deal_date_field_id) || self.fieldIds.ORDER_DATE;
       }
       if (settings.delivery_range_field) {
-        this.fieldIds.DELIVERY_RANGE =
+        self.fieldIds.DELIVERY_RANGE =
           parseInt(settings.delivery_range_field) ||
-          this.fieldIds.DELIVERY_RANGE;
+          self.fieldIds.DELIVERY_RANGE;
       }
     };
 
-    this.showLoader = function () {
+    self.showLoader = function () {
       $("#loader").show();
     };
 
-    this.hideLoader = function () {
+    self.hideLoader = function () {
       $("#loader").hide();
     };
 
-    this.showError = function (message) {
+    self.showError = function (message) {
       $("#error-alert").text(message).removeClass("d-none");
       setTimeout(function () {
         $("#error-alert").addClass("d-none");
       }, 5000);
     };
 
-    this.log = function () {
-      if (this.config.debugMode) {
+    self.log = function () {
+      if (self.config.debugMode) {
         console.log.apply(console, arguments);
       }
     };
 
-    this.callbacks = {
+    self.callbacks = {
       init: function () {
-        var self = this._widget;
         try {
           return self
             .initSystem()
@@ -160,7 +158,6 @@ define(["jquery"], function ($) {
       },
 
       onSave: function (newSettings) {
-        var self = this._widget;
         try {
           if (!newSettings) {
             console.error("No settings provided");
@@ -175,7 +172,6 @@ define(["jquery"], function ($) {
       },
 
       render: function () {
-        var self = this._widget;
         try {
           if (!self.state.initialized) return false;
           self.setupUI();

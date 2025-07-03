@@ -1,48 +1,54 @@
 {
   "widget": {
-    "manifest_version": "2.0",
+    "manifest_version": "1.0",
     "name": "widget.name",
     "description": "widget.description",
     "short_description": "widget.short_description",
-    "version": "1.0.0",
+    "tour_description": "widget.tour_description",
+    "version": "1.0.5",
     "interface_version": 2,
-    "init_once": true,
+    "init_once": false,
     "locale": ["ru", "en"],
     "installation": true,
     "support": {
-      "link": "https://yourdomain.com/support",
-      "email": "support@yourdomain.com"
-    },
-    "icon": "images/icon.png",
-    "icon_small": "images/icon_small.png"
+      "link": "https://alerom2006.github.io/Calendar/",
+      "email": "your-email@example.com"
+    }
   },
   "locations": [
     "lcard-1",
     "llist-0",
+    "ccard-0",
+    "clist-0",
     "settings",
-    "digital_pipeline",
-    "lead_sources"
+    "card_sdk",
+    "everywhere"
   ],
   "settings": {
-    "deal_date_field": {
-      "name": "widget.deal_date_field",
-      "type": "number",
-      "required": true,
-      "placeholder": "widget.field_placeholder"
+    "api_key": {
+      "name": "widget.api_key",
+      "type": "text",
+      "required": true
     },
-    "dp.webhook_url": {
-      "name": "widget.webhook_url",
-      "type": "url",
-      "required": true,
-      "placeholder": "widget.webhook_placeholder",
-      "visible_for": ["digital_pipeline"],
-      "hint": "widget.webhook_hint"
-    }
-  },
-  "permissions": {
-    "leads": {
-      "view": true,
-      "edit": false
+    "account": {
+      "name": "widget.account",
+      "type": "text",
+      "required": true
+    },
+    "language": {
+      "name": "widget.language",
+      "type": "text",
+      "required": false
+    },
+    "deal_date_field_id": {
+      "name": "widget.deal_date_field",
+      "type": "text",
+      "required": true
+    },
+    "delivery_range_field": {
+      "name": "widget.delivery_range",
+      "type": "text",
+      "required": false
     }
   }
 }

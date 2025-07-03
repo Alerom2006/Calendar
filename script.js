@@ -1,5 +1,5 @@
 class OrdersCalendarWidget {
-  constructor() {
+  constructor(params = {}) {
     // Конфигурация виджета
     this.config = {
       debugMode: true,
@@ -12,8 +12,9 @@ class OrdersCalendarWidget {
       dealsData: {},
       selectedDate: null,
       isLoading: false,
-      container: null,
-      isInAmoContext: false,
+      context: this.detectContext(params),
+      entityType: params?.entity_type || "leads",
+      accountDomain: this.extractAccountDomain(),
     };
 
     // ID полей из amoCRM
@@ -47,182 +48,223 @@ class OrdersCalendarWidget {
         noAuth: "Требуется авторизация в amoCRM",
       },
       labels: {
+        dealsFor: "Сделки на",
+        selectDate: "выберите дату",
         authButton: "Авторизоваться в amoCRM",
-        loading: "Загрузка...",
       },
     };
 
-    // Проверяем контекст выполнения
-    this.checkEnvironment();
+    // Инициализация
+    this.initialize();
   }
 
-  // Проверка окружения
-  checkEnvironment() {
-    this.state.isInAmoContext = this.isInAmoCRM();
-
-    if (!this.state.isInAmoContext) {
-      this.showAuthScreen();
-      return;
+  // Определение контекста запуска
+  detectContext(params) {
+    if (typeof AmoSDK !== "undefined" && params?.entity_type) {
+      return "card_sdk";
     }
-
-    this.init();
+    if (typeof AmoCRM !== "undefined") {
+      return "widget";
+    }
+    if (window.location.pathname.includes("settings")) {
+      return "settings";
+    }
+    return "standalone";
   }
 
-  // Проверка что виджет запущен в amoCRM
-  isInAmoCRM() {
+  // Извлечение домена аккаунта
+  extractAccountDomain() {
+    if (typeof AmoCRM !== "undefined") {
+      return AmoCRM.widgets.system?.account || "";
+    }
+    return window.location.hostname.split(".")[0] || "";
+  }
+
+  // Основная инициализация
+  initialize() {
     try {
-      // 1. Проверка через window.self и window.top
-      if (window.self !== window.top) {
-        return true;
+      switch (this.state.context) {
+        case "card_sdk":
+          this.initCardSDKMode();
+          break;
+        case "widget":
+          this.initWidgetMode();
+          break;
+        case "settings":
+          this.initSettingsMode();
+          break;
+        default:
+          this.initStandaloneMode();
       }
-
-      // 2. Проверка по URL
-      if (window.location.href.includes("amocrm.ru")) {
-        return true;
-      }
-
-      // 3. Проверка по referrer
-      if (document.referrer.includes("amocrm.ru")) {
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      console.error("Ошибка проверки контекста:", e);
-      return false;
+    } catch (error) {
+      console.error("Ошибка инициализации:", error);
+      this.showFatalError();
     }
   }
 
-  // Показ экрана авторизации
-  showAuthScreen() {
-    document.body.innerHTML = `
-      <div class="auth-container">
-        <h2>Календарь заказов</h2>
-        <p>${this.i18n.errors.noAuth}</p>
-        <button id="authButton" class="auth-button">
-          ${this.i18n.labels.authButton}
-        </button>
-      </div>
-    `;
+  // Режим работы в карточке через SDK
+  initCardSDKMode() {
+    this.initUI();
+    this.loadData()
+      .then(() => this.renderCalendar())
+      .catch((error) => {
+        console.error("Ошибка загрузки данных:", error);
+        this.showError(this.i18n.errors.load);
+      });
+  }
 
-    document.getElementById("authButton").addEventListener("click", () => {
-      this.handleAuthClick();
+  // Режим стандартного виджета
+  initWidgetMode() {
+    AmoCRM.widgets.system().then((system) => {
+      this.applySettings(system.settings);
+      this.initUI();
+      this.loadData()
+        .then(() => this.renderCalendar())
+        .catch((error) => {
+          console.error("Ошибка загрузки данных:", error);
+          this.showError(this.i18n.errors.load);
+        });
     });
   }
 
-  // Обработка клика по кнопке авторизации
-  handleAuthClick() {
-    // Ваш OAuth URL (замените на реальные параметры)
-    const authUrl = `https://www.amocrm.ru/oauth?client_id=YOUR_CLIENT_ID&state=calendar_widget&mode=popup`;
-    window.open(authUrl, "_blank");
+  // Режим настроек
+  initSettingsMode() {
+    document.body.innerHTML = `
+      <div class="settings-container">
+        <h2>Настройки календаря заказов</h2>
+        <div class="form-group">
+          <label>ID поля даты заказа:</label>
+          <input type="number" id="dealDateField" value="${this.fieldIds.ORDER_DATE}">
+        </div>
+        <button id="saveSettings">Сохранить</button>
+      </div>
+    `;
+
+    document.getElementById("saveSettings").addEventListener("click", () => {
+      this.saveSettings();
+    });
   }
 
-  // Основная инициализация виджета
-  async init() {
-    try {
-      this.initUI();
-      await this.loadSettings();
-      await this.loadDealsData();
-      this.renderCalendar();
-    } catch (error) {
-      console.error("Ошибка инициализации:", error);
-      this.showError(this.i18n.errors.load);
-    } finally {
-      this.hideLoader();
+  // Автономный режим
+  initStandaloneMode() {
+    this.showAuthScreen();
+  }
+
+  // Применение настроек
+  applySettings(settings) {
+    if (settings?.deal_date_field_id) {
+      this.fieldIds.ORDER_DATE =
+        parseInt(settings.deal_date_field_id) || this.fieldIds.ORDER_DATE;
+    }
+    if (settings?.delivery_range_field) {
+      this.fieldIds.DELIVERY_RANGE =
+        parseInt(settings.delivery_range_field) || this.fieldIds.DELIVERY_RANGE;
+    }
+  }
+
+  // Сохранение настроек
+  saveSettings() {
+    const newSettings = {
+      deal_date_field_id:
+        parseInt(document.getElementById("dealDateField").value) ||
+        this.fieldIds.ORDER_DATE,
+    };
+
+    if (typeof AmoSDK !== "undefined") {
+      AmoSDK.saveSettings(newSettings)
+        .then(() => this.showMessage("Настройки сохранены!"))
+        .catch((error) => {
+          console.error("Ошибка сохранения:", error);
+          this.showError("Ошибка сохранения настроек");
+        });
     }
   }
 
   // Инициализация интерфейса
   initUI() {
-    this.state.container = document.createElement("div");
-    this.state.container.className = "orders-calendar-container";
-    this.state.container.innerHTML = `
-      <div class="widget-loading">${this.i18n.labels.loading}</div>
-      <div class="error-message"></div>
-      <div class="calendar-header">
-        <button class="nav-button prev-month">&lt;</button>
-        <h2 class="current-month"></h2>
-        <button class="nav-button next-month">&gt;</button>
+    this.container = document.createElement("div");
+    this.container.className = `orders-calendar ${this.state.context}`;
+    this.container.innerHTML = `
+      <div class="widget-header">
+        <h2>Календарь заказов</h2>
       </div>
-      <div class="calendar-grid"></div>
-      <div class="deals-list-container">
-        <h3>Сделки на <span class="selected-date">${this.i18n.labels.selectDate}</span></h3>
+      <div class="widget-loading">Загрузка...</div>
+      <div class="error-message"></div>
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="nav-button prev-month">&lt;</button>
+          <h3 class="current-month"></h3>
+          <button class="nav-button next-month">&gt;</button>
+        </div>
+        <div class="calendar-grid"></div>
+      </div>
+      <div class="deals-container">
+        <h4 class="deals-title">${this.i18n.labels.dealsFor} <span class="selected-date">${this.i18n.labels.selectDate}</span></h4>
         <div class="deals-list"></div>
       </div>
     `;
 
-    document.body.appendChild(this.state.container);
-
-    // Назначение обработчиков
+    document.body.appendChild(this.container);
     this.bindEvents();
   }
 
-  // Назначение обработчиков событий
+  // Привязка событий
   bindEvents() {
-    this.state.container
+    this.container
       .querySelector(".prev-month")
       .addEventListener("click", () => this.prevMonth());
-    this.state.container
+    this.container
       .querySelector(".next-month")
       .addEventListener("click", () => this.nextMonth());
   }
 
-  // Загрузка данных о сделках
-  async loadDealsData() {
+  // Загрузка данных
+  async loadData() {
     if (this.state.isLoading) return;
-
     this.state.isLoading = true;
     this.showLoader();
 
     try {
-      const now = new Date();
-      const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const dateTo = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      const dateFrom = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth() - 1,
+        1
+      );
+      const dateTo = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth() + 2,
+        0
+      );
 
-      // Используем postMessage для запроса данных
-      const requestId = Date.now();
+      let deals = [];
 
-      window.parent.postMessage(
-        {
-          type: "getLeadsRequest",
-          requestId,
+      if (this.state.context === "card_sdk" && typeof AmoSDK !== "undefined") {
+        deals = await AmoSDK.getLeads({
           filter: {
             [this.fieldIds.ORDER_DATE]: {
               from: Math.floor(dateFrom.getTime() / 1000),
               to: Math.floor(dateTo.getTime() / 1000),
             },
           },
-        },
-        "*"
-      );
+        });
+      } else if (typeof AmoCRM !== "undefined") {
+        const response = await AmoCRM.request("/api/v4/leads", {
+          filter: {
+            [this.fieldIds.ORDER_DATE]: {
+              from: Math.floor(dateFrom.getTime() / 1000),
+              to: Math.floor(dateTo.getTime() / 1000),
+            },
+          },
+        });
+        deals = response._embedded.leads;
+      }
 
-      // Ждем ответа
-      const deals = await this.waitForResponse(requestId);
       this.processDealsData(deals);
-    } catch (error) {
-      console.error("Ошибка загрузки сделок:", error);
-      throw error;
+      return deals;
     } finally {
       this.state.isLoading = false;
       this.hideLoader();
     }
-  }
-
-  // Ожидание ответа от родительского окна
-  waitForResponse(requestId) {
-    return new Promise((resolve) => {
-      const handler = (event) => {
-        if (
-          event.data.type === "getLeadsResponse" &&
-          event.data.requestId === requestId
-        ) {
-          window.removeEventListener("message", handler);
-          resolve(event.data.leads);
-        }
-      };
-
-      window.addEventListener("message", handler);
-    });
   }
 
   // Обработка данных сделок
@@ -283,7 +325,7 @@ class OrdersCalendarWidget {
     const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
     // Обновляем заголовок
-    this.state.container.querySelector(
+    this.container.querySelector(
       ".current-month"
     ).textContent = `${this.i18n.months[month]} ${year}`;
 
@@ -318,11 +360,10 @@ class OrdersCalendarWidget {
       `;
     }
 
-    this.state.container.querySelector(".calendar-grid").innerHTML =
-      calendarHTML;
+    this.container.querySelector(".calendar-grid").innerHTML = calendarHTML;
 
     // Назначение обработчиков для дней
-    this.state.container.querySelectorAll(".day:not(.empty)").forEach((day) => {
+    this.container.querySelectorAll(".day:not(.empty)").forEach((day) => {
       day.addEventListener("click", () =>
         this.showDealsForDate(day.dataset.date)
       );
@@ -332,7 +373,7 @@ class OrdersCalendarWidget {
   // Показать сделки на выбранную дату
   showDealsForDate(date) {
     this.state.selectedDate = date;
-    this.state.container.querySelector(".selected-date").textContent = date;
+    this.container.querySelector(".selected-date").textContent = date;
 
     const deals = this.state.dealsData[date] || [];
     let dealsHTML = "";
@@ -347,9 +388,9 @@ class OrdersCalendarWidget {
           dealsHTML += `
           <div class="deal-item" data-deal-id="${deal.id}">
             <div class="deal-id">ID: ${deal.id}</div>
-            <div class="deal-name">Название: ${deal.name}</div>
-            <div class="deal-price">Бюджет: ${deal.price || "—"} руб.</div>
-            <div class="deal-field">Диапазон доставки: ${
+            <div class="deal-name">${deal.name}</div>
+            <div class="deal-price">${deal.price || "—"} руб.</div>
+            <div class="deal-field">Доставка: ${
               deal.custom_fields[this.fieldIds.DELIVERY_RANGE] || "—"
             }</div>
             <div class="deal-field">Точное время: ${
@@ -363,10 +404,10 @@ class OrdersCalendarWidget {
         });
     }
 
-    this.state.container.querySelector(".deals-list").innerHTML = dealsHTML;
+    this.container.querySelector(".deals-list").innerHTML = dealsHTML;
 
     // Назначение обработчиков для сделок
-    this.state.container.querySelectorAll(".deal-item").forEach((deal) => {
+    this.container.querySelectorAll(".deal-item").forEach((deal) => {
       deal.addEventListener("click", (e) => {
         e.stopPropagation();
         this.openDealCard(deal.dataset.dealId);
@@ -376,33 +417,65 @@ class OrdersCalendarWidget {
 
   // Открыть карточку сделки
   openDealCard(dealId) {
-    if (this.state.isInAmoContext) {
-      window.parent.postMessage(
-        {
-          type: "openCard",
-          dealId: parseInt(dealId),
-        },
-        "*"
-      );
+    if (this.state.context === "card_sdk" && typeof AmoSDK !== "undefined") {
+      AmoSDK.openCard(parseInt(dealId));
+    } else if (typeof AmoCRM !== "undefined") {
+      AmoCRM.widgets.system().then((system) => {
+        system.openCard(parseInt(dealId));
+      });
     } else {
-      console.warn("Открытие карточки доступно только в контексте amoCRM");
+      window.open(
+        `https://${this.state.accountDomain}.amocrm.ru/leads/detail/${dealId}`,
+        "_blank"
+      );
     }
   }
 
   // Переключение месяцев
   prevMonth() {
     this.state.currentDate.setMonth(this.state.currentDate.getMonth() - 1);
-    this.loadDealsData().then(() => this.renderCalendar());
+    this.loadData().then(() => this.renderCalendar());
   }
 
   nextMonth() {
     this.state.currentDate.setMonth(this.state.currentDate.getMonth() + 1);
-    this.loadDealsData().then(() => this.renderCalendar());
+    this.loadData().then(() => this.renderCalendar());
+  }
+
+  // Показ экрана авторизации
+  showAuthScreen() {
+    document.body.innerHTML = `
+      <div class="auth-container">
+        <h2>Календарь заказов</h2>
+        <p>${this.i18n.errors.noAuth}</p>
+        <button id="authButton" class="auth-button">
+          ${this.i18n.labels.authButton}
+        </button>
+      </div>
+    `;
+
+    document.getElementById("authButton").addEventListener("click", () => {
+      window.open(
+        `https://${this.state.accountDomain}.amocrm.ru/oauth2/authorize`,
+        "_blank"
+      );
+    });
+  }
+
+  // Управление состоянием загрузки
+  showLoader() {
+    const loader = this.container?.querySelector(".widget-loading");
+    if (loader) loader.style.display = "block";
+  }
+
+  hideLoader() {
+    const loader = this.container?.querySelector(".widget-loading");
+    if (loader) loader.style.display = "none";
   }
 
   // Показ ошибок
   showError(message) {
-    const errorEl = this.state.container.querySelector(".error-message");
+    const errorEl = this.container?.querySelector(".error-message");
     if (errorEl) {
       errorEl.textContent = message;
       errorEl.style.display = "block";
@@ -410,28 +483,33 @@ class OrdersCalendarWidget {
     }
   }
 
-  // Управление состоянием загрузки
-  showLoader() {
-    const loader = this.state.container.querySelector(".widget-loading");
-    if (loader) loader.style.display = "block";
+  // Показ сообщений
+  showMessage(message) {
+    alert(message); // Можно заменить на красивый toast
   }
 
-  hideLoader() {
-    const loader = this.state.container.querySelector(".widget-loading");
-    if (loader) loader.style.display = "none";
-  }
-}
-
-// Инициализация виджета
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    new OrdersCalendarWidget();
-  } catch (error) {
-    console.error("Фатальная ошибка:", error);
+  // Фатальная ошибка
+  showFatalError() {
     document.body.innerHTML = `
       <div style="color:red;padding:20px;">
-        Произошла критическая ошибка при загрузке виджета
+        Произошла критическая ошибка при загрузке виджета. Пожалуйста, обновите страницу.
       </div>
     `;
   }
-});
+}
+
+// Инициализация виджета в зависимости от контекста
+if (typeof AmoSDK !== "undefined") {
+  // Режим SDK (карточки, списки)
+  AmoSDK.init().then((params) => {
+    new OrdersCalendarWidget(params);
+  });
+} else if (typeof AmoCRM !== "undefined") {
+  // Стандартный режим виджета
+  AmoCRM.widgets.system().then((system) => {
+    new OrdersCalendarWidget(system.params);
+  });
+} else {
+  // Автономный режим (настройки, standalone)
+  new OrdersCalendarWidget();
+}

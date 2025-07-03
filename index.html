@@ -12,6 +12,16 @@
       content="default-src 'self' https://*.amocrm.ru; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.amocrm.ru"
     />
   </head>
+  <script>
+    if (
+      typeof OrdersCalendarWidget !== "undefined" &&
+      typeof AmoCRM === "undefined"
+    ) {
+      document.addEventListener("DOMContentLoaded", function () {
+        new OrdersCalendarWidget().callbacks.render();
+      });
+    }
+  </script>
   <body>
     <div id="widget-root"></div>
 

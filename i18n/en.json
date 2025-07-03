@@ -2,18 +2,12 @@
   "widget": {
     "name": "Orders Calendar",
     "description": "Widget for displaying deals by order date",
-    "short_description": "View deals in calendar format",
-    "tour_description": "View deals filtered by order date",
-    "advanced_settings": "Advanced Settings",
+    "short_description": "View deals in calendar",
     "deal_date_field": "Order date field ID",
-    "webhook_url": "Webhook URL",
-    "api_key": "API Key",
-    "refresh_interval": "Refresh interval (min)",
-    "debug_mode": "Debug Mode",
+    "webhook_url": "Digital Pipeline Webhook URL",
     "field_placeholder": "Enter field ID from CRM",
     "webhook_placeholder": "https://your-server.com/webhook",
-    "field_hint": "Can be found in CRM field settings",
-    "webhook_hint": "Should handle POST requests"
+    "webhook_hint": "Endpoint must accept POST requests"
   },
   "errors": {
     "invalid_field": "Invalid field value",

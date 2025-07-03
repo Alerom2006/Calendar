@@ -10,10 +10,10 @@
     "init_once": true,
     "locale": ["ru", "en"],
     "installation": true,
-    "mobile_card": true,
+    "mobile_card": false,
     "support": {
-      "link": "https://alerom2006.github.io/Calendar/support",
-      "email": "support@example.com"
+      "link": "https://yourdomain.com/support",
+      "email": "support@yourdomain.com"
     },
     "icon": "images/icon.png",
     "icon_small": "images/icon_small.png",
@@ -24,48 +24,57 @@
     "lcard-1",
     "llist-0",
     "settings",
-    "card_sdk",
     "digital_pipeline",
     "lead_sources"
   ],
   "settings": {
-    "deal_date_field": {
+    "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "number",
       "required": true,
       "placeholder": "widget.field_placeholder",
       "hint": "widget.field_hint"
     },
-    "delivery_range_field": {
-      "name": "widget.delivery_range",
-      "type": "number",
+    "dp.webhook_url": {
+      "name": "widget.webhook_url",
+      "type": "url",
+      "required": true,
+      "placeholder": "widget.webhook_placeholder",
+      "visible_for": ["digital_pipeline"],
+      "hint": "widget.webhook_hint"
+    },
+    "api_key": {
+      "name": "widget.api_key",
+      "type": "password",
       "required": false
     }
   },
   "advanced": {
     "title": "widget.advanced_settings",
     "settings": {
-      "api_key": {
-        "name": "widget.api_key",
-        "type": "password",
-        "required": true
-      },
       "refresh_interval": {
         "name": "widget.refresh_interval",
         "type": "number",
         "min": 1,
         "max": 60,
         "default": 5
+      },
+      "debug_mode": {
+        "name": "widget.debug_mode",
+        "type": "boolean",
+        "default": false
       }
     }
   },
   "permissions": {
     "leads": {
       "view": true,
-      "edit": false
+      "edit": false,
+      "delete": false
     },
     "contacts": {
-      "view": true
+      "view": true,
+      "edit": false
     }
   }
 }

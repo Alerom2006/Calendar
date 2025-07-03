@@ -8,7 +8,7 @@
 })(this, function ($) {
   "use strict";
 
-  console.log("OrdersCalendarWidget v1.0.11 loaded");
+  console.log("OrdersCalendarWidget v1.0.12 loaded");
 
   function OrdersCalendarWidget() {
     const self = this;
@@ -16,7 +16,7 @@
 
     // Конфигурация
     this.config = {
-      version: "1.0.11",
+      version: "1.0.12",
       debugMode: true,
     };
 
@@ -45,6 +45,24 @@
       }
     };
 
+    // Безопасный запрос к API
+    this.safeRequest = function (method, endpoint, params) {
+      return new Promise((resolve) => {
+        if (!this.isAPIAvailable()) {
+          console.log("API недоступно, используем тестовые данные");
+          resolve({ _embedded: { leads: [] } });
+          return;
+        }
+
+        AmoCRM.request(method, endpoint, params)
+          .then(resolve)
+          .catch((error) => {
+            console.error("API request failed:", error);
+            resolve({ _embedded: { leads: [] } });
+          });
+      });
+    };
+
     // Инициализация
     this.init = function () {
       return new Promise((resolve) => {
@@ -69,7 +87,7 @@
             resolve(true);
           })
           .catch((error) => {
-            console.error("Инициализация через API не удалась:", error);
+            console.error("System init failed:", error);
             this.state.initialized = true;
             resolve(true);
           });
@@ -78,47 +96,32 @@
 
     // Загрузка данных
     this.loadData = function () {
-      return new Promise((resolve) => {
-        if (!this.isAPIAvailable()) {
-          console.log("Используем тестовые данные");
-          this.state.dealsData = this.getMockData();
-          return resolve();
-        }
+      const dateFrom = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth(),
+        1
+      );
+      const dateTo = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth() + 1,
+        0
+      );
 
-        const dateFrom = new Date(
-          this.state.currentDate.getFullYear(),
-          this.state.currentDate.getMonth(),
-          1
-        );
-        const dateTo = new Date(
-          this.state.currentDate.getFullYear(),
-          this.state.currentDate.getMonth() + 1,
-          0
-        );
-
-        AmoCRM.request("GET", "/api/v4/leads", {
-          filter: {
-            [this.state.fieldIds.ORDER_DATE]: {
-              from: Math.floor(dateFrom.getTime() / 1000),
-              to: Math.floor(dateTo.getTime() / 1000),
-            },
+      return this.safeRequest("GET", "/api/v4/leads", {
+        filter: {
+          [this.state.fieldIds.ORDER_DATE]: {
+            from: Math.floor(dateFrom.getTime() / 1000),
+            to: Math.floor(dateTo.getTime() / 1000),
           },
-          limit: 250,
-        })
-          .then((response) => {
-            this.processData(response._embedded?.leads || []);
-            resolve();
-          })
-          .catch((error) => {
-            console.error("Ошибка загрузки данных:", error);
-            this.state.dealsData = this.getMockData();
-            resolve();
-          });
+        },
+        limit: 250,
+      }).then((response) => {
+        this.processData(response._embedded?.leads || []);
       });
     };
 
-    // Генерация календаря
-    this.renderCalendar = function () {
+    // Генерация HTML календаря
+    this.generateCalendarHTML = function () {
       try {
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
@@ -178,7 +181,7 @@
           </div>
         `;
       } catch (error) {
-        console.error("Ошибка генерации календаря:", error);
+        console.error("Calendar generation error:", error);
         return '<div class="error">Ошибка при создании календаря</div>';
       }
     };
@@ -186,30 +189,33 @@
     // Основной метод рендеринга
     this.render = function () {
       try {
-        const widgetHTML = this.renderCalendar();
+        const widgetHTML = this.generateCalendarHTML();
         const container = document.getElementById("widget-root");
 
         if (container) {
           container.innerHTML = widgetHTML;
 
           // Навигация по месяцам
-          container
-            .querySelector(".prev-month")
-            ?.addEventListener("click", () => {
+          const prevBtn = container.querySelector(".prev-month");
+          const nextBtn = container.querySelector(".next-month");
+
+          if (prevBtn) {
+            prevBtn.addEventListener("click", () => {
               this.state.currentDate.setMonth(
                 this.state.currentDate.getMonth() - 1
               );
               this.renderWidget();
             });
+          }
 
-          container
-            .querySelector(".next-month")
-            ?.addEventListener("click", () => {
+          if (nextBtn) {
+            nextBtn.addEventListener("click", () => {
               this.state.currentDate.setMonth(
                 this.state.currentDate.getMonth() + 1
               );
               this.renderWidget();
             });
+          }
         }
 
         if (typeof this.render_template === "function") {
@@ -221,7 +227,7 @@
           });
         }
       } catch (error) {
-        console.error("Ошибка рендеринга:", error);
+        console.error("Render error:", error);
       }
     };
 
@@ -250,7 +256,7 @@
         .then(() => this.loadData())
         .then(() => this.render())
         .catch((error) => {
-          console.error("Ошибка работы виджета:", error);
+          console.error("Widget error:", error);
           this.state.dealsData = this.getMockData();
           this.render();
         });
@@ -266,7 +272,8 @@
       ).getDate();
 
       for (let i = 1; i <= days; i++) {
-        if (i % 5 === 0) {
+        if (i % 5 === 0 || i === 1) {
+          // Добавляем первую дату для теста
           const date = `${this.state.currentDate.getFullYear()}-${(
             this.state.currentDate.getMonth() + 1
           )

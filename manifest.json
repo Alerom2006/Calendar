@@ -5,8 +5,8 @@
     "description": "widget.description",
     "short_description": "widget.short_description",
     "tour_description": "widget.tour_description",
-    "version": "1.0.6",
-    "interface_version": 2,
+    "version": "1.0.7",
+    "interface_version": 3,
     "init_once": false,
     "locale": ["ru", "en"],
     "installation": true,
@@ -15,7 +15,7 @@
       "email": "your-email@example.com"
     }
   },
-  "locations": ["lcard-1"],
+  "locations": ["lcard-1", "lcard-2"],
   "settings": {
     "api_key": {
       "name": "widget.api_key",

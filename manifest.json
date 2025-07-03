@@ -1,40 +1,71 @@
 {
   "widget": {
-    "manifest_version": "1.0",
+    "manifest_version": "2.0",
     "name": "widget.name",
     "description": "widget.description",
     "short_description": "widget.short_description",
-    "version": "1.0.4",
+    "tour_description": "widget.tour_description",
+    "version": "1.0.0",
     "interface_version": 2,
-    "init_once": false,
-    "locale": ["ru"],
+    "init_once": true,
+    "locale": ["ru", "en"],
     "installation": true,
+    "mobile_card": true,
     "support": {
-      "link": "https://alerom2006.github.io/Calendar/",
-      "email": "your-email@example.com"
+      "link": "https://alerom2006.github.io/Calendar/support",
+      "email": "support@example.com"
     },
-    "url": "https://alerom2006.github.io/Calendar/"
+    "icon": "images/icon.png",
+    "icon_small": "images/icon_small.png",
+    "icon_medium": "images/icon_medium.png",
+    "icon_large": "images/icon_large.png"
   },
   "locations": [
     "lcard-1",
     "llist-0",
-    "ccard-0",
-    "clist-0",
     "settings",
     "card_sdk",
-    "lead_sources",
-    "everywhere"
+    "digital_pipeline",
+    "lead_sources"
   ],
   "settings": {
-    "deal_date_field_id": {
+    "deal_date_field": {
       "name": "widget.deal_date_field",
-      "type": "text",
-      "required": true
+      "type": "number",
+      "required": true,
+      "placeholder": "widget.field_placeholder",
+      "hint": "widget.field_hint"
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
-      "type": "text",
+      "type": "number",
       "required": false
+    }
+  },
+  "advanced": {
+    "title": "widget.advanced_settings",
+    "settings": {
+      "api_key": {
+        "name": "widget.api_key",
+        "type": "password",
+        "required": true
+      },
+      "refresh_interval": {
+        "name": "widget.refresh_interval",
+        "type": "number",
+        "min": 1,
+        "max": 60,
+        "default": 5
+      }
+    }
+  },
+  "permissions": {
+    "leads": {
+      "view": true,
+      "edit": false
+    },
+    "contacts": {
+      "view": true
     }
   }
 }

@@ -3,16 +3,58 @@
     "name": "Orders Calendar",
     "description": "Widget for displaying deals by order date",
     "short_description": "View deals in calendar",
+    "tour_description": "View deals filtered by order date",
+    "api_key": "API Key",
+    "account": "Account",
+    "language": "Language",
     "deal_date_field": "Order date field ID",
-    "webhook_url": "Digital Pipeline Webhook URL",
-    "field_placeholder": "Enter field ID from CRM",
-    "webhook_placeholder": "https://your-server.com/webhook",
-    "webhook_hint": "Endpoint must accept POST requests"
+    "delivery_range": "Delivery range field ID"
+  },
+  "settings": {
+    "api_key": "API key for integration",
+    "account": "Account subdomain",
+    "language": "Interface language",
+    "deal_date_field_id": "Custom field ID for order date",
+    "delivery_range_field": "Custom field ID for delivery range"
   },
   "errors": {
-    "invalid_field": "Invalid field value",
-    "required_field": "Required field",
-    "min_value": "Minimum value: {min}",
-    "max_value": "Maximum value: {max}"
+    "timeout": "Response timeout exceeded",
+    "settings_save": "Error saving settings",
+    "load": "Data loading error",
+    "noDeals": "No deals for selected date",
+    "noAuth": "Authorization in amoCRM required",
+    "fatal": "Fatal widget loading error"
+  },
+  "labels": {
+    "dealsFor": "Deals for",
+    "selectDate": "select date",
+    "authButton": "Authorize in amoCRM",
+    "today": "Today",
+    "openCalendar": "Open calendar",
+    "save": "Save",
+    "settingsTitle": "Orders Calendar Settings",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month"
+  },
+  "months": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ],
+  "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+  "statuses": {
+    "142": "New",
+    "143": "In progress",
+    "144": "Completed",
+    "145": "Canceled"
   }
 }

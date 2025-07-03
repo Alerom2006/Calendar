@@ -35,8 +35,5 @@
       "type": "text",
       "required": false
     }
-  },
-  "card_sdk": {
-    "entity_types": ["leads", "customers"]
   }
 }

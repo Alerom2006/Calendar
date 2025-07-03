@@ -4,21 +4,18 @@
     "description": "Виджет для отображения сделок по дате заказа",
     "short_description": "Просмотр сделок в календаре",
     "tour_description": "Просматривайте сделки, отфильтрованные по дате заказа",
+    "advanced_settings": "Расширенные настройки",
     "api_key": "API-ключ",
-    "account": "Аккаунт",
-    "language": "Язык",
+    "refresh_interval": "Интервал обновления (мин)",
     "deal_date_field": "ID поля даты заказа",
-    "delivery_range": "ID поля диапазона доставки"
-  },
-  "settings": {
-    "api_key": "API-ключ для интеграции",
-    "account": "Поддомен аккаунта",
-    "language": "Язык интерфейса",
-    "deal_date_field_id": "ID кастомного поля для даты заказа",
-    "delivery_range_field": "ID кастомного поля для диапазона доставки"
+    "delivery_range": "ID поля диапазона доставки",
+    "field_placeholder": "Введите числовой ID поля",
+    "field_hint": "ID можно найти в настройках полей CRM"
   },
   "errors": {
-    "timeout": "Превышено время ожидания ответа",
-    "settings_save": "Ошибка при сохранении настроек"
+    "invalid_field": "Неверное значение поля",
+    "required_field": "Обязательное поле",
+    "min_value": "Минимальное значение: {min}",
+    "max_value": "Максимальное значение: {max}"
   }
 }

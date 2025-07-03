@@ -15,7 +15,15 @@
     },
     "url": "https://alerom2006.github.io/Calendar/"
   },
-  "locations": ["lcard-1", "settings"],
+  "locations": [
+    "lcard-1",
+    "llist-0",
+    "cucard-0",
+    "culist-0",
+    "settings",
+    "card_sdk",
+    "lead_sources"
+  ],
   "settings": {
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
@@ -26,6 +34,9 @@
       "name": "widget.delivery_range",
       "type": "text",
       "required": false
+    },
+    "card_sdk": {
+      "entity_types": ["leads", "customers"]
     }
   }
 }

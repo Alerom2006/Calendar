@@ -4,27 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Календарь заказов</title>
-    <!-- Только ваш CSS (Bootstrap и Google Fonts удалены) -->
     <link rel="stylesheet" href="style.css" />
+    <!-- Добавлена загрузка API amoCRM -->
+    <script src="https://cdn.amocrm.ru/v2/loader.min.js"></script>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' https://*.amocrm.ru; script-src 'unsafe-inline' 'unsafe-eval' https://cdn.amocrm.ru"
+    />
   </head>
   <body>
-    <!-- Минимальная разметка для виджета -->
     <div id="widget-root"></div>
 
-    <!-- Загрузчик (опционально) -->
     <div id="loader" style="display: none">
       <div class="loading-spinner"></div>
     </div>
 
-    <!-- Подключение через AMD для amoCRM -->
     <script>
-      if (typeof define !== "function") {
-        // Режим standalone (для тестов)
-        document.addEventListener("DOMContentLoaded", function () {
-          var script = document.createElement("script");
-          script.src = "script.js";
-          document.head.appendChild(script);
-        });
+      // Универсальная загрузка виджета
+      function loadWidget() {
+        if (typeof define === "function" && define.amd) {
+          // AMD режим (для amoCRM)
+          define(["jquery"], function ($) {
+            return window.OrdersCalendarWidget;
+          });
+        } else {
+          // Standalone режим
+          document.addEventListener("DOMContentLoaded", function () {
+            var script = document.createElement("script");
+            script.src = "script.js?v=" + new Date().getTime();
+            script.onload = function () {
+              if (typeof OrdersCalendarWidget !== "undefined") {
+                new OrdersCalendarWidget().renderWidget();
+              }
+            };
+            document.head.appendChild(script);
+          });
+        }
+      }
+
+      // Проверяем загружен ли API amoCRM
+      if (typeof AmoCRM !== "undefined") {
+        loadWidget();
+      } else {
+        let attempts = 0;
+        const checkAPI = setInterval(function () {
+          attempts++;
+          if (typeof AmoCRM !== "undefined") {
+            clearInterval(checkAPI);
+            loadWidget();
+          } else if (attempts > 10) {
+            clearInterval(checkAPI);
+            console.warn("AmoCRM API не загрузился");
+            loadWidget(); // Все равно загружаем виджет
+          }
+        }, 300);
       }
     </script>
   </body>

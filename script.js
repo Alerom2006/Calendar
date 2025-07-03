@@ -1,231 +1,131 @@
-define(["jquery"], function ($) {
+// Универсальная обертка для AMD и standalone режимов
+(function (root, factory) {
+  if (typeof define === "function" && define.amd) {
+    define(["jquery"], factory);
+  } else {
+    root.OrdersCalendarWidget = factory(root.jQuery);
+  }
+})(this, function ($) {
   "use strict";
 
-  console.log("Widget script loading started - v1.0.10");
+  console.log("OrdersCalendarWidget v1.0.10 loaded");
 
-  try {
-    function OrdersCalendarWidget() {
-      const self = this;
-      this.__amowidget__ = true;
+  function OrdersCalendarWidget() {
+    const self = this;
+    this.__amowidget__ = true;
 
-      // Конфигурация виджета
-      this.config = {
-        version: "1.0.10",
-        debugMode: true,
-        maxRetryAttempts: 3,
-      };
+    // Конфигурация
+    this.config = {
+      version: "1.0.10",
+      debugMode: true,
+    };
 
-      // Состояние виджета
-      this.state = {
-        initialized: false,
-        system: null,
-        currentDate: new Date(),
-        dealsData: {},
-        fieldIds: {
-          ORDER_DATE: 885453,
-        },
-        debug: {
-          lastError: null,
-          loadAttempts: 0,
-          apiAvailable: false,
-        },
-      };
+    // Состояние
+    this.state = {
+      initialized: false,
+      system: null,
+      currentDate: new Date(),
+      dealsData: {},
+      fieldIds: {
+        ORDER_DATE: 885453,
+      },
+    };
 
-      // Проверка и ожидание загрузки AmoCRM API
-      this.waitForAPI = function () {
-        return new Promise((resolve) => {
-          let attempts = 0;
-          const maxAttempts = 15; // Увеличено количество попыток
-          const interval = 200;
+    // Проверка доступности API
+    this.isAPIAvailable = function () {
+      return (
+        typeof AmoCRM !== "undefined" &&
+        typeof AmoCRM.widgets !== "undefined" &&
+        typeof AmoCRM.request !== "undefined"
+      );
+    };
 
-          const checkAPI = () => {
-            attempts++;
-            self.state.debug.apiAvailable =
-              typeof AmoCRM !== "undefined" &&
-              typeof AmoCRM.widgets !== "undefined";
+    // Инициализация
+    this.init = function () {
+      return new Promise((resolve) => {
+        if (!this.isAPIAvailable()) {
+          console.log("API недоступно, работаем в автономном режиме");
+          this.state.initialized = true;
+          return resolve(true);
+        }
 
-            if (self.state.debug.apiAvailable) {
-              console.log(
-                "AmoCRM API detected after",
-                attempts * interval,
-                "ms"
+        AmoCRM.widgets
+          .system()
+          .then((system) => {
+            this.state.system = system;
+            this.state.initialized = true;
+
+            if (system.settings?.deal_date_field_id) {
+              this.state.fieldIds.ORDER_DATE = parseInt(
+                system.settings.deal_date_field_id
               );
-              resolve(true);
-            } else if (attempts >= maxAttempts) {
-              console.warn(
-                "AmoCRM API не загрузился после",
-                maxAttempts * interval,
-                "ms"
-              );
-              resolve(false);
-            } else {
-              setTimeout(checkAPI, interval);
-            }
-          };
-
-          checkAPI();
-        });
-      };
-
-      // Инициализация системы
-      this.initSystem = function () {
-        return self.waitForAPI().then((apiReady) => {
-          if (!apiReady) {
-            console.warn("Продолжаем без AmoCRM API");
-            self.state.initialized = true; // Разрешаем работу в ограниченном режиме
-            return true;
-          }
-
-          return AmoCRM.widgets
-            .system()
-            .then((system) => {
-              console.log("System initialized:", system);
-              self.state.system = system;
-              self.state.initialized = true;
-
-              if (system.settings?.deal_date_field_id) {
-                self.state.fieldIds.ORDER_DATE = parseInt(
-                  system.settings.deal_date_field_id
-                );
-              }
-
-              return true;
-            })
-            .catch((error) => {
-              console.warn("System init warning:", error);
-              self.state.initialized = true; // Все равно продолжаем
-              return true;
-            });
-        });
-      };
-
-      // Загрузка сделок
-      this.loadDeals = function () {
-        self.state.debug.loadAttempts++;
-        console.log("Loading deals, attempt", self.state.debug.loadAttempts);
-
-        if (!self.state.initialized) {
-          console.warn("Widget not initialized yet");
-          return Promise.resolve(false);
-        }
-
-        // Если API недоступен, используем тестовые данные
-        if (!self.state.debug.apiAvailable) {
-          console.warn("Using mock data (API unavailable)");
-          self.state.dealsData = this.generateMockData();
-          return Promise.resolve(true);
-        }
-
-        const dateFrom = new Date(
-          self.state.currentDate.getFullYear(),
-          self.state.currentDate.getMonth(),
-          1
-        );
-        const dateTo = new Date(
-          self.state.currentDate.getFullYear(),
-          self.state.currentDate.getMonth() + 1,
-          0
-        );
-
-        return new Promise((resolve) => {
-          const requestData = {
-            filter: {
-              [self.state.fieldIds.ORDER_DATE]: {
-                from: Math.floor(dateFrom.getTime() / 1000),
-                to: Math.floor(dateTo.getTime() / 1000),
-              },
-            },
-            limit: 250,
-          };
-
-          AmoCRM.request("/api/v4/leads", requestData)
-            .then((response) => {
-              self.processDealsData(response._embedded?.leads || []);
-              resolve(true);
-            })
-            .catch((error) => {
-              console.warn("API request warning:", error);
-              self.state.dealsData = this.generateMockData();
-              resolve(true); // Продолжаем с тестовыми данными
-            });
-        });
-      };
-
-      // Генерация тестовых данных
-      this.generateMockData = function () {
-        console.log("Generating mock data");
-        const mockData = {};
-        const daysInMonth = new Date(
-          this.state.currentDate.getFullYear(),
-          this.state.currentDate.getMonth() + 1,
-          0
-        ).getDate();
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = `${this.state.currentDate.getFullYear()}-${(
-            this.state.currentDate.getMonth() + 1
-          )
-            .toString()
-            .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-
-          if (day % 5 === 0) {
-            // Каждый 5-й день есть сделки
-            mockData[dateStr] = [
-              {
-                id: day * 1000,
-                name: `Тестовая сделка ${day}`,
-                status_id: 143,
-                price: day * 1000,
-              },
-            ];
-          }
-        }
-        return mockData;
-      };
-
-      // Обработка данных сделок
-      this.processDealsData = function (deals) {
-        self.state.dealsData = {};
-        deals.forEach((deal) => {
-          const dateField = deal.custom_fields_values?.find(
-            (f) => f.field_id === self.state.fieldIds.ORDER_DATE
-          );
-
-          if (dateField?.values?.[0]?.value) {
-            const date = new Date(dateField.values[0].value * 1000);
-            const dateStr = date.toISOString().split("T")[0];
-
-            if (!self.state.dealsData[dateStr]) {
-              self.state.dealsData[dateStr] = [];
             }
 
-            self.state.dealsData[dateStr].push({
-              id: deal.id,
-              name: deal.name,
-              status_id: deal.status_id,
-              price: deal.price,
-            });
-          }
-        });
-      };
+            resolve(true);
+          })
+          .catch((error) => {
+            console.log("Инициализация через API не удалась:", error);
+            this.state.initialized = true;
+            resolve(true);
+          });
+      });
+    };
 
-      // Генерация календаря
-      this.generateCalendar = function () {
-        const month = self.state.currentDate.getMonth();
-        const year = self.state.currentDate.getFullYear();
+    // Загрузка данных
+    this.loadData = function () {
+      if (!this.isAPIAvailable()) {
+        console.log("Используем тестовые данные");
+        this.state.dealsData = this.getMockData();
+        return Promise.resolve();
+      }
+
+      const dateFrom = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth(),
+        1
+      );
+      const dateTo = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth() + 1,
+        0
+      );
+
+      return AmoCRM.request("GET", "/api/v4/leads", {
+        filter: {
+          [this.state.fieldIds.ORDER_DATE]: {
+            from: Math.floor(dateFrom.getTime() / 1000),
+            to: Math.floor(dateTo.getTime() / 1000),
+          },
+        },
+        limit: 250,
+      })
+        .then((response) => {
+          this.processData(response._embedded?.leads || []);
+        })
+        .catch((error) => {
+          console.log("Ошибка загрузки данных:", error);
+          this.state.dealsData = this.getMockData();
+        });
+    };
+
+    // Генерация календаря
+    this.render = function () {
+      try {
+        const month = this.state.currentDate.getMonth();
+        const year = this.state.currentDate.getFullYear();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay() || 7;
+        const firstDay = new Date(year, month, 1).getDay();
+        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Корректировка для недели, начинающейся с понедельника
 
         let html = '<div class="calendar-grid">';
 
-        // Дни недели
-        const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-        weekdays.forEach((day) => {
+        // Заголовки дней недели
+        ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach((day) => {
           html += `<div class="calendar-weekday">${day}</div>`;
         });
 
-        // Пустые ячейки в начале месяца
-        for (let i = 1; i < firstDay; i++) {
+        // Пустые ячейки для первого дня месяца
+        for (let i = 0; i < adjustedFirstDay; i++) {
           html += '<div class="calendar-day empty"></div>';
         }
 
@@ -234,17 +134,17 @@ define(["jquery"], function ($) {
           const dateStr = `${year}-${(month + 1)
             .toString()
             .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-          const dealsCount = self.state.dealsData[dateStr]?.length || 0;
+          const deals = this.state.dealsData[dateStr] || [];
           const isToday = dateStr === new Date().toISOString().split("T")[0];
 
           html += `
             <div class="calendar-day ${isToday ? "today" : ""} ${
-            dealsCount ? "has-deals" : ""
-          }">
+            deals.length ? "has-deals" : ""
+          }" data-date="${dateStr}">
               ${day}
               ${
-                dealsCount
-                  ? `<span class="deal-badge">${dealsCount}</span>`
+                deals.length
+                  ? `<span class="deal-badge">${deals.length}</span>`
                   : ""
               }
             </div>
@@ -252,127 +152,181 @@ define(["jquery"], function ($) {
         }
 
         html += "</div>";
-        return html;
-      };
 
-      // Рендеринг виджета
-      this.renderWidget = function () {
-        return self
-          .loadDeals()
-          .then(() => {
-            const calendarHTML = `
-            <div class="orders-calendar">
-              <div class="calendar-header">
-                <h4>Календарь заказов</h4>
+        const widgetHTML = `
+          <div class="orders-calendar">
+            <div class="calendar-header">
+              <h4>Календарь заказов</h4>
+              <div class="calendar-nav">
+                <button class="prev-month">←</button>
+                <span class="current-month">${this.getMonthName(
+                  month
+                )} ${year}</span>
+                <button class="next-month">→</button>
               </div>
-              ${self.generateCalendar()}
             </div>
-          `;
+            ${html}
+          </div>
+        `;
 
-            if (typeof self.render_template === "function") {
-              self.render_template({
-                body: calendarHTML,
-                caption: {
-                  class_name: "orders-calendar-caption",
-                },
-              });
-            } else {
-              const container =
-                document.querySelector("#widget-root") || document.body;
-              container.innerHTML = calendarHTML;
-            }
+        const container = document.getElementById("widget-root");
+        if (container) {
+          container.innerHTML = widgetHTML;
 
-            return true;
-          })
-          .catch((error) => {
-            console.warn("Render warning:", error);
-            return false;
-          });
-      };
+          // Добавляем обработчики событий
+          container
+            .querySelector(".prev-month")
+            .addEventListener("click", () => {
+              this.state.currentDate.setMonth(
+                this.state.currentDate.getMonth() - 1
+              );
+              this.renderWidget();
+            });
 
-      // Колбэки виджета
-      this.callbacks = {
-        init: function (system) {
-          console.log("Init callback with system:", system);
-          return self.initSystem();
-        },
-
-        render: function () {
-          console.log("Render callback");
-          return self.renderWidget();
-        },
-
-        onSave: function (newSettings) {
-          if (newSettings?.deal_date_field_id) {
-            self.state.fieldIds.ORDER_DATE = parseInt(
-              newSettings.deal_date_field_id
-            );
-          }
-          return true;
-        },
-
-        bind_actions: function () {
-          return true;
-        },
-
-        destroy: function () {
-          return true;
-        },
-      };
-
-      return this;
-    }
-
-    // Регистрация виджета
-    const registerWidget = () => {
-      if (
-        typeof AmoCRM !== "undefined" &&
-        typeof AmoCRM.Widget !== "undefined"
-      ) {
-        try {
-          console.log("Registering widget...");
-          AmoCRM.Widget.register(OrdersCalendarWidget);
-          console.log("Widget registered successfully");
-        } catch (e) {
-          console.warn("Widget registration warning:", e);
+          container
+            .querySelector(".next-month")
+            .addEventListener("click", () => {
+              this.state.currentDate.setMonth(
+                this.state.currentDate.getMonth() + 1
+              );
+              this.renderWidget();
+            });
         }
-      } else {
-        console.warn(
-          "AmoCRM.Widget not available - running in standalone mode"
-        );
-        // Запуск в автономном режиме
-        document.addEventListener("DOMContentLoaded", function () {
-          const widget = new OrdersCalendarWidget();
-          widget.renderWidget();
-        });
+
+        if (typeof this.render_template === "function") {
+          this.render_template({
+            body: widgetHTML,
+            caption: {
+              class_name: "orders-calendar-caption",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Ошибка рендеринга календаря:", error);
       }
     };
 
-    // Попытка регистрации с задержкой
-    if (typeof AmoCRM === "undefined") {
-      console.log("Waiting for AmoCRM API...");
-      let attempts = 0;
-      const checkAPI = () => {
-        attempts++;
-        if (typeof AmoCRM !== "undefined") {
-          registerWidget();
-        } else if (attempts < 10) {
-          setTimeout(checkAPI, 300);
-        } else {
-          console.warn(
-            "AmoCRM API not loaded after 3 seconds - running standalone"
-          );
-          registerWidget();
-        }
-      };
-      checkAPI();
-    } else {
-      registerWidget();
-    }
+    // Получение названия месяца
+    this.getMonthName = function (monthIndex) {
+      const months = [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь",
+      ];
+      return months[monthIndex];
+    };
 
-    return OrdersCalendarWidget;
-  } catch (e) {
-    console.error("Script initialization error:", e);
-    return function () {};
+    // Основной метод
+    this.renderWidget = function () {
+      return this.init()
+        .then(() => this.loadData())
+        .then(() => this.render())
+        .catch((error) => {
+          console.error("Ошибка рендеринга виджета:", error);
+          this.state.dealsData = this.getMockData();
+          this.render();
+        });
+    };
+
+    // Тестовые данные
+    this.getMockData = function () {
+      const data = {};
+      const days = new Date(
+        this.state.currentDate.getFullYear(),
+        this.state.currentDate.getMonth() + 1,
+        0
+      ).getDate();
+
+      for (let i = 1; i <= days; i++) {
+        if (i % 5 === 0) {
+          const date = `${this.state.currentDate.getFullYear()}-${(
+            this.state.currentDate.getMonth() + 1
+          )
+            .toString()
+            .padStart(2, "0")}-${i.toString().padStart(2, "0")}`;
+          data[date] = [
+            {
+              id: i,
+              name: `Тестовая сделка ${i}`,
+              status_id: 143,
+              price: i * 1000,
+            },
+          ];
+        }
+      }
+      return data;
+    };
+
+    // Обработка данных
+    this.processData = function (deals) {
+      this.state.dealsData = {};
+      deals.forEach((deal) => {
+        const dateField = deal.custom_fields_values?.find(
+          (f) => f.field_id === this.state.fieldIds.ORDER_DATE
+        );
+
+        if (dateField?.values?.[0]?.value) {
+          const date = new Date(dateField.values[0].value * 1000);
+          const dateStr = date.toISOString().split("T")[0];
+
+          if (!this.state.dealsData[dateStr]) {
+            this.state.dealsData[dateStr] = [];
+          }
+
+          this.state.dealsData[dateStr].push({
+            id: deal.id,
+            name: deal.name,
+            status_id: deal.status_id,
+            price: deal.price,
+          });
+        }
+      });
+    };
+
+    // Колбэки для amoCRM
+    this.callbacks = {
+      init: (system) => this.init().then(() => true),
+      render: () => this.renderWidget().then(() => true),
+      onSave: (settings) => {
+        if (settings?.deal_date_field_id) {
+          this.state.fieldIds.ORDER_DATE = parseInt(
+            settings.deal_date_field_id
+          );
+        }
+        return true;
+      },
+      bind_actions: () => true,
+      destroy: () => true,
+    };
+
+    return this;
   }
+
+  // Автоматическая регистрация в amoCRM
+  if (typeof AmoCRM !== "undefined" && typeof AmoCRM.Widget !== "undefined") {
+    try {
+      AmoCRM.Widget.register(OrdersCalendarWidget);
+      console.log("Widget registered in AmoCRM");
+    } catch (e) {
+      console.error("Widget registration error:", e);
+    }
+  }
+
+  // Для standalone режима
+  if (typeof OrdersCalendarWidget !== "undefined" && !this.__amowidget__) {
+    document.addEventListener("DOMContentLoaded", function () {
+      new OrdersCalendarWidget().renderWidget();
+    });
+  }
+
+  return OrdersCalendarWidget;
 });

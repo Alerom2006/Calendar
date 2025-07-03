@@ -3,12 +3,12 @@
   if (typeof define === "function" && define.amd) {
     define(["jquery"], factory);
   } else {
-    root.OrdersCalendarWidget = factory(root.jQuery || $);
+    root.OrdersCalendarWidget = factory(root.jQuery || {});
   }
 })(this, function ($) {
   "use strict";
 
-  console.log("OrdersCalendarWidget v1.0.12 loaded");
+  console.log("OrdersCalendarWidget v1.0.13 loaded");
 
   function OrdersCalendarWidget() {
     const self = this;
@@ -16,8 +16,8 @@
 
     // Конфигурация
     this.config = {
-      version: "1.0.12",
-      debugMode: true,
+      version: "1.0.13",
+      debugMode: false, // Отключаем debug режим для продакшена
     };
 
     // Состояние
@@ -29,68 +29,95 @@
       fieldIds: {
         ORDER_DATE: 885453,
       },
+      isStandalone: typeof AmoCRM === "undefined",
+    };
+
+    // Безопасный доступ к свойствам объекта
+    this.safeAccess = function (obj, path, defaultValue) {
+      return path
+        .split(".")
+        .reduce((o, p) => (o && o[p] !== undefined ? o[p] : defaultValue), obj);
     };
 
     // Проверка доступности API
     this.isAPIAvailable = function () {
       try {
+        if (this.state.isStandalone) return false;
         return (
           typeof AmoCRM !== "undefined" &&
-          typeof AmoCRM.widgets !== "undefined" &&
-          typeof AmoCRM.request !== "undefined"
+          typeof this.safeAccess(AmoCRM, "widgets.system", null) ===
+            "function" &&
+          typeof this.safeAccess(AmoCRM, "request", null) === "function"
         );
       } catch (e) {
-        console.error("API check error:", e);
+        console.warn("API check warning:", e.message);
         return false;
       }
     };
 
     // Безопасный запрос к API
-    this.safeRequest = function (method, endpoint, params) {
+    this.safeApiRequest = function (method, endpoint, params) {
       return new Promise((resolve) => {
-        if (!this.isAPIAvailable()) {
+        if (!this.isAPIAvailable() || this.state.isStandalone) {
           console.log("API недоступно, используем тестовые данные");
           resolve({ _embedded: { leads: [] } });
           return;
         }
 
-        AmoCRM.request(method, endpoint, params)
-          .then(resolve)
-          .catch((error) => {
-            console.error("API request failed:", error);
-            resolve({ _embedded: { leads: [] } });
-          });
+        try {
+          AmoCRM.request(method, endpoint, params)
+            .then((response) => {
+              if (!response) throw new Error("Empty API response");
+              resolve(response);
+            })
+            .catch((error) => {
+              console.warn("API request warning:", error.message);
+              resolve({ _embedded: { leads: [] } });
+            });
+        } catch (e) {
+          console.warn("API request exception:", e.message);
+          resolve({ _embedded: { leads: [] } });
+        }
       });
     };
 
     // Инициализация
     this.init = function () {
       return new Promise((resolve) => {
-        if (!this.isAPIAvailable()) {
-          console.log("API недоступно, работаем в автономном режиме");
+        if (this.state.isStandalone || !this.isAPIAvailable()) {
+          console.log("Работаем в автономном режиме");
           this.state.initialized = true;
           return resolve(true);
         }
 
-        AmoCRM.widgets
-          .system()
-          .then((system) => {
-            this.state.system = system;
-            this.state.initialized = true;
+        try {
+          AmoCRM.widgets
+            .system()
+            .then((system) => {
+              this.state.system = system || {};
+              this.state.initialized = true;
 
-            if (system.settings?.deal_date_field_id) {
-              this.state.fieldIds.ORDER_DATE = parseInt(
-                system.settings.deal_date_field_id
+              const fieldId = this.safeAccess(
+                system,
+                "settings.deal_date_field_id",
+                null
               );
-            }
+              if (fieldId) {
+                this.state.fieldIds.ORDER_DATE = parseInt(fieldId) || 885453;
+              }
 
-            resolve(true);
-          })
-          .catch((error) => {
-            console.error("System init failed:", error);
-            this.state.initialized = true;
-            resolve(true);
-          });
+              resolve(true);
+            })
+            .catch((error) => {
+              console.warn("System init warning:", error.message);
+              this.state.initialized = true;
+              resolve(true);
+            });
+        } catch (e) {
+          console.warn("System init exception:", e.message);
+          this.state.initialized = true;
+          resolve(true);
+        }
       });
     };
 
@@ -107,7 +134,7 @@
         0
       );
 
-      return this.safeRequest("GET", "/api/v4/leads", {
+      return this.safeApiRequest("GET", "/api/v4/leads", {
         filter: {
           [this.state.fieldIds.ORDER_DATE]: {
             from: Math.floor(dateFrom.getTime() / 1000),
@@ -116,7 +143,7 @@
         },
         limit: 250,
       }).then((response) => {
-        this.processData(response._embedded?.leads || []);
+        this.processData(this.safeAccess(response, "_embedded.leads", []));
       });
     };
 
@@ -146,7 +173,7 @@
           const dateStr = `${year}-${(month + 1)
             .toString()
             .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-          const deals = this.state.dealsData[dateStr] || [];
+          const deals = this.safeAccess(this.state.dealsData, dateStr, []);
           const isToday = dateStr === new Date().toISOString().split("T")[0];
 
           html += `
@@ -170,11 +197,11 @@
             <div class="calendar-header">
               <h4>Календарь заказов</h4>
               <div class="calendar-nav">
-                <button class="prev-month">←</button>
+                <button class="prev-month" aria-label="Предыдущий месяц">←</button>
                 <span class="current-month">${this.getMonthName(
                   month
                 )} ${year}</span>
-                <button class="next-month">→</button>
+                <button class="next-month" aria-label="Следующий месяц">→</button>
               </div>
             </div>
             ${html}
@@ -218,13 +245,20 @@
           }
         }
 
-        if (typeof this.render_template === "function") {
-          this.render_template({
-            body: widgetHTML,
-            caption: {
-              class_name: "orders-calendar-caption",
-            },
-          });
+        if (
+          !this.state.isStandalone &&
+          typeof this.render_template === "function"
+        ) {
+          try {
+            this.render_template({
+              body: widgetHTML,
+              caption: {
+                class_name: "orders-calendar-caption",
+              },
+            });
+          } catch (e) {
+            console.warn("Template render warning:", e.message);
+          }
         }
       } catch (error) {
         console.error("Render error:", error);
@@ -247,7 +281,7 @@
         "Ноябрь",
         "Декабрь",
       ];
-      return months[monthIndex];
+      return months[monthIndex] || "";
     };
 
     // Основной метод виджета
@@ -273,7 +307,6 @@
 
       for (let i = 1; i <= days; i++) {
         if (i % 5 === 0 || i === 1) {
-          // Добавляем первую дату для теста
           const date = `${this.state.currentDate.getFullYear()}-${(
             this.state.currentDate.getMonth() + 1
           )
@@ -295,25 +328,34 @@
     // Обработка данных
     this.processData = function (deals) {
       this.state.dealsData = {};
-      deals.forEach((deal) => {
-        const dateField = deal.custom_fields_values?.find(
-          (f) => f.field_id === this.state.fieldIds.ORDER_DATE
-        );
+      (deals || []).forEach((deal) => {
+        try {
+          const dateField = (deal.custom_fields_values || []).find(
+            (f) => f && f.field_id === this.state.fieldIds.ORDER_DATE
+          );
 
-        if (dateField?.values?.[0]?.value) {
-          const date = new Date(dateField.values[0].value * 1000);
-          const dateStr = date.toISOString().split("T")[0];
+          if (
+            dateField &&
+            dateField.values &&
+            dateField.values[0] &&
+            dateField.values[0].value
+          ) {
+            const date = new Date(dateField.values[0].value * 1000);
+            const dateStr = date.toISOString().split("T")[0];
 
-          if (!this.state.dealsData[dateStr]) {
-            this.state.dealsData[dateStr] = [];
+            if (!this.state.dealsData[dateStr]) {
+              this.state.dealsData[dateStr] = [];
+            }
+
+            this.state.dealsData[dateStr].push({
+              id: deal.id || 0,
+              name: deal.name || "Без названия",
+              status_id: deal.status_id || 0,
+              price: deal.price || 0,
+            });
           }
-
-          this.state.dealsData[dateStr].push({
-            id: deal.id,
-            name: deal.name,
-            status_id: deal.status_id,
-            price: deal.price,
-          });
+        } catch (e) {
+          console.warn("Deal processing warning:", e.message);
         }
       });
     };
@@ -323,10 +365,13 @@
       init: (system) => this.init().then(() => true),
       render: () => this.renderWidget().then(() => true),
       onSave: (settings) => {
-        if (settings?.deal_date_field_id) {
-          this.state.fieldIds.ORDER_DATE = parseInt(
-            settings.deal_date_field_id
-          );
+        try {
+          if (settings && settings.deal_date_field_id) {
+            this.state.fieldIds.ORDER_DATE =
+              parseInt(settings.deal_date_field_id) || 885453;
+          }
+        } catch (e) {
+          console.warn("Settings save warning:", e.message);
         }
         return true;
       },
@@ -348,9 +393,16 @@
   }
 
   // Для standalone режима
-  if (typeof OrdersCalendarWidget !== "undefined" && !this.__amowidget__) {
+  if (
+    typeof OrdersCalendarWidget !== "undefined" &&
+    typeof AmoCRM === "undefined"
+  ) {
     document.addEventListener("DOMContentLoaded", function () {
-      new OrdersCalendarWidget().renderWidget();
+      try {
+        new OrdersCalendarWidget().renderWidget();
+      } catch (e) {
+        console.error("Standalone init error:", e);
+      }
     });
   }
 

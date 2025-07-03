@@ -13,9 +13,11 @@
     "support": {
       "link": "https://alerom2006.github.io/Calendar/",
       "email": "your-email@example.com"
-    }
+    },
+    "content_security_policy": "script-src 'self' https://cdn.amocrm.ru 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.amocrm.ru; frame-src 'self' https://*.amocrm.ru; object-src 'self'"
   },
-  "locations": ["lcard-1", "lcard-2"],
+
+  "locations": ["lcard-1", "lcard-2", "settings"],
   "settings": {
     "api_key": {
       "name": "widget.api_key",

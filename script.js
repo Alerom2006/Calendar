@@ -3,12 +3,12 @@
   if (typeof define === "function" && define.amd) {
     define(["jquery"], factory);
   } else {
-    root.OrdersCalendarWidget = factory(root.jQuery);
+    root.OrdersCalendarWidget = factory(root.jQuery || $);
   }
 })(this, function ($) {
   "use strict";
 
-  console.log("OrdersCalendarWidget v1.0.10 loaded");
+  console.log("OrdersCalendarWidget v1.0.11 loaded");
 
   function OrdersCalendarWidget() {
     const self = this;
@@ -16,7 +16,7 @@
 
     // Конфигурация
     this.config = {
-      version: "1.0.10",
+      version: "1.0.11",
       debugMode: true,
     };
 
@@ -33,11 +33,16 @@
 
     // Проверка доступности API
     this.isAPIAvailable = function () {
-      return (
-        typeof AmoCRM !== "undefined" &&
-        typeof AmoCRM.widgets !== "undefined" &&
-        typeof AmoCRM.request !== "undefined"
-      );
+      try {
+        return (
+          typeof AmoCRM !== "undefined" &&
+          typeof AmoCRM.widgets !== "undefined" &&
+          typeof AmoCRM.request !== "undefined"
+        );
+      } catch (e) {
+        console.error("API check error:", e);
+        return false;
+      }
     };
 
     // Инициализация
@@ -64,7 +69,7 @@
             resolve(true);
           })
           .catch((error) => {
-            console.log("Инициализация через API не удалась:", error);
+            console.error("Инициализация через API не удалась:", error);
             this.state.initialized = true;
             resolve(true);
           });
@@ -73,49 +78,53 @@
 
     // Загрузка данных
     this.loadData = function () {
-      if (!this.isAPIAvailable()) {
-        console.log("Используем тестовые данные");
-        this.state.dealsData = this.getMockData();
-        return Promise.resolve();
-      }
-
-      const dateFrom = new Date(
-        this.state.currentDate.getFullYear(),
-        this.state.currentDate.getMonth(),
-        1
-      );
-      const dateTo = new Date(
-        this.state.currentDate.getFullYear(),
-        this.state.currentDate.getMonth() + 1,
-        0
-      );
-
-      return AmoCRM.request("GET", "/api/v4/leads", {
-        filter: {
-          [this.state.fieldIds.ORDER_DATE]: {
-            from: Math.floor(dateFrom.getTime() / 1000),
-            to: Math.floor(dateTo.getTime() / 1000),
-          },
-        },
-        limit: 250,
-      })
-        .then((response) => {
-          this.processData(response._embedded?.leads || []);
-        })
-        .catch((error) => {
-          console.log("Ошибка загрузки данных:", error);
+      return new Promise((resolve) => {
+        if (!this.isAPIAvailable()) {
+          console.log("Используем тестовые данные");
           this.state.dealsData = this.getMockData();
-        });
+          return resolve();
+        }
+
+        const dateFrom = new Date(
+          this.state.currentDate.getFullYear(),
+          this.state.currentDate.getMonth(),
+          1
+        );
+        const dateTo = new Date(
+          this.state.currentDate.getFullYear(),
+          this.state.currentDate.getMonth() + 1,
+          0
+        );
+
+        AmoCRM.request("GET", "/api/v4/leads", {
+          filter: {
+            [this.state.fieldIds.ORDER_DATE]: {
+              from: Math.floor(dateFrom.getTime() / 1000),
+              to: Math.floor(dateTo.getTime() / 1000),
+            },
+          },
+          limit: 250,
+        })
+          .then((response) => {
+            this.processData(response._embedded?.leads || []);
+            resolve();
+          })
+          .catch((error) => {
+            console.error("Ошибка загрузки данных:", error);
+            this.state.dealsData = this.getMockData();
+            resolve();
+          });
+      });
     };
 
     // Генерация календаря
-    this.render = function () {
+    this.renderCalendar = function () {
       try {
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const firstDay = new Date(year, month, 1).getDay();
-        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Корректировка для недели, начинающейся с понедельника
+        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
         let html = '<div class="calendar-grid">';
 
@@ -124,7 +133,7 @@
           html += `<div class="calendar-weekday">${day}</div>`;
         });
 
-        // Пустые ячейки для первого дня месяца
+        // Пустые ячейки
         for (let i = 0; i < adjustedFirstDay; i++) {
           html += '<div class="calendar-day empty"></div>';
         }
@@ -153,7 +162,7 @@
 
         html += "</div>";
 
-        const widgetHTML = `
+        return `
           <div class="orders-calendar">
             <div class="calendar-header">
               <h4>Календарь заказов</h4>
@@ -168,15 +177,25 @@
             ${html}
           </div>
         `;
+      } catch (error) {
+        console.error("Ошибка генерации календаря:", error);
+        return '<div class="error">Ошибка при создании календаря</div>';
+      }
+    };
 
+    // Основной метод рендеринга
+    this.render = function () {
+      try {
+        const widgetHTML = this.renderCalendar();
         const container = document.getElementById("widget-root");
+
         if (container) {
           container.innerHTML = widgetHTML;
 
-          // Добавляем обработчики событий
+          // Навигация по месяцам
           container
             .querySelector(".prev-month")
-            .addEventListener("click", () => {
+            ?.addEventListener("click", () => {
               this.state.currentDate.setMonth(
                 this.state.currentDate.getMonth() - 1
               );
@@ -185,7 +204,7 @@
 
           container
             .querySelector(".next-month")
-            .addEventListener("click", () => {
+            ?.addEventListener("click", () => {
               this.state.currentDate.setMonth(
                 this.state.currentDate.getMonth() + 1
               );
@@ -202,7 +221,7 @@
           });
         }
       } catch (error) {
-        console.error("Ошибка рендеринга календаря:", error);
+        console.error("Ошибка рендеринга:", error);
       }
     };
 
@@ -225,13 +244,13 @@
       return months[monthIndex];
     };
 
-    // Основной метод
+    // Основной метод виджета
     this.renderWidget = function () {
       return this.init()
         .then(() => this.loadData())
         .then(() => this.render())
         .catch((error) => {
-          console.error("Ошибка рендеринга виджета:", error);
+          console.error("Ошибка работы виджета:", error);
           this.state.dealsData = this.getMockData();
           this.render();
         });

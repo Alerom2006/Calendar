@@ -3,38 +3,32 @@ define(["jquery"], function ($) {
 
   function OrdersCalendarWidget() {
     this.__amowidget__ = true;
-    const widget = this;
+    const self = this;
 
-    // Конфигурация виджета
     this.config = {
       widgetInstanceId:
         "orders-calendar-" + Math.random().toString(36).substr(2, 9),
-      version: "1.0.4",
+      version: "1.0.5",
       debugMode: false,
     };
 
-    // Состояние виджета
     this.state = {
       initialized: false,
       system: null,
       settings: {},
-      currentView: "calendar",
       currentDate: new Date(),
       dealsData: {},
       selectedDate: null,
-      accessToken: null,
+      accessToken: localStorage.getItem("amo_access_token") || null,
     };
 
-    // ID полей по умолчанию (могут быть переопределены в настройках)
     this.fieldIds = {
       ORDER_DATE: 885453,
       DELIVERY_RANGE: 892009,
       EXACT_TIME: 892003,
       ADDRESS: 887367,
-      STATUS: 887369,
     };
 
-    // Локализация
     this.i18n = {
       months: [
         "Январь",
@@ -54,166 +48,350 @@ define(["jquery"], function ($) {
       errors: {
         load: "Ошибка загрузки данных",
         save: "Ошибка сохранения настроек",
-        auth: "Ошибка авторизации",
+        auth: "Требуется авторизация",
         noDeals: "Нет сделок на выбранную дату",
       },
       labels: {
         dealsFor: "Сделки на",
         selectDate: "выберите дату",
-        authButton: "Авторизоваться в amoCRM",
+        authButton: "Авторизоваться",
+        save: "Сохранить",
+        today: "Сегодня",
       },
     };
 
-    // Основные методы виджета
     this.initSystem = function () {
       return new Promise((resolve, reject) => {
         if (typeof AmoCRM === "undefined") {
-          widget.handleAuth();
-          return reject(new Error("AmoCRM API not available"));
+          if (!self.state.accessToken) {
+            self.showAuthRequired();
+          }
+          return reject("AmoCRM API not available");
         }
 
         AmoCRM.widgets
           .system()
           .then((system) => {
-            widget.state.system = system;
-            widget.state.initialized = true;
+            self.state.system = system;
+            self.state.initialized = true;
             resolve(true);
           })
           .catch((err) => {
-            widget.handleAuth();
+            if (!self.state.accessToken) {
+              self.showAuthRequired();
+            }
             reject(err);
           });
       });
     };
 
-    // Обработка авторизации
-    this.handleAuth = function () {
-      const token = localStorage.getItem("amo_access_token");
-      if (token) {
-        widget.state.accessToken = token;
-        return true;
-      }
-
-      // Если нет токена, показываем кнопку авторизации
+    this.showAuthRequired = function () {
       $("#widget-root").html(`
                 <div class="auth-required">
-                    <p>${widget.i18n.errors.auth}</p>
-                    <button id="authBtn" class="btn btn-primary">
-                        ${widget.i18n.labels.authButton}
-                    </button>
+                    <p>${self.i18n.errors.auth}</p>
+                    <button id="authBtn" class="btn">${self.i18n.labels.authButton}</button>
                 </div>
             `);
-
       $("#authBtn").click(() => {
-        window.location.href = `https://${widget.getAccountDomain()}.amocrm.ru/oauth2/authorize`;
+        const domain = self.getAccountDomain();
+        window.location.href = `https://${domain}.amocrm.ru/oauth2/authorize`;
       });
-
-      return false;
     };
 
-    // Получение домена аккаунта
     this.getAccountDomain = function () {
-      if (widget.state.system?.account) return widget.state.system.account;
+      if (self.state.system?.account) return self.state.system.account;
       return window.location.hostname.split(".")[0] || "";
     };
 
-    // Загрузка настроек
     this.loadSettings = function () {
       return new Promise((resolve) => {
-        if (widget.state.system?.settings) {
-          widget.applySettings(widget.state.system.settings);
+        if (self.state.system?.settings) {
+          self.applySettings(self.state.system.settings);
         }
         resolve(true);
       });
     };
 
-    // Применение настроек
     this.applySettings = function (settings) {
-      if (!settings) return;
-
-      if (settings.deal_date_field_id) {
-        widget.fieldIds.ORDER_DATE =
-          parseInt(settings.deal_date_field_id) || widget.fieldIds.ORDER_DATE;
+      if (settings?.deal_date_field_id) {
+        self.fieldIds.ORDER_DATE =
+          parseInt(settings.deal_date_field_id) || self.fieldIds.ORDER_DATE;
       }
-      if (settings.delivery_range_field) {
-        widget.fieldIds.DELIVERY_RANGE =
+      if (settings?.delivery_range_field) {
+        self.fieldIds.DELIVERY_RANGE =
           parseInt(settings.delivery_range_field) ||
-          widget.fieldIds.DELIVERY_RANGE;
+          self.fieldIds.DELIVERY_RANGE;
       }
-
-      widget.state.settings = settings;
+      self.state.settings = settings || {};
     };
 
-    // Показ загрузчика
+    this.loadDeals = function () {
+      if (!self.state.initialized && !self.state.accessToken)
+        return Promise.reject("Not initialized");
+
+      const dateFrom = new Date(
+        self.state.currentDate.getFullYear(),
+        self.state.currentDate.getMonth() - 1,
+        1
+      );
+      const dateTo = new Date(
+        self.state.currentDate.getFullYear(),
+        self.state.currentDate.getMonth() + 2,
+        0
+      );
+
+      return new Promise((resolve, reject) => {
+        const requestData = {
+          filter: {
+            [self.fieldIds.ORDER_DATE]: {
+              from: Math.floor(dateFrom.getTime() / 1000),
+              to: Math.floor(dateTo.getTime() / 1000),
+            },
+          },
+        };
+
+        if (typeof AmoCRM !== "undefined") {
+          AmoCRM.request("/api/v4/leads", requestData)
+            .then((response) => {
+              self.processDealsData(response._embedded?.leads || []);
+              resolve(true);
+            })
+            .catch(reject);
+        } else if (self.state.accessToken) {
+          $.ajax({
+            url: `https://${self.getAccountDomain()}.amocrm.ru/api/v4/leads`,
+            headers: { Authorization: `Bearer ${self.state.accessToken}` },
+            data: requestData,
+            success: (response) => {
+              self.processDealsData(response._embedded?.leads || []);
+              resolve(true);
+            },
+            error: reject,
+          });
+        } else {
+          reject("No auth method available");
+        }
+      });
+    };
+
+    this.processDealsData = function (deals) {
+      self.state.dealsData = {};
+      deals.forEach((deal) => {
+        const dateField = deal.custom_fields_values?.find(
+          (f) => f.field_id === self.fieldIds.ORDER_DATE
+        );
+        if (dateField?.values?.[0]?.value) {
+          const dateStr = new Date(dateField.values[0].value * 1000)
+            .toISOString()
+            .split("T")[0];
+          if (!self.state.dealsData[dateStr])
+            self.state.dealsData[dateStr] = [];
+
+          self.state.dealsData[dateStr].push({
+            id: deal.id,
+            name: deal.name,
+            price: deal.price,
+            status_id: deal.status_id,
+            custom_fields: {
+              [self.fieldIds.DELIVERY_RANGE]: self.getCustomFieldValue(
+                deal,
+                self.fieldIds.DELIVERY_RANGE
+              ),
+              [self.fieldIds.ADDRESS]: self.getCustomFieldValue(
+                deal,
+                self.fieldIds.ADDRESS
+              ),
+            },
+          });
+        }
+      });
+    };
+
+    this.getCustomFieldValue = function (deal, fieldId) {
+      const field = deal.custom_fields_values?.find(
+        (f) => f.field_id === fieldId
+      );
+      return field?.values?.[0]?.value || null;
+    };
+
+    this.renderCalendar = function () {
+      const month = self.state.currentDate.getMonth();
+      const year = self.state.currentDate.getFullYear();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+
+      let html = `
+                <div class="calendar-header">
+                    <button id="prevMonth" class="btn">←</button>
+                    <h2>${self.i18n.months[month]} ${year}</h2>
+                    <button id="nextMonth" class="btn">→</button>
+                </div>
+                <div class="calendar-grid">
+            `;
+
+      self.i18n.weekdays.forEach(
+        (day) => (html += `<div class="weekday">${day}</div>`)
+      );
+
+      for (let i = 0; i < startDay; i++)
+        html += '<div class="calendar-day empty"></div>';
+
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
+        const dealsCount = self.state.dealsData[dateStr]?.length || 0;
+        const isToday =
+          new Date(dateStr).toDateString() === new Date().toDateString();
+
+        html += `
+                    <div class="calendar-day ${isToday ? "today" : ""} ${
+          dealsCount ? "has-deals" : ""
+        }" data-date="${dateStr}">
+                        ${day}
+                        ${
+                          dealsCount
+                            ? `<span class="deal-count">${dealsCount}</span>`
+                            : ""
+                        }
+                    </div>
+                `;
+      }
+
+      html += `</div>`;
+      $("#calendarContainer").html(html);
+
+      $(".calendar-day:not(.empty)").click(function () {
+        self.showDealsForDate($(this).data("date"));
+      });
+
+      $("#prevMonth").click(() => {
+        self.state.currentDate.setMonth(self.state.currentDate.getMonth() - 1);
+        self.loadDeals().then(() => self.renderCalendar());
+      });
+
+      $("#nextMonth").click(() => {
+        self.state.currentDate.setMonth(self.state.currentDate.getMonth() + 1);
+        self.loadDeals().then(() => self.renderCalendar());
+      });
+    };
+
+    this.showDealsForDate = function (date) {
+      const deals = self.state.dealsData[date] || [];
+      const dateObj = new Date(date);
+
+      let html = `
+                <h3>${
+                  self.i18n.labels.dealsFor
+                } ${dateObj.toLocaleDateString()}</h3>
+                <div class="deals-list">
+            `;
+
+      if (deals.length === 0) {
+        html += `<div class="no-deals">${self.i18n.errors.noDeals}</div>`;
+      } else {
+        deals.forEach((deal) => {
+          html += `
+                        <div class="deal-item" data-deal-id="${deal.id}">
+                            <div class="deal-header">
+                                <span class="deal-id">#${deal.id}</span>
+                                <span class="deal-status">${
+                                  deal.status_id
+                                }</span>
+                            </div>
+                            <div class="deal-name">${deal.name}</div>
+                            <div class="deal-price">${
+                              deal.price || 0
+                            } руб.</div>
+                        </div>
+                    `;
+        });
+      }
+
+      html += `</div>`;
+      $("#dealsContainer").html(html);
+
+      $(".deal-item").click(function () {
+        self.openDealCard($(this).data("deal-id"));
+      });
+    };
+
+    this.openDealCard = function (dealId) {
+      if (typeof AmoCRM !== "undefined") {
+        AmoCRM.widgets.system().then((system) => system.openCard(dealId));
+      } else {
+        window.open(
+          `https://${self.getAccountDomain()}.amocrm.ru/leads/detail/${dealId}`,
+          "_blank"
+        );
+      }
+    };
+
     this.showLoader = function () {
       $("#loader").show();
     };
 
-    // Скрытие загрузчика
     this.hideLoader = function () {
       $("#loader").hide();
     };
 
-    // Показ ошибки
     this.showError = function (message) {
-      $("#error-alert").text(message).removeClass("d-none");
-      setTimeout(() => $("#error-alert").addClass("d-none"), 5000);
+      $("#error-alert").text(message).show();
+      setTimeout(() => $("#error-alert").fadeOut(), 5000);
     };
 
-    // Логирование
-    this.log = function (...args) {
-      if (widget.config.debugMode) console.log("[OrdersCalendar]", ...args);
-    };
-
-    // Инициализация UI
     this.setupUI = function () {
-      if (!widget.state.initialized && !widget.state.accessToken) return;
+      $("#widget-root").html(`
+                <div id="loader" style="display:none">Загрузка...</div>
+                <div id="error-alert" class="alert" style="display:none"></div>
+                <div id="calendarContainer"></div>
+                <div id="dealsContainer"></div>
+            `);
 
-      // Ваш код инициализации интерфейса
-      $("#widget-root").html('<div class="calendar-container"></div>');
+      self
+        .loadDeals()
+        .then(() => self.renderCalendar())
+        .catch((err) => self.showError(err));
     };
 
-    // Callbacks для amoCRM API (должны быть в конце)
     this.callbacks = {
       init: function (system) {
-        widget.state.system = system;
-        return widget
+        self.state.system = system;
+        return self
           .initSystem()
-          .then(() => widget.loadSettings())
+          .then(() => self.loadSettings())
           .then(() => {
-            widget.setupUI();
+            self.setupUI();
             return true;
           })
           .catch((err) => {
-            widget.log("Init error:", err);
+            console.error("Init error:", err);
             return false;
           });
       },
 
-      onSave: function (newSettings) {
+      render: function () {
         try {
-          if (!newSettings) {
-            widget.log("No settings provided");
+          if (!self.state.initialized && !self.state.accessToken) {
+            self.showAuthRequired();
             return false;
           }
-          widget.applySettings(newSettings);
+          self.setupUI();
           return true;
         } catch (e) {
-          widget.log("onSave error:", e);
+          console.error("Render error:", e);
           return false;
         }
       },
 
-      render: function () {
+      onSave: function (newSettings) {
         try {
-          if (!widget.state.initialized && !widget.state.accessToken) {
-            widget.handleAuth();
-            return false;
-          }
-          widget.setupUI();
+          if (!newSettings) return false;
+          self.applySettings(newSettings);
           return true;
         } catch (e) {
-          widget.log("Render error:", e);
+          console.error("onSave error:", e);
           return false;
         }
       },
@@ -223,6 +401,7 @@ define(["jquery"], function ($) {
       },
 
       destroy: function () {
+        $("#widget-root").empty();
         return true;
       },
     };
@@ -230,25 +409,17 @@ define(["jquery"], function ($) {
     return this;
   }
 
-  // Регистрация виджета
   if (typeof AmoCRM !== "undefined") {
     try {
-      if (
-        typeof AmoCRM.Widget !== "undefined" &&
-        typeof AmoCRM.Widget.register === "function"
-      ) {
+      if (typeof AmoCRM.Widget !== "undefined") {
         AmoCRM.Widget.register(OrdersCalendarWidget);
-      } else if (
-        typeof AmoCRM.Widgets !== "undefined" &&
-        typeof AmoCRM.Widgets.from === "function"
-      ) {
+      } else if (typeof AmoCRM.Widgets !== "undefined") {
         AmoCRM.Widgets.from("OrdersCalendar", OrdersCalendarWidget);
       }
     } catch (e) {
       console.error("Widget registration failed:", e);
     }
   } else {
-    // Автономный режим
     document.addEventListener("DOMContentLoaded", function () {
       new OrdersCalendarWidget();
     });

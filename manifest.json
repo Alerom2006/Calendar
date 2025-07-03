@@ -18,11 +18,12 @@
   "locations": [
     "lcard-1",
     "llist-0",
-    "cucard-0",
-    "culist-0",
+    "ccard-0",
+    "clist-0",
     "settings",
     "card_sdk",
-    "lead_sources"
+    "lead_sources",
+    "everywhere"
   ],
   "settings": {
     "deal_date_field_id": {

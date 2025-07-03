@@ -1,24 +1,21 @@
 {
   "widget": {
     "name": "Orders Calendar",
-    "description": "Widget for displaying deals filtered by order date",
+    "description": "Widget for displaying deals by order date",
     "short_description": "View deals in calendar",
     "tour_description": "View deals filtered by order date",
+    "advanced_settings": "Advanced Settings",
     "api_key": "API Key",
-    "account": "Account",
-    "language": "Language",
+    "refresh_interval": "Refresh interval (min)",
     "deal_date_field": "Order date field ID",
-    "delivery_range": "Delivery range field ID"
-  },
-  "settings": {
-    "api_key": "API Key for integration",
-    "account": "Account subdomain",
-    "language": "Interface language",
-    "deal_date_field_id": "Custom field ID for order date",
-    "delivery_range_field": "Custom field ID for delivery range"
+    "delivery_range": "Delivery range field ID",
+    "field_placeholder": "Enter numeric field ID",
+    "field_hint": "You can find ID in CRM field settings"
   },
   "errors": {
-    "timeout": "Response waiting time exceeded",
-    "settings_save": "Error saving settings"
+    "invalid_field": "Invalid field value",
+    "required_field": "Required field",
+    "min_value": "Minimum value: {min}",
+    "max_value": "Maximum value: {max}"
   }
 }

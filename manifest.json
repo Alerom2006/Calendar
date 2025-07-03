@@ -15,7 +15,7 @@
       "email": "your-email@example.com"
     }
   },
-  "locations": ["lcard-1", "card_button", "card_sdk", "settings"],
+  "locations": ["lcard-1"],
   "settings": {
     "api_key": {
       "name": "widget.api_key",

@@ -129,3 +129,119 @@
   color: #666;
   text-align: center;
 }
+.orders-calendar .error {
+  padding: 15px;
+  color: #d9534f;
+  border: 1px solid #d9534f;
+  border-radius: 4px;
+  margin: 10px;
+}
+
+.calendar-day.has-deals {
+  background-color: #f0f7ff;
+  position: relative;
+}
+
+.deal-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #4a76a8;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.orders-calendar-widget {
+  font-family: Arial, sans-serif;
+  max-width: 100%;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+.calendar-container {
+  margin-top: 15px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-weight: bold;
+  padding: 5px;
+}
+
+.calendar-day {
+  position: relative;
+  min-height: 40px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.calendar-day.today {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+}
+
+.calendar-day.has-deals {
+  background-color: #f6ffed;
+  border-color: #b7eb8f;
+}
+
+.day-number {
+  font-size: 14px;
+}
+
+.deal-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #1890ff;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.nav-button {
+  background: none;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.current-month {
+  margin: 0 15px;
+  font-weight: bold;
+}
+
+.orders-calendar-error {
+  padding: 20px;
+  border: 1px solid #ffccc7;
+  background-color: #fff2f0;
+  border-radius: 4px;
+  color: #d4380d;
+}

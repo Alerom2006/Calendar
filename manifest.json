@@ -34,9 +34,9 @@
       "name": "widget.delivery_range",
       "type": "text",
       "required": false
-    },
-    "card_sdk": {
-      "entity_types": ["leads", "customers"]
     }
+  },
+  "card_sdk": {
+    "entity_types": ["leads", "customers"]
   }
 }

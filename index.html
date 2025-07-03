@@ -19,71 +19,7 @@
     />
   </head>
   <body>
-    <div id="widget_container" class="container-fluid px-3 py-4">
-      <div id="calendar-mode">
-        <header class="widget-header mb-4">
-          <img
-            src="images/logo_small.png"
-            alt="Логотип"
-            class="widget-logo mb-2"
-            onerror="this.style.display='none'"
-          />
-          <h1 class="text-center mb-0" id="widget-title">Календарь заказов</h1>
-        </header>
-
-        <main class="widget-content">
-          <section id="calendar-section" class="card mb-4">
-            <div class="card-body">
-              <div
-                id="calendar-header"
-                class="d-flex align-items-center justify-content-between mb-3"
-              >
-                <button id="prevMonth" class="btn btn-outline-primary">
-                  <span aria-hidden="true">&lt;</span>
-                  <span class="visually-hidden">Предыдущий месяц</span>
-                </button>
-
-                <h2 id="currentMonthYear" class="text-center mb-0 fs-4"></h2>
-
-                <button id="nextMonth" class="btn btn-outline-primary">
-                  <span class="visually-hidden">Следующий месяц</span>
-                  <span aria-hidden="true">&gt;</span>
-                </button>
-              </div>
-
-              <div id="calendar" class="calendar-grid"></div>
-            </div>
-          </section>
-
-          <section id="deal-list" class="card mb-4">
-            <div class="card-body">
-              <h2 class="h5 mb-3">
-                <span id="deals-title">Сделки на</span>
-                <span id="selected-date">выбранную дату</span>
-              </h2>
-              <div id="deals" class="deals-container"></div>
-            </div>
-          </section>
-
-          <section id="auth-section" class="text-center">
-            <button id="authButton" class="btn btn-primary px-4">
-              <span class="me-2">🔒</span>
-              <span id="auth-button-text">Авторизоваться в amoCRM</span>
-            </button>
-          </section>
-        </main>
-      </div>
-
-      <div id="deal-widget-mode" style="display: none">
-        <div id="deal-widget-content"></div>
-      </div>
-
-      <div
-        id="error-alert"
-        class="alert alert-danger d-none"
-        role="alert"
-      ></div>
-    </div>
+    <div id="widget-root" class="container-fluid px-3 py-4"></div>
 
     <div id="loader">
       <div class="loading-spinner"></div>

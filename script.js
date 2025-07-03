@@ -1,18 +1,17 @@
 define(["jquery"], function ($) {
-  var OrdersCalendarWidget = function () {
-    var self = this;
-    this.__amowidget__ = true;
+  "use strict";
 
-    // Системные переменные и локализация
-    var system = self.system();
-    var langs = self.langs;
+  function OrdersCalendarWidget() {
+    // Сохраняем контекст
+    this.__amowidget__ = true;
+    var self = this;
 
     // Конфигурация виджета
     this.config = {
-      debugMode: true,
-      version: "1.0.5",
       widgetInstanceId:
         "orders-calendar-" + Math.random().toString(36).substr(2, 9),
+      version: "1.0.5",
+      debugMode: true,
     };
 
     // Состояние виджета
@@ -32,9 +31,9 @@ define(["jquery"], function ($) {
       },
     };
 
-    // Локализация
+    // Локализация (будет переопределена из i18n)
     this.i18n = {
-      months: langs.months || [
+      months: [
         "Январь",
         "Февраль",
         "Март",
@@ -48,102 +47,21 @@ define(["jquery"], function ($) {
         "Ноябрь",
         "Декабрь",
       ],
-      weekdays: langs.weekdays || ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+      weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
       errors: {
-        load: langs.errors?.load || "Ошибка загрузки данных",
-        noDeals: langs.errors?.noDeals || "Нет сделок на выбранную дату",
-        noAuth: langs.errors?.noAuth || "Требуется авторизация в amoCRM",
-        settingsSave:
-          langs.errors?.settingsSave || "Ошибка при сохранении настроек",
+        load: "Ошибка загрузки данных",
+        noDeals: "Нет сделок на выбранную дату",
+        noAuth: "Требуется авторизация в amoCRM",
+        settingsSave: "Ошибка при сохранении настроек",
       },
       labels: {
-        dealsFor: langs.labels?.dealsFor || "Сделки на",
-        selectDate: langs.labels?.selectDate || "выберите дату",
-        authButton: langs.labels?.authButton || "Авторизоваться в amoCRM",
-        today: langs.labels?.today || "Сегодня",
-        openCalendar: langs.labels?.openCalendar || "Открыть календарь",
-        save: langs.labels?.save || "Сохранить",
-        settingsTitle:
-          langs.labels?.settingsTitle || "Настройки календаря заказов",
-      },
-    };
-
-    // Основные callback-функции
-    this.callbacks = {
-      init: function () {
-        try {
-          self.state.context = self.detectContext();
-          self.state.accountDomain = self.extractAccountDomain();
-          self.state.settings = system.params?.settings || {};
-
-          // Обновляем ID полей из настроек
-          if (self.state.settings.deal_date_field_id) {
-            self.state.fieldIds.ORDER_DATE =
-              self.state.settings.deal_date_field_id;
-          }
-          if (self.state.settings.delivery_range_field) {
-            self.state.fieldIds.DELIVERY_RANGE =
-              self.state.settings.delivery_range_field;
-          }
-
-          return true;
-        } catch (e) {
-          console.error("Init error:", e);
-          return false;
-        }
-      },
-
-      render: function () {
-        try {
-          self.container = document.getElementById("widget-root");
-          if (!self.container) {
-            console.error("Widget container not found");
-            return false;
-          }
-
-          // Определяем режим работы
-          switch (system.location) {
-            case "lcard-1":
-            case "ccard-0":
-              return self.initCardMode();
-            case "llist-0":
-            case "clist-0":
-              return self.initListMode();
-            case "settings":
-              return self.initSettingsMode();
-            default:
-              return self.initStandaloneMode();
-          }
-        } catch (e) {
-          console.error("Render error:", e);
-          return false;
-        }
-      },
-
-      bind_actions: function () {
-        // Привязка событий после рендеринга
-        return true;
-      },
-
-      onSave: function (newSettings) {
-        try {
-          if (!newSettings) return false;
-          return self.applySettings(newSettings);
-        } catch (e) {
-          console.error("Save error:", e);
-          return false;
-        }
-      },
-
-      destroy: function () {
-        // Очистка ресурсов
-        try {
-          $(self.container).empty();
-          return true;
-        } catch (e) {
-          console.error("Destroy error:", e);
-          return false;
-        }
+        dealsFor: "Сделки на",
+        selectDate: "выберите дату",
+        authButton: "Авторизоваться в amoCRM",
+        today: "Сегодня",
+        openCalendar: "Открыть календарь",
+        save: "Сохранить",
+        settingsTitle: "Настройки календаря заказов",
       },
     };
 
@@ -154,14 +72,14 @@ define(["jquery"], function ($) {
       if (typeof AmoProxySDK !== "undefined") return "proxy_sdk";
       if (typeof AmoSDK !== "undefined") return "card_sdk";
       if (typeof AmoCRM !== "undefined") return "widget";
-      if (system.location === "settings") return "settings";
+      if (this.system && this.system.location === "settings") return "settings";
       return "standalone";
     };
 
     // Получение домена аккаунта
     this.extractAccountDomain = function () {
-      if (system.account) return system.account;
-      if (system.params?.account) return system.params.account;
+      if (this.system && this.system.account) return this.system.account;
+      if (this.params && this.params.account) return this.params.account;
       return window.location.hostname.split(".")[0] || "";
     };
 
@@ -170,7 +88,6 @@ define(["jquery"], function ($) {
       try {
         self.state.settings = newSettings;
 
-        // Обновляем ID полей
         if (newSettings.deal_date_field_id) {
           self.state.fieldIds.ORDER_DATE = newSettings.deal_date_field_id;
         }
@@ -178,10 +95,37 @@ define(["jquery"], function ($) {
           self.state.fieldIds.DELIVERY_RANGE = newSettings.delivery_range_field;
         }
 
-        self.showMessage(langs.labels?.settingsSaved || "Настройки сохранены");
+        self.showMessage("Настройки применены");
         return true;
       } catch (e) {
         console.error("Apply settings error:", e);
+        self.showError("Ошибка применения настроек");
+        return false;
+      }
+    };
+
+    // Основная инициализация
+    this.initialize = function () {
+      try {
+        self.state.context = self.detectContext();
+        self.state.accountDomain = self.extractAccountDomain();
+
+        if (self.system && self.system.params) {
+          self.state.settings = self.system.params.settings || {};
+          // Обновляем ID полей из настроек
+          if (self.state.settings.deal_date_field_id) {
+            self.state.fieldIds.ORDER_DATE =
+              self.state.settings.deal_date_field_id;
+          }
+          if (self.state.settings.delivery_range_field) {
+            self.state.fieldIds.DELIVERY_RANGE =
+              self.state.settings.delivery_range_field;
+          }
+        }
+
+        return true;
+      } catch (e) {
+        console.error("Initialization error:", e);
         return false;
       }
     };
@@ -190,16 +134,16 @@ define(["jquery"], function ($) {
     this.initCardMode = function () {
       try {
         var html = `
-          <div class="deal-widget-mode">
-            <h3>${langs.widget?.name || "Календарь заказов"}</h3>
-            <div class="deal-date">
-              ${new Date().toLocaleDateString()}
-            </div>
-            <button id="openCalendar" class="btn">
-              ${this.i18n.labels.openCalendar}
-            </button>
-          </div>
-        `;
+                    <div class="deal-widget-mode">
+                        <h3>Календарь заказов</h3>
+                        <div class="deal-date">
+                            ${new Date().toLocaleDateString()}
+                        </div>
+                        <button id="openCalendar" class="btn">
+                            ${this.i18n.labels.openCalendar}
+                        </button>
+                    </div>
+                `;
 
         $(self.container).html(html);
         $("#openCalendar").click(function () {
@@ -217,19 +161,19 @@ define(["jquery"], function ($) {
     this.showFullCalendar = function () {
       try {
         var html = `
-          <div class="full-calendar-view">
-            <div class="calendar-header">
-              <button id="prevMonth" class="btn">←</button>
-              <h2 id="currentMonth"></h2>
-              <button id="nextMonth" class="btn">→</button>
-            </div>
-            <div id="calendarGrid" class="calendar-grid"></div>
-            <div class="deals-container">
-              <h3>${this.i18n.labels.dealsFor} <span id="selectedDateText">${this.i18n.labels.selectDate}</span></h3>
-              <div id="dealsList"></div>
-            </div>
-          </div>
-        `;
+                    <div class="full-calendar-view">
+                        <div class="calendar-header">
+                            <button id="prevMonth" class="btn">←</button>
+                            <h2 id="currentMonth"></h2>
+                            <button id="nextMonth" class="btn">→</button>
+                        </div>
+                        <div id="calendarGrid" class="calendar-grid"></div>
+                        <div class="deals-container">
+                            <h3>${this.i18n.labels.dealsFor} <span id="selectedDateText">${this.i18n.labels.selectDate}</span></h3>
+                            <div id="dealsList"></div>
+                        </div>
+                    </div>
+                `;
 
         $(self.container).html(html);
         this.renderCalendar();
@@ -250,22 +194,18 @@ define(["jquery"], function ($) {
       var lastDay = new Date(year, month + 1, 0);
       var startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
 
-      // Заголовок с месяцем и годом
       $("#currentMonth").text(`${this.i18n.months[month]} ${year}`);
 
-      // Генерация дней недели
       var calendarHtml = this.i18n.weekdays
         .map(function (day) {
           return `<div class="weekday">${day}</div>`;
         })
         .join("");
 
-      // Пустые ячейки в начале месяца
       for (var i = 0; i < startDay; i++) {
         calendarHtml += '<div class="calendar-day empty"></div>';
       }
 
-      // Дни месяца
       for (var day = 1; day <= lastDay.getDate(); day++) {
         var dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
           day
@@ -279,15 +219,15 @@ define(["jquery"], function ($) {
           (dealsCount > 0 ? " has-deals" : "");
 
         calendarHtml += `
-          <div class="${dayClass}" data-date="${dateStr}">
-            ${day}
-            ${
-              dealsCount > 0
-                ? `<span class="deal-count">${dealsCount}</span>`
-                : ""
-            }
-          </div>
-        `;
+                    <div class="${dayClass}" data-date="${dateStr}">
+                        ${day}
+                        ${
+                          dealsCount > 0
+                            ? `<span class="deal-count">${dealsCount}</span>`
+                            : ""
+                        }
+                    </div>
+                `;
       }
 
       $("#calendarGrid").html(calendarHtml);
@@ -316,19 +256,19 @@ define(["jquery"], function ($) {
         var dealsHtml = deals
           .map(function (deal) {
             return `
-            <div class="deal-item" data-deal-id="${deal.id}">
-              <div class="deal-header">
-                <span class="deal-id">#${deal.id}</span>
-                <span class="deal-status">${self.getStatusName(
-                  deal.status_id
-                )}</span>
-              </div>
-              <div class="deal-name">${deal.name}</div>
-              <div class="deal-price">${
-                deal.price ? deal.price + " руб." : "—"
-              }</div>
-            </div>
-          `;
+                        <div class="deal-item" data-deal-id="${deal.id}">
+                            <div class="deal-header">
+                                <span class="deal-id">#${deal.id}</span>
+                                <span class="deal-status">${self.getStatusName(
+                                  deal.status_id
+                                )}</span>
+                            </div>
+                            <div class="deal-name">${deal.name}</div>
+                            <div class="deal-price">${
+                              deal.price ? deal.price + " руб." : "—"
+                            }</div>
+                        </div>
+                    `;
           })
           .join("");
 
@@ -348,30 +288,21 @@ define(["jquery"], function ($) {
     this.initSettingsMode = function () {
       try {
         var html = `
-          <div class="settings-form">
-            <h2>${this.i18n.labels.settingsTitle}</h2>
-            <div class="form-group">
-              <label>${
-                langs.settings?.deal_date_field_id || "ID поля даты заказа"
-              }:</label>
-              <input type="number" id="dealDateField" value="${
-                self.state.fieldIds.ORDER_DATE
-              }" class="form-control">
-            </div>
-            <div class="form-group">
-              <label>${
-                langs.settings?.delivery_range_field ||
-                "ID поля диапазона доставки"
-              }:</label>
-              <input type="number" id="deliveryRangeField" value="${
-                self.state.fieldIds.DELIVERY_RANGE
-              }" class="form-control">
-            </div>
-            <button id="saveSettings" class="btn btn-primary">
-              ${this.i18n.labels.save}
-            </button>
-          </div>
-        `;
+                    <div class="settings-form">
+                        <h2>${this.i18n.labels.settingsTitle}</h2>
+                        <div class="form-group">
+                            <label>ID поля даты заказа:</label>
+                            <input type="number" id="dealDateField" value="${self.state.fieldIds.ORDER_DATE}" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>ID поля диапазона доставки:</label>
+                            <input type="number" id="deliveryRangeField" value="${self.state.fieldIds.DELIVERY_RANGE}" class="form-control">
+                        </div>
+                        <button id="saveSettings" class="btn btn-primary">
+                            ${this.i18n.labels.save}
+                        </button>
+                    </div>
+                `;
 
         $(self.container).html(html);
         $("#saveSettings").click(function () {
@@ -412,26 +343,20 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Режим списка
-    this.initListMode = function () {
-      // Реализация режима списка
-      return true;
-    };
-
     // Автономный режим
     this.initStandaloneMode = function () {
       try {
         var html = `
-          <div class="standalone-view">
-            <h2>${langs.widget?.name || "Календарь заказов"}</h2>
-            <div class="auth-section">
-              <p>${this.i18n.errors.noAuth}</p>
-              <button id="authButton" class="btn btn-primary">
-                ${this.i18n.labels.authButton}
-              </button>
-            </div>
-          </div>
-        `;
+                    <div class="standalone-view">
+                        <h2>Календарь заказов</h2>
+                        <div class="auth-section">
+                            <p>${this.i18n.errors.noAuth}</p>
+                            <button id="authButton" class="btn btn-primary">
+                                ${this.i18n.labels.authButton}
+                            </button>
+                        </div>
+                    </div>
+                `;
 
         $(self.container).html(html);
         $("#authButton").click(function () {
@@ -460,7 +385,7 @@ define(["jquery"], function ($) {
     };
 
     this.getStatusName = function (statusId) {
-      var statuses = langs.statuses || {
+      var statuses = {
         142: "Новая",
         143: "В работе",
         144: "Завершена",
@@ -511,8 +436,57 @@ define(["jquery"], function ($) {
       });
     };
 
+    // Callbacks для amoCRM API (должны быть в конце, после всех методов)
+    this.callbacks = {
+      init: function (system) {
+        self.system = system;
+        self.container = document.getElementById("widget-root");
+        return self.initialize();
+      },
+
+      render: function () {
+        if (!self.container) {
+          console.error("Widget container not found");
+          return false;
+        }
+
+        switch (self.system.location) {
+          case "lcard-1":
+          case "ccard-0":
+            return self.initCardMode();
+          case "llist-0":
+          case "clist-0":
+            // Режим списка (реализуйте при необходимости)
+            return true;
+          case "settings":
+            return self.initSettingsMode();
+          default:
+            return self.initStandaloneMode();
+        }
+      },
+
+      bind_actions: function () {
+        // Дополнительная привязка событий
+        return true;
+      },
+
+      onSave: function (newSettings) {
+        return self.applySettings(newSettings);
+      },
+
+      destroy: function () {
+        try {
+          $(self.container).empty();
+          return true;
+        } catch (e) {
+          console.error("Destroy error:", e);
+          return false;
+        }
+      },
+    };
+
     return this;
-  };
+  }
 
   // Регистрация виджета
   if (typeof AmoWidget === "function") {
@@ -520,7 +494,7 @@ define(["jquery"], function ($) {
       class: OrdersCalendarWidget,
       init: function (system) {
         this.widget = new OrdersCalendarWidget();
-        return this.widget.callbacks.init();
+        return this.widget.callbacks.init(system);
       },
       render: function () {
         return this.widget.callbacks.render();

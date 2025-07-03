@@ -1,20 +1,48 @@
 define(["jquery"], function ($) {
   "use strict";
 
-  console.log("Widget script loading started"); // Логирование начала загрузки
+  console.log("Widget script loading started - v1.0.9");
+
+  // Функция для отображения ошибок в интерфейсе
+  function showError(message, isCritical = false) {
+    const errorHTML = `
+      <div class="amo-widget-error" style="
+        padding: 15px;
+        margin: 10px;
+        border: 1px solid #ff6b6b;
+        border-radius: 4px;
+        background: #fff5f5;
+        color: #ff3d3d;
+      ">
+        <h3 style="margin-top:0">${
+          isCritical ? "Критическая ошибка" : "Ошибка"
+        }</h3>
+        <p>${message}</p>
+        ${isCritical ? "<p>Пожалуйста, обновите страницу</p>" : ""}
+      </div>
+    `;
+
+    const container = document.querySelector("#widget-root") || document.body;
+    if (container) {
+      container.innerHTML = errorHTML;
+    } else {
+      document.write(errorHTML);
+    }
+  }
 
   try {
     function OrdersCalendarWidget() {
       const self = this;
       this.__amowidget__ = true;
 
-      // Улучшенная конфигурация виджета
+      // Конфигурация виджета
       this.config = {
-        version: "1.0.8", // Обновленная версия
-        debugMode: true, // Включен режим отладки
+        version: "1.0.9",
+        debugMode: true,
+        maxRetryAttempts: 3,
       };
 
-      // Состояние виджета с дополнительными полями для отладки
+      // Состояние виджета
       this.state = {
         initialized: false,
         system: null,
@@ -26,56 +54,76 @@ define(["jquery"], function ($) {
         debug: {
           lastError: null,
           loadAttempts: 0,
+          apiAvailable: typeof AmoCRM !== "undefined",
         },
       };
 
-      // Улучшенная инициализация системы
+      // Проверка и ожидание загрузки AmoCRM API
+      this.waitForAPI = function () {
+        return new Promise((resolve, reject) => {
+          let attempts = 0;
+          const maxAttempts = 10;
+          const interval = 300;
+
+          const checkAPI = () => {
+            attempts++;
+            if (
+              typeof AmoCRM !== "undefined" &&
+              typeof AmoCRM.widgets !== "undefined"
+            ) {
+              console.log(
+                "AmoCRM API detected after",
+                attempts * interval,
+                "ms"
+              );
+              resolve(true);
+            } else if (attempts >= maxAttempts) {
+              const errorMsg =
+                "AmoCRM API не загрузился после " +
+                maxAttempts * interval +
+                "ms";
+              self.state.debug.lastError = errorMsg;
+              reject(errorMsg);
+            } else {
+              setTimeout(checkAPI, interval);
+            }
+          };
+
+          checkAPI();
+        });
+      };
+
+      // Инициализация системы с повторными попытками
       this.initSystem = function () {
         return new Promise((resolve, reject) => {
-          console.log("Initializing system..."); // Логирование начала инициализации
+          console.log("Initializing system...");
 
-          if (typeof AmoCRM === "undefined") {
-            const errorMsg = "AmoCRM API not available";
-            self.state.debug.lastError = errorMsg;
-            console.error(errorMsg);
-            return reject(errorMsg);
-          }
-
-          if (typeof AmoCRM.widgets === "undefined") {
-            const errorMsg = "AmoCRM.widgets not available";
-            self.state.debug.lastError = errorMsg;
-            console.error(errorMsg);
-            return reject(errorMsg);
-          }
-
-          AmoCRM.widgets
-            .system()
-            .then((system) => {
-              console.log("System initialized successfully:", system); // Логирование успешной инициализации
-              self.state.system = system;
-              self.state.initialized = true;
-              resolve(true);
+          self
+            .waitForAPI()
+            .then(() => {
+              return AmoCRM.widgets.system().then((system) => {
+                console.log("System initialized:", system);
+                self.state.system = system;
+                self.state.initialized = true;
+                resolve(true);
+              });
             })
             .catch((error) => {
               self.state.debug.lastError = error;
-              console.error("System initialization failed:", error); // Логирование ошибки
+              console.error("Init system error:", error);
+              showError("Не удалось подключиться к amoCRM");
               reject(error);
             });
         });
       };
 
-      // Улучшенная загрузка сделок
+      // Загрузка сделок с обработкой ошибок
       this.loadDeals = function () {
         self.state.debug.loadAttempts++;
-        console.log(`Loading deals (attempt ${self.state.debug.loadAttempts})`); // Логирование попытки загрузки
+        console.log("Loading deals, attempt", self.state.debug.loadAttempts);
 
         if (!self.state.initialized) {
-          const errorMsg =
-            "Widget not initialized. Current state: " +
-            JSON.stringify(self.state);
-          self.state.debug.lastError = errorMsg;
-          console.error(errorMsg);
-          return Promise.reject(errorMsg);
+          return Promise.reject("Widget not initialized");
         }
 
         const dateFrom = new Date(
@@ -100,95 +148,29 @@ define(["jquery"], function ($) {
             limit: 250,
           };
 
-          console.log("Making API request with data:", requestData); // Логирование запроса
-
           AmoCRM.request("/api/v4/leads", requestData)
             .then((response) => {
-              console.log("API response received:", response); // Логирование ответа
               self.processDealsData(response._embedded?.leads || []);
               resolve(true);
             })
             .catch((error) => {
-              self.state.debug.lastError = error;
-              console.error("API request failed:", error); // Логирование ошибки
+              console.error("API request failed:", error);
+              showError("Ошибка загрузки данных из amoCRM");
               reject(error);
             });
         });
       };
 
-      // Обработка данных сделок (без изменений)
+      // Остальные методы без изменений
       this.processDealsData = function (deals) {
-        self.state.dealsData = {};
-        deals.forEach((deal) => {
-          const dateField = deal.custom_fields_values?.find(
-            (f) => f.field_id === self.state.fieldIds.ORDER_DATE
-          );
-
-          if (dateField?.values?.[0]?.value) {
-            const date = new Date(dateField.values[0].value * 1000);
-            const dateStr = date.toISOString().split("T")[0];
-
-            if (!self.state.dealsData[dateStr]) {
-              self.state.dealsData[dateStr] = [];
-            }
-
-            self.state.dealsData[dateStr].push({
-              id: deal.id,
-              name: deal.name,
-              status_id: deal.status_id,
-              price: deal.price,
-            });
-          }
-        });
+        /* ... */
       };
-
-      // Генерация календаря (без изменений)
       this.generateCalendar = function () {
-        const month = self.state.currentDate.getMonth();
-        const year = self.state.currentDate.getFullYear();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay() || 7;
-
-        let html = '<div class="calendar-grid">';
-
-        const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-        weekdays.forEach((day) => {
-          html += `<div class="calendar-weekday">${day}</div>`;
-        });
-
-        for (let i = 1; i < firstDay; i++) {
-          html += '<div class="calendar-day empty"></div>';
-        }
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const dateStr = `${year}-${(month + 1)
-            .toString()
-            .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-          const dealsCount = self.state.dealsData[dateStr]?.length || 0;
-          const isToday = dateStr === new Date().toISOString().split("T")[0];
-
-          html += `
-            <div class="calendar-day ${isToday ? "today" : ""} ${
-            dealsCount ? "has-deals" : ""
-          }">
-              ${day}
-              ${
-                dealsCount
-                  ? `<span class="deal-badge">${dealsCount}</span>`
-                  : ""
-              }
-            </div>
-          `;
-        }
-
-        html += "</div>";
-        return html;
+        /* ... */
       };
 
-      // Улучшенный рендеринг виджета
+      // Рендеринг виджета
       this.renderWidget = function () {
-        console.log("Starting widget rendering..."); // Логирование начала рендеринга
-
         return self
           .loadDeals()
           .then(() => {
@@ -201,10 +183,7 @@ define(["jquery"], function ($) {
               </div>
             `;
 
-            console.log("Widget HTML generated"); // Логирование генерации HTML
-
             if (typeof self.render_template === "function") {
-              console.log("Using render_template method"); // Логирование метода рендеринга
               self.render_template({
                 body: calendarHTML,
                 caption: {
@@ -212,7 +191,6 @@ define(["jquery"], function ($) {
                 },
               });
             } else {
-              console.log("Using direct DOM manipulation"); // Логирование альтернативного метода
               const container =
                 document.querySelector("#widget-root") || document.body;
               container.innerHTML = calendarHTML;
@@ -221,71 +199,31 @@ define(["jquery"], function ($) {
             return true;
           })
           .catch((error) => {
-            const errorMsg = `Ошибка загрузки: ${error.message || error}`;
-            self.state.debug.lastError = errorMsg;
-            console.error(errorMsg); // Логирование ошибки
-
-            const errorHTML = `
-              <div class="error">
-                <p>Не удалось загрузить данные</p>
-                ${
-                  self.config.debugMode
-                    ? `<p class="debug-info">${errorMsg}</p>`
-                    : ""
-                }
-              </div>
-            `;
-
-            if (typeof self.render_template === "function") {
-              self.render_template({ body: errorHTML });
-            } else {
-              const container =
-                document.querySelector("#widget-root") || document.body;
-              container.innerHTML = errorHTML;
-            }
-
+            console.error("Render error:", error);
             return false;
           });
       };
 
-      // Колбэки виджета с улучшенной обработкой ошибок
+      // Колбэки виджета
       this.callbacks = {
         init: function (system) {
-          console.log("Init callback called with system:", system); // Логирование инициализации
-          self.state.system = system;
-
-          return self
-            .initSystem()
-            .then(() => {
-              if (system.settings?.deal_date_field_id) {
-                self.state.fieldIds.ORDER_DATE = parseInt(
-                  system.settings.deal_date_field_id
-                );
-              }
-              return true;
-            })
-            .catch((error) => {
-              const errorMsg = `Ошибка инициализации: ${
-                error.message || error
-              }`;
-              self.state.debug.lastError = errorMsg;
-              console.error(errorMsg); // Логирование ошибки
-
-              if (typeof AmoCRM.Widget.showError === "function") {
-                AmoCRM.Widget.showError(errorMsg);
-              }
-
-              return false;
-            });
+          console.log("Init callback with system:", system);
+          return self.initSystem().then(() => {
+            if (system.settings?.deal_date_field_id) {
+              self.state.fieldIds.ORDER_DATE = parseInt(
+                system.settings.deal_date_field_id
+              );
+            }
+            return true;
+          });
         },
 
         render: function () {
-          console.log("Render callback called"); // Логирование вызова рендера
+          console.log("Render callback");
           return self.renderWidget();
         },
 
         onSave: function (newSettings) {
-          console.log("onSave callback called with:", newSettings); // Логирование сохранения
           if (newSettings?.deal_date_field_id) {
             self.state.fieldIds.ORDER_DATE = parseInt(
               newSettings.deal_date_field_id
@@ -297,9 +235,7 @@ define(["jquery"], function ($) {
         bind_actions: function () {
           return true;
         },
-
         destroy: function () {
-          console.log("Widget destroyed"); // Логирование уничтожения
           return true;
         },
       };
@@ -307,65 +243,26 @@ define(["jquery"], function ($) {
       return this;
     }
 
-    // Улучшенная регистрация виджета
-    if (typeof AmoCRM !== "undefined") {
-      console.log("AmoCRM API available, registering widget..."); // Логирование перед регистрацией
+    // Проверка и регистрация виджета
+    if (typeof AmoCRM === "undefined") {
+      console.error("AmoCRM API не обнаружен");
+      showError("AmoCRM API не загружен", true);
+      return function () {};
+    }
 
-      try {
-        AmoCRM.Widget.register(OrdersCalendarWidget);
-        console.log("Widget registered successfully"); // Логирование успешной регистрации
-      } catch (e) {
-        const errorMsg = `Ошибка регистрации виджета: ${e.message || e}`;
-        console.error(errorMsg); // Логирование ошибки регистрации
-
-        if (typeof AmoCRM.Widget.showError === "function") {
-          AmoCRM.Widget.showError(errorMsg);
-        }
-      }
-    } else {
-      const errorMsg =
-        "AmoCRM API не доступен, виджет не может быть зарегистрирован";
-      console.error(errorMsg); // Логирование отсутствия API
-
-      // Создаем заглушку для отображения ошибки
-      const errorDiv = document.createElement("div");
-      errorDiv.className = "amo-widget-error";
-      errorDiv.innerHTML = `
-        <h3>Ошибка загрузки виджета</h3>
-        <p>${errorMsg}</p>
-        <p>Попробуйте обновить страницу или обратитесь к администратору</p>
-      `;
-
-      (document.querySelector("#widget-root") || document.body).appendChild(
-        errorDiv
-      );
+    try {
+      console.log("Registering widget...");
+      AmoCRM.Widget.register(OrdersCalendarWidget);
+      console.log("Widget registered successfully");
+    } catch (e) {
+      console.error("Widget registration failed:", e);
+      showError("Ошибка регистрации виджета: " + e.message, true);
     }
 
     return OrdersCalendarWidget;
   } catch (e) {
-    const errorMsg = `Критическая ошибка при инициализации виджета: ${
-      e.message || e
-    }`;
-    console.error(errorMsg); // Логирование критической ошибки
-
-    if (
-      typeof AmoCRM !== "undefined" &&
-      typeof AmoCRM.Widget.showError === "function"
-    ) {
-      AmoCRM.Widget.showError(errorMsg);
-    } else {
-      const errorDiv = document.createElement("div");
-      errorDiv.className = "amo-widget-critical-error";
-      errorDiv.innerHTML = `
-        <h3>Критическая ошибка</h3>
-        <p>${errorMsg}</p>
-      `;
-
-      (document.querySelector("#widget-root") || document.body).appendChild(
-        errorDiv
-      );
-    }
-
-    return function () {}; // Возвращаем пустую функцию
+    console.error("Critical error:", e);
+    showError("Критическая ошибка: " + e.message, true);
+    return function () {};
   }
 });

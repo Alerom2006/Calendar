@@ -3,17 +3,11 @@
     "name": "Календарь заказов",
     "description": "Виджет для отображения сделок по дате заказа",
     "short_description": "Просмотр сделок в календаре",
-    "tour_description": "Просматривайте сделки, отфильтрованные по дате заказа",
-    "advanced_settings": "Расширенные настройки",
     "deal_date_field": "ID поля даты заказа",
-    "webhook_url": "URL вебхука",
-    "api_key": "API ключ",
-    "refresh_interval": "Интервал обновления (мин)",
-    "debug_mode": "Режим отладки",
+    "webhook_url": "URL вебхука для Digital Pipeline",
     "field_placeholder": "Введите ID поля из CRM",
     "webhook_placeholder": "https://ваш-сервер.com/webhook",
-    "field_hint": "Найти можно в настройках полей CRM",
-    "webhook_hint": "Должен обрабатывать POST-запросы"
+    "webhook_hint": "Endpoint должен принимать POST-запросы"
   },
   "errors": {
     "invalid_field": "Неверное значение поля",

@@ -14,13 +14,16 @@ if (typeof define === "function") {
 function createOrdersCalendarWidget($) {
   "use strict";
 
-  var OrdersCalendarWidget = function () {
+  var OrdersCalendarWidget = function (params) {
     if (typeof OrdersCalendarWidget.instance === "object") {
       return OrdersCalendarWidget.instance;
     }
 
     var self = this;
     OrdersCalendarWidget.instance = this;
+
+    // Сохраняем параметры
+    this.params = params || {};
 
     // Проверяем доступность jQuery
     if (!$) {
@@ -98,6 +101,7 @@ function createOrdersCalendarWidget($) {
             load: "Ошибка загрузки данных",
             noDeals: "Нет сделок на эту дату",
             noAuth: "Требуется авторизация",
+            apiError: "Ошибка API: ресурс не найден",
           },
         },
       };
@@ -117,10 +121,18 @@ function createOrdersCalendarWidget($) {
         },
         cache: { monthsData: {} },
       };
+
+      // Применяем переданные настройки
+      if (this.params.settings) {
+        this.applySettings(this.params.settings);
+      }
+
+      // Помечаем, что инициализация завершена
+      this.state.initialized = true;
     },
 
     get_version: function () {
-      return "1.0.46";
+      return "1.0.47";
     },
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -205,10 +217,24 @@ function createOrdersCalendarWidget($) {
           }
 
           AMOCRM.request(method, path, data)
-            .then(resolve)
+            .then((response) => {
+              if (response && !response.error) {
+                resolve(response);
+              } else {
+                reject(new Error(response.error || "Неизвестная ошибка API"));
+              }
+            })
             .catch((error) => {
               console.error("Ошибка API:", error);
-              reject(new Error("Ошибка загрузки данных"));
+              if (error.status === 404) {
+                this.showError(this.langs.ru.errors.apiError);
+              }
+              reject(
+                new Error(
+                  "Ошибка загрузки данных: " +
+                    (error.message || error.statusText)
+                )
+              );
             });
         } catch (e) {
           reject(e);
@@ -220,6 +246,11 @@ function createOrdersCalendarWidget($) {
     loadData: function () {
       return new Promise((resolve) => {
         try {
+          if (!this.state.initialized) {
+            console.error("Виджет не инициализирован");
+            return resolve();
+          }
+
           const dateFrom = new Date(
             this.state.currentDate.getFullYear(),
             this.state.currentDate.getMonth(),
@@ -353,6 +384,10 @@ function createOrdersCalendarWidget($) {
     // ========== ОТОБРАЖЕНИЕ ИНТЕРФЕЙСА ========== //
     generateCalendarHTML: function () {
       try {
+        if (!this.state.initialized) {
+          return '<div class="error-message">Виджет не инициализирован</div>';
+        }
+
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
 
@@ -438,6 +473,11 @@ function createOrdersCalendarWidget($) {
     renderCalendar: function () {
       return new Promise((resolve) => {
         try {
+          if (!this.state.initialized) {
+            console.error("Виджет не инициализирован");
+            return resolve();
+          }
+
           this.state.loading = true;
           const cacheKey = `${this.state.currentDate.getFullYear()}-${this.state.currentDate.getMonth()}`;
 

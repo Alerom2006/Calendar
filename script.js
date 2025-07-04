@@ -1,106 +1,109 @@
 (function () {
   // Проверяем окружение
-  var isAMD = typeof define === "function" && define.amd;
-  var isStandalone = typeof window !== "undefined";
+  const isAMD = typeof define === "function" && define.amd;
+  const isStandalone = typeof window !== "undefined";
 
-  // Основной конструктор виджета
-  function OrdersCalendarWidget() {
-    var self = this;
+  class OrdersCalendarWidget {
+    constructor() {
+      this.state = {
+        initialized: false,
+        currentDate: new Date(),
+        dealsData: {},
+        fieldIds: {
+          ORDER_DATE: 885453,
+        },
+        statuses: {
+          142: "Новая",
+          143: "В работе",
+          144: "Завершена",
+          145: "Отменена",
+        },
+      };
 
-    // Состояние виджета
-    this.state = {
-      initialized: false,
-      currentDate: new Date(),
-      dealsData: {},
-      fieldIds: {
-        ORDER_DATE: 885453,
-      },
-      statuses: {
-        142: "Новая",
-        143: "В работе",
-        144: "Завершена",
-        145: "Отменена",
-      },
-    };
+      // Автобайндинг методов
+      this.handleDateClick = this.handleDateClick.bind(this);
+      this.handleMonthNavigation = this.handleMonthNavigation.bind(this);
+    }
 
     // Обработчик клика по дате
-    this.handleDateClick = function (dateStr, event) {
+    handleDateClick(dateStr, event) {
       event.stopPropagation();
 
       if (typeof AmoCRM !== "undefined") {
-        // Режим amoCRM - открываем список сделок
         AmoCRM.router.navigate({
           leads: {
             filter: {
-              [self.state.fieldIds.ORDER_DATE]: {
+              [this.state.fieldIds.ORDER_DATE]: {
                 from: Math.floor(new Date(dateStr).getTime() / 1000),
-                to: Math.floor(new Date(dateStr).getTime() / 1000 + 86399), // Конец дня
+                to: Math.floor(new Date(dateStr).getTime() / 1000 + 86399),
               },
             },
           },
         });
       } else {
-        // Standalone режим - показываем сделки в попапе
-        const deals = this.state.dealsData[dateStr] || [];
-        let dealsHTML =
-          '<div class="deals-popup"><h3>Сделки на ' + dateStr + "</h3>";
-
-        if (deals.length) {
-          deals.forEach((deal) => {
-            dealsHTML += `
-              <div class="deal-item">
-                <h4>${deal.name}</h4>
-                <p>Статус: ${
-                  this.state.statuses[deal.status_id] || "Неизвестно"
-                }</p>
-                <p>Сумма: ${deal.price} руб.</p>
-              </div>
-            `;
-          });
-        } else {
-          dealsHTML += "<p>Нет сделок на эту дату</p>";
-        }
-
-        dealsHTML += '<button class="close-popup">Закрыть</button></div>';
-
-        // Удаляем старый попап если есть
-        const oldPopup = document.querySelector(".deals-popup");
-        if (oldPopup) oldPopup.remove();
-
-        // Добавляем новый попап
-        document
-          .getElementById("widget-root")
-          .insertAdjacentHTML("beforeend", dealsHTML);
-
-        // Обработчик закрытия попапа
-        document
-          .querySelector(".close-popup")
-          .addEventListener("click", function () {
-            document.querySelector(".deals-popup").remove();
-          });
+        this.showDealsPopup(dateStr);
       }
-    };
+    }
+
+    // Показ попапа со сделками
+    showDealsPopup(dateStr) {
+      const deals = this.state.dealsData[dateStr] || [];
+      let dealsHTML = `
+        <div class="deals-popup">
+          <h3>Сделки на ${dateStr}</h3>
+      `;
+
+      if (deals.length) {
+        dealsHTML += deals
+          .map(
+            (deal) => `
+          <div class="deal-item">
+            <h4>${deal.name}</h4>
+            <p>Статус: ${
+              this.state.statuses[deal.status_id] || "Неизвестно"
+            }</p>
+            <p>Сумма: ${deal.price} руб.</p>
+          </div>
+        `
+          )
+          .join("");
+      } else {
+        dealsHTML += "<p>Нет сделок на эту дату</p>";
+      }
+
+      dealsHTML += '<button class="close-popup">Закрыть</button></div>';
+
+      // Удаляем старый попап если есть
+      const oldPopup = document.querySelector(".deals-popup");
+      if (oldPopup) oldPopup.remove();
+
+      // Добавляем новый попап
+      const widgetRoot = document.getElementById("widget-root");
+      widgetRoot.insertAdjacentHTML("beforeend", dealsHTML);
+
+      // Обработчик закрытия попапа
+      widgetRoot.querySelector(".close-popup").addEventListener("click", () => {
+        widgetRoot.querySelector(".deals-popup").remove();
+      });
+    }
 
     // Генерация тестовых данных
-    this.generateMockData = function () {
-      var data = {};
-      var date = new Date();
-      var year = date.getFullYear();
-      var month = date.getMonth();
-      var daysInMonth = new Date(year, month + 1, 0).getDate();
+    generateMockData() {
+      const data = {};
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-      for (var day = 1; day <= daysInMonth; day++) {
+      for (let day = 1; day <= daysInMonth; day++) {
         if (day % 5 === 0 || day === 1) {
-          var dateStr =
-            year +
-            "-" +
-            (month + 1).toString().padStart(2, "0") +
-            "-" +
-            day.toString().padStart(2, "0");
+          const dateStr = `${year}-${(month + 1)
+            .toString()
+            .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
           data[dateStr] = [
             {
               id: day,
-              name: "Тестовая сделка " + day,
+              name: `Тестовая сделка ${day}`,
               status_id: 143,
               price: day * 1000,
             },
@@ -108,75 +111,116 @@
         }
       }
       return data;
-    };
+    }
 
     // Генерация HTML календаря
-    this.generateCalendarHTML = function (
-      month,
-      year,
-      daysInMonth,
-      adjustedFirstDay
-    ) {
-      var html = ['<div class="calendar-grid">'];
+    generateCalendarHTML(month, year, daysInMonth, adjustedFirstDay) {
+      const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+      const months = [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь",
+      ];
+
+      let html = ['<div class="calendar-grid">'];
 
       // Заголовки дней недели
-      ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach(function (day) {
-        html.push('<div class="calendar-weekday">' + day + "</div>");
-      });
+      html.push(
+        ...weekdays.map((day) => `<div class="calendar-weekday">${day}</div>`)
+      );
 
       // Пустые ячейки
-      for (var i = 0; i < adjustedFirstDay; i++) {
-        html.push('<div class="calendar-day empty"></div>');
-      }
+      html.push(
+        ...Array(adjustedFirstDay).fill(
+          '<div class="calendar-day empty"></div>'
+        )
+      );
 
-      // Дни месяца с обработчиками клика
-      for (var day = 1; day <= daysInMonth; day++) {
-        var dateStr =
-          year +
-          "-" +
-          (month + 1).toString().padStart(2, "0") +
-          "-" +
-          day.toString().padStart(2, "0");
-        var deals = self.state.dealsData[dateStr] || [];
-        var isToday = dateStr === new Date().toISOString().split("T")[0];
+      // Дни месяца
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${(month + 1)
+          .toString()
+          .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+        const deals = this.state.dealsData[dateStr] || [];
+        const isToday = dateStr === new Date().toISOString().split("T")[0];
+        const classes = [
+          "calendar-day",
+          isToday ? "today" : "",
+          deals.length ? "has-deals" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-        html.push(
-          '<div class="calendar-day ' +
-            (isToday ? "today " : "") +
-            (deals.length ? "has-deals" : "") +
-            '" ' +
-            "onclick=\"(function(e){widgetInstance.handleDateClick('" +
-            dateStr +
-            "', e)})(event)\">",
-          '<div class="day-number">' + day + "</div>",
-          deals.length
-            ? '<div class="deal-count">' + deals.length + "</div>"
-            : "",
-          "</div>"
-        );
+        html.push(`
+          <div class="${classes}" data-date="${dateStr}">
+            <div class="day-number">${day}</div>
+            ${
+              deals.length
+                ? `<div class="deal-count">${deals.length}</div>`
+                : ""
+            }
+          </div>
+        `);
       }
 
       html.push("</div>");
       return html.join("");
-    };
+    }
+
+    // Обработчик навигации по месяцам
+    handleMonthNavigation(direction) {
+      this.state.currentDate.setMonth(
+        this.state.currentDate.getMonth() + (direction === "prev" ? -1 : 1)
+      );
+      this.renderCalendar();
+    }
+
+    // Привязка событий календаря
+    bindCalendarEvents() {
+      // Навигация по месяцам
+      document
+        .querySelector(".prev-month")
+        ?.addEventListener("click", () => this.handleMonthNavigation("prev"));
+
+      document
+        .querySelector(".next-month")
+        ?.addEventListener("click", () => this.handleMonthNavigation("next"));
+
+      // Клики по дням
+      document.querySelectorAll(".calendar-day:not(.empty)").forEach((day) => {
+        day.addEventListener("click", (e) => {
+          const dateStr = day.dataset.date;
+          if (dateStr) this.handleDateClick(dateStr, e);
+        });
+      });
+    }
 
     // Основной метод рендеринга
-    this.renderCalendar = function () {
+    renderCalendar() {
       try {
-        var month = this.state.currentDate.getMonth();
-        var year = this.state.currentDate.getFullYear();
-        var daysInMonth = new Date(year, month + 1, 0).getDate();
-        var firstDay = new Date(year, month, 1).getDay();
-        var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+        const month = this.state.currentDate.getMonth();
+        const year = this.state.currentDate.getFullYear();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay();
+        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-        var calendarHTML = this.generateCalendarHTML(
+        const calendarHTML = this.generateCalendarHTML(
           month,
           year,
           daysInMonth,
           adjustedFirstDay
         );
 
-        var templateData = {
+        const templateData = {
           title: "Календарь заказов",
           month: [
             "Январь",
@@ -197,282 +241,153 @@
         };
 
         // Режим amoCRM
-        if (typeof self.render === "function") {
-          self.render({
-            data: [
-              '<div class="orders-calendar">',
-              '<div class="calendar-header">',
-              "<h3>{{ title }}</h3>",
-              '<div class="month-navigation">',
-              '<button class="nav-button prev-month">←</button>',
-              '<span class="current-month">{{ month }} {{ year }}</span>',
-              '<button class="nav-button next-month">→</button>',
-              "</div>",
-              "</div>",
-              "{{ calendar|raw }}",
-              "</div>",
-            ].join(""),
-            load: function (template) {
+        if (typeof this.render === "function") {
+          this.render({
+            data: `
+              <div class="orders-calendar">
+                <div class="calendar-header">
+                  <h3>${templateData.title}</h3>
+                  <div class="month-navigation">
+                    <button class="nav-button prev-month">←</button>
+                    <span class="current-month">${templateData.month} ${templateData.year}</span>
+                    <button class="nav-button next-month">→</button>
+                  </div>
+                </div>
+                ${templateData.calendar}
+              </div>
+            `,
+            load: (template) => {
               template.render(templateData);
-              self.bindCalendarEvents();
+              this.bindCalendarEvents();
             },
           });
         }
         // Standalone режим
         else {
-          var widgetHTML = [
-            '<div class="orders-calendar">',
-            '<div class="calendar-header">',
-            "<h3>" + templateData.title + "</h3>",
-            '<div class="month-navigation">',
-            '<button class="nav-button prev-month">←</button>',
-            '<span class="current-month">',
-            templateData.month + " " + templateData.year,
-            "</span>",
-            '<button class="nav-button next-month">→</button>',
-            "</div>",
-            "</div>",
-            templateData.calendar,
-            "</div>",
-          ].join("");
-
-          var container =
+          const container =
             document.getElementById("widget-root") || document.body;
-          container.innerHTML = widgetHTML;
-          self.bindCalendarEvents();
+          container.innerHTML = `
+            <div class="orders-calendar">
+              <div class="calendar-header">
+                <h3>${templateData.title}</h3>
+                <div class="month-navigation">
+                  <button class="nav-button prev-month">←</button>
+                  <span class="current-month">${templateData.month} ${templateData.year}</span>
+                  <button class="nav-button next-month">→</button>
+                </div>
+              </div>
+              ${templateData.calendar}
+            </div>
+          `;
+          this.bindCalendarEvents();
         }
       } catch (error) {
         console.error("Ошибка рендеринга:", error);
         this.showError();
       }
-    };
-
-    // Привязка событий календаря
-    this.bindCalendarEvents = function () {
-      // Упрощенная замена jQuery
-      var $ = {
-        on: function (el, event, fn) {
-          if (el && el.addEventListener) {
-            if (typeof el === "string") {
-              document.querySelectorAll(el).forEach(function (item) {
-                item.addEventListener(event, fn);
-              });
-            } else {
-              el.addEventListener(event, fn);
-            }
-          }
-        },
-        off: function (el, event, fn) {
-          if (el && el.removeEventListener) {
-            if (typeof el === "string") {
-              document.querySelectorAll(el).forEach(function (item) {
-                item.removeEventListener(event, fn);
-              });
-            } else {
-              el.removeEventListener(event, fn);
-            }
-          }
-        },
-      };
-
-      $(".prev-month", "click", function () {
-        self.state.currentDate.setMonth(self.state.currentDate.getMonth() - 1);
-        self.renderCalendar();
-      });
-
-      $(".next-month", "click", function () {
-        self.state.currentDate.setMonth(self.state.currentDate.getMonth() + 1);
-        self.renderCalendar();
-      });
-    };
+    }
 
     // Показать ошибку
-    this.showError = function () {
-      var errorHTML = [
-        '<div class="calendar-error">',
-        "<h3>Календарь заказов</h3>",
-        "<p>Произошла ошибка при загрузке календаря</p>",
-        "</div>",
-      ].join("");
+    showError() {
+      const errorHTML = `
+        <div class="calendar-error">
+          <h3>Календарь заказов</h3>
+          <p>Произошла ошибка при загрузке календаря</p>
+        </div>
+      `;
 
-      if (typeof self.render === "function") {
-        self.render({
-          data: "{{ error|raw }}",
-          load: function (template) {
-            template.render({ error: errorHTML });
-          },
-        });
-      } else {
-        var container = document.getElementById("widget-root") || document.body;
-        container.innerHTML = errorHTML;
-      }
-    };
+      const container = document.getElementById("widget-root") || document.body;
+      container.innerHTML = errorHTML;
+    }
 
     // Загрузка данных
-    this.loadData = function () {
+    async loadData() {
       if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
         this.state.dealsData = this.generateMockData();
-        return Promise.resolve();
+        return;
       }
 
-      var dateFrom = new Date(
-        this.state.currentDate.getFullYear(),
-        this.state.currentDate.getMonth(),
-        1
-      );
-      var dateTo = new Date(
-        this.state.currentDate.getFullYear(),
-        this.state.currentDate.getMonth() + 1,
-        0
-      );
+      try {
+        const dateFrom = new Date(
+          this.state.currentDate.getFullYear(),
+          this.state.currentDate.getMonth(),
+          1
+        );
+        const dateTo = new Date(
+          this.state.currentDate.getFullYear(),
+          this.state.currentDate.getMonth() + 1,
+          0
+        );
 
-      return AmoCRM.request("GET", "/api/v4/leads", {
-        filter: {
-          [this.state.fieldIds.ORDER_DATE]: {
-            from: Math.floor(dateFrom.getTime() / 1000),
-            to: Math.floor(dateTo.getTime() / 1000),
+        const response = await AmoCRM.request("GET", "/api/v4/leads", {
+          filter: {
+            [this.state.fieldIds.ORDER_DATE]: {
+              from: Math.floor(dateFrom.getTime() / 1000),
+              to: Math.floor(dateTo.getTime() / 1000),
+            },
           },
-        },
-        limit: 250,
-      })
-        .then(function (response) {
-          if (response && response._embedded && response._embedded.leads) {
-            self.processData(response._embedded.leads);
-          } else {
-            self.state.dealsData = self.generateMockData();
-          }
-        })
-        .catch(function (error) {
-          console.warn("Ошибка загрузки данных:", error);
-          self.state.dealsData = self.generateMockData();
+          limit: 250,
         });
-    };
+
+        if (response?._embedded?.leads) {
+          this.processData(response._embedded.leads);
+        } else {
+          this.state.dealsData = this.generateMockData();
+        }
+      } catch (error) {
+        console.warn("Ошибка загрузки данных:", error);
+        this.state.dealsData = this.generateMockData();
+      }
+    }
 
     // Обработка данных сделок
-    this.processData = function (deals) {
+    processData(deals) {
       this.state.dealsData = {};
-      deals.forEach(function (deal) {
+
+      deals.forEach((deal) => {
         try {
-          var dateField = (deal.custom_fields_values || []).find(function (f) {
-            return f && f.field_id === self.state.fieldIds.ORDER_DATE;
-          });
+          const dateField = deal.custom_fields_values?.find(
+            (f) => f?.field_id === this.state.fieldIds.ORDER_DATE
+          );
 
-          if (
-            dateField &&
-            dateField.values &&
-            dateField.values[0] &&
-            dateField.values[0].value
-          ) {
-            var date = new Date(dateField.values[0].value * 1000);
-            var dateStr = date.toISOString().split("T")[0];
+          const timestamp = dateField?.values?.[0]?.value;
+          if (!timestamp) return;
 
-            if (!self.state.dealsData[dateStr]) {
-              self.state.dealsData[dateStr] = [];
-            }
+          const date = new Date(timestamp * 1000);
+          const dateStr = date.toISOString().split("T")[0];
 
-            self.state.dealsData[dateStr].push({
-              id: deal.id || 0,
-              name: deal.name || "Без названия",
-              status_id: deal.status_id || 0,
-              price: deal.price || 0,
-            });
+          if (!this.state.dealsData[dateStr]) {
+            this.state.dealsData[dateStr] = [];
           }
+
+          this.state.dealsData[dateStr].push({
+            id: deal.id || 0,
+            name: deal.name || "Без названия",
+            status_id: deal.status_id || 0,
+            price: deal.price || 0,
+          });
         } catch (e) {
           console.warn("Ошибка обработки сделки:", e);
         }
       });
-    };
-
-    // Применение настроек
-    this.applySettings = function (settings) {
-      if (settings && settings.deal_date_field_id) {
-        self.state.fieldIds.ORDER_DATE =
-          parseInt(settings.deal_date_field_id) || 885453;
-      }
-    };
-
-    // Функции обратного вызова для amoCRM
-    this.callbacks = {
-      init: function () {
-        return new Promise(function (resolve) {
-          if (typeof AmoCRM !== "undefined" && AmoCRM.widgets) {
-            AmoCRM.widgets
-              .system()
-              .then(function (system) {
-                if (
-                  system &&
-                  system.settings &&
-                  system.settings.deal_date_field_id
-                ) {
-                  self.state.fieldIds.ORDER_DATE =
-                    parseInt(system.settings.deal_date_field_id) || 885453;
-                }
-                resolve(true);
-              })
-              .catch(function () {
-                resolve(true);
-              });
-          } else {
-            resolve(true);
-          }
-        });
-      },
-
-      render: function () {
-        return new Promise(function (resolve) {
-          self.loadData().then(function () {
-            self.renderCalendar();
-            resolve(true);
-          });
-        });
-      },
-
-      onSave: function (newSettings) {
-        try {
-          if (!newSettings) {
-            console.error("No settings provided");
-            return false;
-          }
-          self.applySettings(newSettings);
-          return true;
-        } catch (e) {
-          console.error("onSave error:", e);
-          return false;
-        }
-      },
-
-      bind_actions: function () {
-        return true;
-      },
-
-      destroy: function () {
-        return true;
-      },
-    };
+    }
 
     // Для standalone режима
-    this.renderWidget = function () {
-      this.loadData().then(
-        function () {
-          this.renderCalendar();
-        }.bind(this)
-      );
-    };
+    async renderWidget() {
+      await this.loadData();
+      this.renderCalendar();
+    }
   }
 
   // Экспорт в зависимости от окружения
   if (isAMD) {
-    // AMD режим (для amoCRM)
-    define([], function () {
-      return OrdersCalendarWidget;
-    });
-  } else if (isStandalone) {
-    // Standalone режим
+    define([], () => OrdersCalendarWidget);
+  }
+  if (isStandalone) {
     window.OrdersCalendarWidget = OrdersCalendarWidget;
     window.widgetInstance = new OrdersCalendarWidget();
 
-    // Автоматическая инициализация при загрузке
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", () => {
       if (typeof OrdersCalendarWidget !== "undefined") {
         window.widgetInstance.renderWidget();
       }

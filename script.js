@@ -9,13 +9,13 @@ define(["jquery"], function ($) {
 
     // Проверка доступности AMOCRM API
     if (typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function") {
-      this.showError("AMOCRM API недоступен");
+      console.error("AMOCRM API недоступен");
       return this;
     }
 
     // Проверка авторизации
     if (!AMOCRM.constant("user") || !AMOCRM.constant("user").id) {
-      this.showError("Требуется авторизация в amoCRM");
+      console.error("Требуется авторизация в amoCRM");
       return this;
     }
 
@@ -66,7 +66,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.39";
+      return "1.0.40";
     };
 
     // Состояние виджета
@@ -163,6 +163,64 @@ define(["jquery"], function ($) {
           reject(e);
         }
       });
+    };
+
+    // ========== API ФАЙЛОВ ========== //
+    this.createFileUploadSession = function (
+      fileName,
+      fileSize,
+      fileUuid = null,
+      contentType = "application/octet-stream"
+    ) {
+      return self.doRequest("POST", "https://drive.amocrm.ru/v1.0/sessions", {
+        file_name: fileName,
+        file_size: fileSize,
+        file_uuid: fileUuid,
+        content_type: contentType,
+        with_preview: true,
+      });
+    };
+
+    this.uploadFilePart = function (uploadUrl, fileData, isLastPart = false) {
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: uploadUrl,
+          type: "POST",
+          data: fileData,
+          processData: false,
+          contentType: false,
+          success: function (response) {
+            resolve(response);
+          },
+          error: function (error) {
+            console.error("Ошибка загрузки части файла:", error);
+            reject(
+              new Error(
+                self.langs.ru?.errors?.fileUpload || "Ошибка загрузки файла"
+              )
+            );
+          },
+        });
+      });
+    };
+
+    this.getFileInfo = function (fileUuid) {
+      return self.doRequest(
+        "GET",
+        `https://drive.amocrm.ru/v1.0/files/${fileUuid}`
+      );
+    };
+
+    this.deleteFile = function (fileUuid) {
+      return self.doRequest("DELETE", "https://drive.amocrm.ru/v1.0/files", [
+        { uuid: fileUuid },
+      ]);
+    };
+
+    this.attachFileToEntity = function (entityType, entityId, fileUuid) {
+      return self.doRequest("PUT", `/api/v4/${entityType}/${entityId}/files`, [
+        { file_uuid: fileUuid },
+      ]);
     };
 
     this.loadData = function () {
@@ -397,6 +455,13 @@ define(["jquery"], function ($) {
                   self.state.statuses[deal.status_id] || "Неизвестно"
                 }</p>
                 <p>Сумма: ${deal.price} руб.</p>
+                ${
+                  deal.contacts.length > 0
+                    ? `<p>Контакты: ${deal.contacts
+                        .map((c) => c.name || "Без имени")
+                        .join(", ")}</p>`
+                    : ""
+                }
               </div>`
               )
               .join("")

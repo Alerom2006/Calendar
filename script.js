@@ -252,6 +252,14 @@ define(["jquery"], function ($) {
       });
     };
 
+    // Применение настроек
+    this.applySettings = function (settings) {
+      if (settings && settings.deal_date_field_id) {
+        self.state.fieldIds.ORDER_DATE =
+          parseInt(settings.deal_date_field_id) || 885453;
+      }
+    };
+
     // Функции обратного вызова для amoCRM
     this.callbacks = {
       init: function () {
@@ -288,12 +296,18 @@ define(["jquery"], function ($) {
         });
       },
 
-      onSave: function (settings) {
-        if (settings && settings.deal_date_field_id) {
-          self.state.fieldIds.ORDER_DATE =
-            parseInt(settings.deal_date_field_id) || 885453;
+      onSave: function (newSettings) {
+        try {
+          if (!newSettings) {
+            console.error("No settings provided");
+            return false;
+          }
+          self.applySettings(newSettings);
+          return true;
+        } catch (e) {
+          console.error("onSave error:", e);
+          return false;
         }
-        return true;
       },
 
       bind_actions: function () {

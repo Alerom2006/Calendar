@@ -14,6 +14,7 @@ if (typeof define === "function") {
 function createOrdersCalendarWidget($) {
   "use strict";
 
+  // Сначала определяем конструктор
   var OrdersCalendarWidget = function (params) {
     if (typeof OrdersCalendarWidget.instance === "object") {
       return OrdersCalendarWidget.instance;
@@ -54,11 +55,19 @@ function createOrdersCalendarWidget($) {
     }
 
     // Инициализация виджета
-    this.initialize();
+    if (typeof this.initialize === "function") {
+      this.initialize();
+    } else {
+      console.error("Метод initialize не найден");
+      this.showError("Ошибка инициализации виджета");
+    }
   };
 
+  // Затем определяем прототип
   OrdersCalendarWidget.prototype = {
     initialize: function () {
+      console.log("Инициализация виджета...");
+
       // Получаем данные аккаунта и пользователя из AMOCRM (если доступно)
       const accountData = this.isAMOCRMReady
         ? AMOCRM.constant("account") || {}
@@ -129,13 +138,13 @@ function createOrdersCalendarWidget($) {
 
       // Помечаем, что инициализация завершена
       this.state.initialized = true;
+      console.log("Инициализация завершена");
     },
 
     get_version: function () {
-      return "1.0.47";
+      return "1.0.48";
     },
 
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
     formatDate: function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
@@ -200,12 +209,10 @@ function createOrdersCalendarWidget($) {
       }
     },
 
-    // ========== API МЕТОДЫ ========== //
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
           if (!this.isAMOCRMReady) {
-            // В standalone режиме используем mock данные
             console.log("Standalone режим: запрос не выполнен");
             setTimeout(() => resolve({ _embedded: { leads: [] } }), 100);
             return;
@@ -242,7 +249,6 @@ function createOrdersCalendarWidget($) {
       });
     },
 
-    // ========== ОСНОВНЫЕ ФУНКЦИИ ВИДЖЕТА ========== //
     loadData: function () {
       return new Promise((resolve) => {
         try {
@@ -264,7 +270,6 @@ function createOrdersCalendarWidget($) {
 
           this.state.loading = true;
 
-          // В standalone режиме используем mock данные
           if (!this.isAMOCRMReady) {
             console.log("Standalone режим: загрузка mock данных");
             setTimeout(() => {
@@ -381,7 +386,6 @@ function createOrdersCalendarWidget($) {
       }
     },
 
-    // ========== ОТОБРАЖЕНИЕ ИНТЕРФЕЙСА ========== //
     generateCalendarHTML: function () {
       try {
         if (!this.state.initialized) {
@@ -391,13 +395,9 @@ function createOrdersCalendarWidget($) {
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
 
-        // Получаем первый день месяца и количество дней в месяце
         const firstDay = new Date(year, month, 1);
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-        // Определяем день недели для первого дня месяца (0 - воскресенье, 1 - понедельник и т.д.)
         const firstDayOfWeek = firstDay.getDay();
-        // Корректируем для отображения (понедельник - первый день недели)
         const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
         const monthNames = this.langs.ru?.months || [];
@@ -412,12 +412,10 @@ function createOrdersCalendarWidget($) {
         ];
 
         let daysHTML = "";
-        // Добавляем пустые ячейки для дней предыдущего месяца
         for (let i = 0; i < adjustedFirstDay; i++) {
           daysHTML += '<div class="calendar-day empty"></div>';
         }
 
-        // Добавляем дни текущего месяца
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
           const deals = this.state.dealsData[dateStr] || [];
@@ -510,31 +508,26 @@ function createOrdersCalendarWidget($) {
       });
     },
 
-    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
     bindCalendarEvents: function () {
       try {
-        // Удаляем старые обработчики
         $(document).off("click.calendar");
 
-        // Обработчик для перехода на предыдущий месяц
         $(document).on("click.calendar", ".prev-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() - 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {}; // Очищаем кэш данных
+          this.state.dealsData = {};
           this.renderCalendar();
         });
 
-        // Обработчик для перехода на следующий месяц
         $(document).on("click.calendar", ".next-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() + 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {}; // Очищаем кэш данных
+          this.state.dealsData = {};
           this.renderCalendar();
         });
 
-        // Обработчик для выбора дня
         $(document).on("click.date", ".calendar-day:not(.empty)", (e) => {
           const dateStr = $(e.currentTarget).data("date");
           this.showDealsPopup(dateStr);
@@ -595,7 +588,6 @@ function createOrdersCalendarWidget($) {
       }
     },
 
-    // Standalone метод для рендеринга вне amoCRM
     renderWidget: function () {
       return this.renderCalendar();
     },

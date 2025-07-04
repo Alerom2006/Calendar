@@ -72,7 +72,7 @@ define(["jquery"], function ($) {
     };
 
     this.get_version = function () {
-      return "1.0.30"; // Синхронизировано с manifest.json
+      return "1.0.31"; // Синхронизировано с manifest.json
     };
 
     // Состояние виджета

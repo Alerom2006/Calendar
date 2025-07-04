@@ -1,4 +1,12 @@
-define(["jquery"], function ($) {
+(function (factory) {
+  if (typeof define === "function" && define.amd) {
+    define(["jquery"], factory);
+  } else if (typeof exports === "object") {
+    factory(require("jquery"));
+  } else {
+    factory(jQuery);
+  }
+})(function ($) {
   var OrdersCalendarWidget = function () {
     // Реализация паттерна Singleton
     if (typeof OrdersCalendarWidget.instance === "object") {
@@ -24,6 +32,7 @@ define(["jquery"], function ($) {
         amouser_id: null,
         amouser: null,
         amohash: null,
+        subdomain: "yourdomain", // Добавлено поле subdomain
       };
     };
 
@@ -58,7 +67,7 @@ define(["jquery"], function ($) {
 
     // Версия виджета
     this.get_version = function () {
-      return "1.0.35";
+      return "1.0.36";
     };
 
     // Состояние виджета
@@ -195,8 +204,12 @@ define(["jquery"], function ($) {
           content_type: file.type || "application/octet-stream",
         };
 
-        // Используем корректный endpoint для файлов
-        AmoCRM.request("POST", "https://drive.amocrm.ru/v1.0/sessions", payload)
+        // Исправленный endpoint для файлов
+        AmoCRM.request(
+          "POST",
+          `https://${self.system().subdomain}.amocrm.ru/v1.0/sessions`,
+          payload
+        )
           .then(function (response) {
             if (response.session_id && response.upload_url) {
               resolve(response);
@@ -309,7 +322,13 @@ define(["jquery"], function ($) {
           },
         ];
 
-        AmoCRM.request("PUT", `/api/v4/leads/${leadId}/files`, payload)
+        AmoCRM.request(
+          "PUT",
+          `https://${
+            self.system().subdomain
+          }.amocrm.ru/api/v4/leads/${leadId}/files`,
+          payload
+        )
           .then(function () {
             resolve();
           })
@@ -329,7 +348,12 @@ define(["jquery"], function ($) {
           return reject(new Error("AmoCRM API не доступен"));
         }
 
-        AmoCRM.request("GET", `/api/v4/leads/${leadId}/files`)
+        AmoCRM.request(
+          "GET",
+          `https://${
+            self.system().subdomain
+          }.amocrm.ru/api/v4/leads/${leadId}/files`
+        )
           .then(function (response) {
             if (response._embedded && response._embedded.files) {
               resolve(response._embedded.files);
@@ -359,7 +383,11 @@ define(["jquery"], function ($) {
           },
         ];
 
-        AmoCRM.request("DELETE", "https://drive.amocrm.ru/v1.0/files", payload)
+        AmoCRM.request(
+          "DELETE",
+          `https://${self.system().subdomain}.amocrm.ru/v1.0/files`,
+          payload
+        )
           .then(function () {
             resolve();
           })
@@ -502,8 +530,10 @@ define(["jquery"], function ($) {
                   files.forEach(function (file) {
                     filesContainer.append(`
                       <div class="file-item" data-file-uuid="${file.file_uuid}">
-                        <span>Файл ${file.file_uuid}</span>
-                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                        <span>${file.name || `Файл ${file.file_uuid}`}</span>
+                        <button class="delete-file-btn" data-file-uuid="${
+                          file.file_uuid
+                        }">×</button>
                       </div>
                     `);
                   });
@@ -546,8 +576,10 @@ define(["jquery"], function ($) {
                   files.forEach(function (file) {
                     filesContainer.append(`
                       <div class="file-item" data-file-uuid="${file.file_uuid}">
-                        <span>Файл ${file.file_uuid}</span>
-                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                        <span>${file.name || `Файл ${file.file_uuid}`}</span>
+                        <button class="delete-file-btn" data-file-uuid="${
+                          file.file_uuid
+                        }">×</button>
                       </div>
                     `);
                   });
@@ -578,8 +610,10 @@ define(["jquery"], function ($) {
                   files.forEach(function (file) {
                     filesContainer.append(`
                       <div class="file-item" data-file-uuid="${file.file_uuid}">
-                        <span>Файл ${file.file_uuid}</span>
-                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                        <span>${file.name || `Файл ${file.file_uuid}`}</span>
+                        <button class="delete-file-btn" data-file-uuid="${
+                          file.file_uuid
+                        }">×</button>
                       </div>
                     `);
                   });
@@ -636,16 +670,20 @@ define(["jquery"], function ($) {
 
           self.state.loading = true;
 
-          AmoCRM.request("GET", "/api/v4/leads", {
-            filter: {
-              [self.state.fieldIds.ORDER_DATE]: {
-                from: Math.floor(dateFrom.getTime() / 1000),
-                to: Math.floor(dateTo.getTime() / 1000),
+          AmoCRM.request(
+            "GET",
+            `https://${self.system().subdomain}.amocrm.ru/api/v4/leads`,
+            {
+              filter: {
+                [self.state.fieldIds.ORDER_DATE]: {
+                  from: Math.floor(dateFrom.getTime() / 1000),
+                  to: Math.floor(dateTo.getTime() / 1000),
+                },
               },
-            },
-            limit: 250,
-            with: "contacts",
-          })
+              limit: 250,
+              with: "contacts",
+            }
+          )
             .then(function (response) {
               if (response?._embedded?.leads) {
                 self.processData(response._embedded.leads);
@@ -845,6 +883,11 @@ define(["jquery"], function ($) {
 
     return this;
   };
+
+  // Экспорт в глобальную область, если нужно
+  if (typeof window !== "undefined") {
+    window.OrdersCalendarWidget = OrdersCalendarWidget;
+  }
 
   return OrdersCalendarWidget;
 });

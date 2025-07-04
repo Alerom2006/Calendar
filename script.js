@@ -50,16 +50,16 @@ define(["jquery"], function ($) {
       daysInMonth,
       adjustedFirstDay
     ) {
-      var html = '<div class="calendar-grid">';
+      var html = ['<div class="calendar-grid">'];
 
       // Заголовки дней недели
       ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach(function (day) {
-        html += '<div class="calendar-weekday">' + day + "</div>";
+        html.push('<div class="calendar-weekday">' + day + "</div>");
       });
 
       // Пустые ячейки
       for (var i = 0; i < adjustedFirstDay; i++) {
-        html += '<div class="calendar-day empty"></div>';
+        html.push('<div class="calendar-day empty"></div>');
       }
 
       // Дни месяца
@@ -73,20 +73,21 @@ define(["jquery"], function ($) {
         var deals = self.state.dealsData[dateStr] || [];
         var isToday = dateStr === new Date().toISOString().split("T")[0];
 
-        html +=
+        html.push(
           '<div class="calendar-day ' +
-          (isToday ? "today " : "") +
-          (deals.length ? "has-deals" : "") +
-          '">';
-        html += '<div class="day-number">' + day + "</div>";
-        if (deals.length) {
-          html += '<div class="deal-count">' + deals.length + "</div>";
-        }
-        html += "</div>";
+            (isToday ? "today " : "") +
+            (deals.length ? "has-deals" : "") +
+            '">',
+          '<div class="day-number">' + day + "</div>",
+          deals.length
+            ? '<div class="deal-count">' + deals.length + "</div>"
+            : "",
+          "</div>"
+        );
       }
 
-      html += "</div>";
-      return html;
+      html.push("</div>");
+      return html.join("");
     };
 
     // Основной метод рендеринга
@@ -105,14 +106,10 @@ define(["jquery"], function ($) {
           adjustedFirstDay
         );
 
-        var widgetHTML = '<div class="orders-calendar">';
-        widgetHTML += '<div class="calendar-header">';
-        widgetHTML += "<h3>Календарь заказов</h3>";
-        widgetHTML += '<div class="month-navigation">';
-        widgetHTML += '<button class="nav-button prev-month">←</button>';
-        widgetHTML +=
-          '<span class="current-month">' +
-          [
+        // Создаем объект с данными для шаблона
+        var templateData = {
+          title: "Календарь заказов",
+          month: [
             "Январь",
             "Февраль",
             "Март",
@@ -125,28 +122,51 @@ define(["jquery"], function ($) {
             "Октябрь",
             "Ноябрь",
             "Декабрь",
-          ][month] +
-          " " +
-          year +
-          "</span>";
-        widgetHTML += '<button class="nav-button next-month">→</button>';
-        widgetHTML += "</div></div>";
-        widgetHTML += calendarHTML;
-        widgetHTML += "</div>";
+          ][month],
+          year: year,
+          calendar: calendarHTML,
+        };
 
-        // Используем правильный метод render для amoCRM
+        // Проверяем доступность API amoCRM
         if (typeof self.render === "function") {
+          // Используем шаблон в виде строки с twig-синтаксисом
           self.render({
-            data: '<div class="orders-calendar-container">{{ calendar|raw }}</div>',
+            data: [
+              '<div class="orders-calendar">',
+              '<div class="calendar-header">',
+              "<h3>{{ title }}</h3>",
+              '<div class="month-navigation">',
+              '<button class="nav-button prev-month">←</button>',
+              '<span class="current-month">{{ month }} {{ year }}</span>',
+              '<button class="nav-button next-month">→</button>',
+              "</div>",
+              "</div>",
+              "{{ calendar|raw }}",
+              "</div>",
+            ].join(""),
             load: function (template) {
-              template.render({
-                calendar: widgetHTML,
-              });
+              template.render(templateData);
               self.bindCalendarEvents();
             },
           });
         } else {
           // Fallback для standalone режима
+          var widgetHTML = [
+            '<div class="orders-calendar">',
+            '<div class="calendar-header">',
+            "<h3>" + templateData.title + "</h3>",
+            '<div class="month-navigation">',
+            '<button class="nav-button prev-month">←</button>',
+            '<span class="current-month">',
+            templateData.month + " " + templateData.year,
+            "</span>",
+            '<button class="nav-button next-month">→</button>',
+            "</div>",
+            "</div>",
+            templateData.calendar,
+            "</div>",
+          ].join("");
+
           var container =
             document.getElementById("widget-root") || document.body;
           container.innerHTML = widgetHTML;
@@ -181,18 +201,18 @@ define(["jquery"], function ($) {
 
     // Показать ошибку
     this.showError = function () {
-      var errorHTML = '<div class="calendar-error">';
-      errorHTML += "<h3>Календарь заказов</h3>";
-      errorHTML += "<p>Произошла ошибка при загрузке календаря</p>";
-      errorHTML += "</div>";
+      var errorHTML = [
+        '<div class="calendar-error">',
+        "<h3>Календарь заказов</h3>",
+        "<p>Произошла ошибка при загрузке календаря</p>",
+        "</div>",
+      ].join("");
 
       if (typeof self.render === "function") {
         self.render({
           data: "{{ error|raw }}",
           load: function (template) {
-            template.render({
-              error: errorHTML,
-            });
+            template.render({ error: errorHTML });
           },
         });
       } else {

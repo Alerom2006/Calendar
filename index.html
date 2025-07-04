@@ -6,9 +6,6 @@
     <title>Календарь заказов</title>
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Подключаем jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
     <!-- Подключаем loader.min.js с правильного домена -->
     <script src="https://cdn.amocrm.com/v2/loader.min.js"></script>
 
@@ -16,10 +13,10 @@
     <meta
       http-equiv="Content-Security-Policy"
       content="
-    default-src 'self' https://*.amocrm.com https://*.amocrm.ru;
-    script-src 'self' https://code.jquery.com https://cdn.amocrm.com 'unsafe-inline' 'unsafe-eval';
+    default-src 'self' https://*.amocrm.com;
+    script-src 'self' https://cdn.amocrm.com 'unsafe-inline';
     style-src 'self' 'unsafe-inline';
-    connect-src 'self' https://*.amocrm.com https://*.amocrm.ru;
+    connect-src 'self' https://*.amocrm.com;
   "
     />
   </head>
@@ -32,22 +29,22 @@
     <script>
       // Функция для отображения ошибок
       function showError(message) {
-        document.getElementById("widget-root").innerHTML = `
+        const widgetRoot = document.getElementById("widget-root");
+        widgetRoot.innerHTML = `
         <div class="error-message">
           <h3>Ошибка загрузки виджета</h3>
           <p>${message}</p>
-          <p>Проверьте консоль для подробностей</p>
         </div>
       `;
         console.error(message);
       }
 
-      // Проверяем загружен ли jQuery
-      if (typeof jQuery === "undefined") {
-        showError("jQuery не загружен!");
-      } else {
-        console.log("jQuery загружен, версия:", jQuery.fn.jquery);
-      }
+      // Упрощенная замена jQuery функций
+      const $ = {
+        on: (el, event, fn) => el.addEventListener(event, fn),
+        off: (el, event, fn) => el.removeEventListener(event, fn),
+        ready: (fn) => document.addEventListener("DOMContentLoaded", fn),
+      };
 
       // Функция инициализации виджета
       function initWidget() {
@@ -56,24 +53,26 @@
           if (typeof AmoCRM !== "undefined") {
             console.log("Инициализация в режиме amoCRM");
 
-            AmoCRM.widgets
-              .load("script.js")
-              .then(function () {
-                if (typeof OrdersCalendarWidget !== "undefined") {
-                  new OrdersCalendarWidget().callbacks.render();
-                } else {
-                  showError("Класс виджета не определен");
-                }
-              })
-              .catch(function (error) {
-                showError("Ошибка загрузки виджета: " + error.message);
-              });
+            // Загружаем скрипт без jQuery зависимости
+            const script = document.createElement("script");
+            script.src = "script.js";
+            script.onload = function () {
+              if (typeof OrdersCalendarWidget !== "undefined") {
+                new OrdersCalendarWidget().callbacks.render();
+              } else {
+                showError("Класс виджета не определен");
+              }
+            };
+            script.onerror = function () {
+              showError("Не удалось загрузить script.js");
+            };
+            document.head.appendChild(script);
           }
           // Standalone режим
           else {
             console.log("Инициализация в standalone режиме");
 
-            var script = document.createElement("script");
+            const script = document.createElement("script");
             script.src = "script.js";
             script.onload = function () {
               if (typeof OrdersCalendarWidget !== "undefined") {
@@ -92,11 +91,8 @@
         }
       }
 
-      // Запускаем инициализацию после загрузки страницы
-      document.addEventListener("DOMContentLoaded", function () {
-        // Даем 3 секунды на загрузку API amoCRM
-        setTimeout(initWidget, 100);
-      });
+      // Запускаем при полной загрузке страницы
+      $.ready(initWidget);
     </script>
   </body>
 </html>

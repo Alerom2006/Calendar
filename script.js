@@ -28,19 +28,24 @@ function createOrdersCalendarWidget($) {
       return this;
     }
 
-    // Проверка доступности AMOCRM API (только в режиме amoCRM)
-    if (typeof AmoCRM !== "undefined") {
-      if (
-        typeof AMOCRM === "undefined" ||
-        typeof AMOCRM.request !== "function"
-      ) {
-        this.showError("AMOCRM API недоступен");
-        return this;
+    // Проверка доступности AMOCRM API
+    this.isAmoCRMMode = typeof AmoCRM !== "undefined";
+    this.isAMOCRMReady = false;
+
+    if (this.isAmoCRMMode) {
+      try {
+        this.isAMOCRMReady =
+          typeof AMOCRM !== "undefined" &&
+          typeof AMOCRM.request === "function" &&
+          AMOCRM.constant("user") &&
+          AMOCRM.constant("user").id;
+      } catch (e) {
+        console.error("Ошибка проверки AMOCRM API:", e);
+        this.isAMOCRMReady = false;
       }
 
-      // Проверка авторизации (только в режиме amoCRM)
-      if (!AMOCRM.constant("user") || !AMOCRM.constant("user").id) {
-        this.showError("Требуется авторизация в amoCRM");
+      if (!this.isAMOCRMReady) {
+        this.showError("AMOCRM API недоступен или требуется авторизация");
         return this;
       }
     }
@@ -51,15 +56,14 @@ function createOrdersCalendarWidget($) {
 
   OrdersCalendarWidget.prototype = {
     initialize: function () {
-      var self = this;
-
       // Получаем данные аккаунта и пользователя из AMOCRM (если доступно)
-      const accountData =
-        typeof AMOCRM !== "undefined" ? AMOCRM.constant("account") || {} : {};
-      const userData =
-        typeof AMOCRM !== "undefined" ? AMOCRM.constant("user") || {} : {};
-      const currentCard =
-        typeof AMOCRM !== "undefined" ? AMOCRM.data.current_card || {} : {};
+      const accountData = this.isAMOCRMReady
+        ? AMOCRM.constant("account") || {}
+        : {};
+      const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
+      const currentCard = this.isAMOCRMReady
+        ? AMOCRM.data.current_card || {}
+        : {};
 
       // Системные настройки
       this.system = {
@@ -98,9 +102,6 @@ function createOrdersCalendarWidget($) {
         },
       };
 
-      // Параметры
-      this.params = {};
-
       // Состояние виджета
       this.state = {
         initialized: false,
@@ -119,7 +120,7 @@ function createOrdersCalendarWidget($) {
     },
 
     get_version: function () {
-      return "1.0.44"; // Обновленная версия
+      return "1.0.45";
     },
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -189,18 +190,23 @@ function createOrdersCalendarWidget($) {
 
     // ========== API МЕТОДЫ ========== //
     doRequest: function (method, path, data) {
-      return new Promise(function (resolve, reject) {
+      return new Promise((resolve, reject) => {
         try {
-          if (typeof AMOCRM === "undefined") {
-            // В standalone режиме делаем обычный fetch или используем mock данные
+          if (!this.isAMOCRMReady) {
+            // В standalone режиме используем mock данные
             console.log("Standalone режим: запрос не выполнен");
-            resolve({ _embedded: { leads: [] } });
+            setTimeout(() => resolve({ _embedded: { leads: [] } }), 100);
+            return;
+          }
+
+          if (typeof AMOCRM.request !== "function") {
+            reject(new Error("AMOCRM.request is not a function"));
             return;
           }
 
           AMOCRM.request(method, path, data)
             .then(resolve)
-            .catch(function (error) {
+            .catch((error) => {
               console.error("Ошибка API:", error);
               reject(new Error("Ошибка загрузки данных"));
             });
@@ -212,72 +218,64 @@ function createOrdersCalendarWidget($) {
 
     // ========== ОСНОВНЫЕ ФУНКЦИИ ВИДЖЕТА ========== //
     loadData: function () {
-      return new Promise(
-        function (resolve) {
-          try {
-            const dateFrom = new Date(
-              this.state.currentDate.getFullYear(),
-              this.state.currentDate.getMonth(),
-              1
-            );
-            const dateTo = new Date(
-              this.state.currentDate.getFullYear(),
-              this.state.currentDate.getMonth() + 1,
-              0
-            );
+      return new Promise((resolve) => {
+        try {
+          const dateFrom = new Date(
+            this.state.currentDate.getFullYear(),
+            this.state.currentDate.getMonth(),
+            1
+          );
+          const dateTo = new Date(
+            this.state.currentDate.getFullYear(),
+            this.state.currentDate.getMonth() + 1,
+            0
+          );
 
-            this.state.loading = true;
+          this.state.loading = true;
 
-            // В standalone режиме используем mock данные
-            if (typeof AMOCRM === "undefined") {
-              console.log("Standalone режим: загрузка mock данных");
-              setTimeout(() => {
-                this.state.dealsData = this.generateMockData(dateFrom, dateTo);
-                this.state.loading = false;
-                resolve();
-              }, 500);
-              return;
-            }
-
-            this.doRequest("GET", "/api/v4/leads", {
-              filter: {
-                [this.state.fieldIds.ORDER_DATE]: {
-                  from: Math.floor(dateFrom.getTime() / 1000),
-                  to: Math.floor(dateTo.getTime() / 1000),
-                },
-              },
-              limit: 250,
-              with: "contacts",
-            })
-              .then(
-                function (response) {
-                  if (response?._embedded?.leads) {
-                    this.processData(response._embedded.leads);
-                  } else {
-                    this.state.dealsData = {};
-                  }
-                }.bind(this)
-              )
-              .catch(
-                function (error) {
-                  console.error("Ошибка загрузки данных:", error);
-                  this.showError(this.langs.ru.errors.load);
-                  this.state.dealsData = {};
-                }.bind(this)
-              )
-              .finally(
-                function () {
-                  this.state.loading = false;
-                  resolve();
-                }.bind(this)
-              );
-          } catch (e) {
-            console.error("Ошибка в loadData:", e);
-            this.state.loading = false;
-            resolve();
+          // В standalone режиме используем mock данные
+          if (!this.isAMOCRMReady) {
+            console.log("Standalone режим: загрузка mock данных");
+            setTimeout(() => {
+              this.state.dealsData = this.generateMockData(dateFrom, dateTo);
+              this.state.loading = false;
+              resolve();
+            }, 500);
+            return;
           }
-        }.bind(this)
-      );
+
+          this.doRequest("GET", "/api/v4/leads", {
+            filter: {
+              [this.state.fieldIds.ORDER_DATE]: {
+                from: Math.floor(dateFrom.getTime() / 1000),
+                to: Math.floor(dateTo.getTime() / 1000),
+              },
+            },
+            limit: 250,
+            with: "contacts",
+          })
+            .then((response) => {
+              if (response?._embedded?.leads) {
+                this.processData(response._embedded.leads);
+              } else {
+                this.state.dealsData = {};
+              }
+            })
+            .catch((error) => {
+              console.error("Ошибка загрузки данных:", error);
+              this.showError(this.langs.ru.errors.load);
+              this.state.dealsData = {};
+            })
+            .finally(() => {
+              this.state.loading = false;
+              resolve();
+            });
+        } catch (e) {
+          console.error("Ошибка в loadData:", e);
+          this.state.loading = false;
+          resolve();
+        }
+      });
     },
 
     generateMockData: function (dateFrom, dateTo) {
@@ -319,37 +317,33 @@ function createOrdersCalendarWidget($) {
     processData: function (deals) {
       try {
         const newDealsData = {};
-        deals.forEach(
-          function (deal) {
-            try {
-              const dateField = (deal.custom_fields_values || []).find(
-                function (f) {
-                  return f?.field_id === this.state.fieldIds.ORDER_DATE;
-                }.bind(this)
-              );
+        deals.forEach((deal) => {
+          try {
+            const dateField = (deal.custom_fields_values || []).find((f) => {
+              return f?.field_id === this.state.fieldIds.ORDER_DATE;
+            });
 
-              const timestamp = dateField?.values?.[0]?.value;
-              if (!timestamp) return;
+            const timestamp = dateField?.values?.[0]?.value;
+            if (!timestamp) return;
 
-              const date = new Date(timestamp * 1000);
-              const dateStr = date.toISOString().split("T")[0];
+            const date = new Date(timestamp * 1000);
+            const dateStr = date.toISOString().split("T")[0];
 
-              if (!newDealsData[dateStr]) {
-                newDealsData[dateStr] = [];
-              }
-
-              newDealsData[dateStr].push({
-                id: deal.id || 0,
-                name: deal.name || "Без названия",
-                status_id: deal.status_id || 0,
-                price: deal.price || 0,
-                contacts: deal._embedded?.contacts || [],
-              });
-            } catch (e) {
-              console.warn("Ошибка обработки сделки:", e);
+            if (!newDealsData[dateStr]) {
+              newDealsData[dateStr] = [];
             }
-          }.bind(this)
-        );
+
+            newDealsData[dateStr].push({
+              id: deal.id || 0,
+              name: deal.name || "Без названия",
+              status_id: deal.status_id || 0,
+              price: deal.price || 0,
+              contacts: deal._embedded?.contacts || [],
+            });
+          } catch (e) {
+            console.warn("Ошибка обработки сделки:", e);
+          }
+        });
         this.state.dealsData = newDealsData;
       } catch (e) {
         console.error("Ошибка в processData:", e);
@@ -442,44 +436,38 @@ function createOrdersCalendarWidget($) {
     },
 
     renderCalendar: function () {
-      return new Promise(
-        function (resolve) {
-          try {
-            this.state.loading = true;
-            const cacheKey = `${this.state.currentDate.getFullYear()}-${this.state.currentDate.getMonth()}`;
+      return new Promise((resolve) => {
+        try {
+          this.state.loading = true;
+          const cacheKey = `${this.state.currentDate.getFullYear()}-${this.state.currentDate.getMonth()}`;
 
-            if (this.state.cache.monthsData[cacheKey]) {
-              this.state.dealsData = this.state.cache.monthsData[cacheKey];
-              this.state.loading = false;
-              this.updateCalendarView();
-              return resolve();
-            }
-
-            this.loadData()
-              .then(
-                function () {
-                  this.state.cache.monthsData[cacheKey] = {
-                    ...this.state.dealsData,
-                  };
-                  this.updateCalendarView();
-                }.bind(this)
-              )
-              .catch(function (e) {
-                console.error("Ошибка рендеринга календаря:", e);
-              })
-              .finally(
-                function () {
-                  this.state.loading = false;
-                  resolve();
-                }.bind(this)
-              );
-          } catch (e) {
-            console.error("Ошибка в renderCalendar:", e);
+          if (this.state.cache.monthsData[cacheKey]) {
+            this.state.dealsData = this.state.cache.monthsData[cacheKey];
             this.state.loading = false;
-            resolve();
+            this.updateCalendarView();
+            return resolve();
           }
-        }.bind(this)
-      );
+
+          this.loadData()
+            .then(() => {
+              this.state.cache.monthsData[cacheKey] = {
+                ...this.state.dealsData,
+              };
+              this.updateCalendarView();
+            })
+            .catch((e) => {
+              console.error("Ошибка рендеринга календаря:", e);
+            })
+            .finally(() => {
+              this.state.loading = false;
+              resolve();
+            });
+        } catch (e) {
+          console.error("Ошибка в renderCalendar:", e);
+          this.state.loading = false;
+          resolve();
+        }
+      });
     },
 
     // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
@@ -489,40 +477,28 @@ function createOrdersCalendarWidget($) {
         $(document).off("click.calendar");
 
         // Обработчик для перехода на предыдущий месяц
-        $(document).on(
-          "click.calendar",
-          ".prev-month",
-          function () {
-            const newDate = new Date(this.state.currentDate);
-            newDate.setMonth(newDate.getMonth() - 1);
-            this.state.currentDate = newDate;
-            this.state.dealsData = {}; // Очищаем кэш данных
-            this.renderCalendar();
-          }.bind(this)
-        );
+        $(document).on("click.calendar", ".prev-month", () => {
+          const newDate = new Date(this.state.currentDate);
+          newDate.setMonth(newDate.getMonth() - 1);
+          this.state.currentDate = newDate;
+          this.state.dealsData = {}; // Очищаем кэш данных
+          this.renderCalendar();
+        });
 
         // Обработчик для перехода на следующий месяц
-        $(document).on(
-          "click.calendar",
-          ".next-month",
-          function () {
-            const newDate = new Date(this.state.currentDate);
-            newDate.setMonth(newDate.getMonth() + 1);
-            this.state.currentDate = newDate;
-            this.state.dealsData = {}; // Очищаем кэш данных
-            this.renderCalendar();
-          }.bind(this)
-        );
+        $(document).on("click.calendar", ".next-month", () => {
+          const newDate = new Date(this.state.currentDate);
+          newDate.setMonth(newDate.getMonth() + 1);
+          this.state.currentDate = newDate;
+          this.state.dealsData = {}; // Очищаем кэш данных
+          this.renderCalendar();
+        });
 
         // Обработчик для выбора дня
-        $(document).on(
-          "click.date",
-          ".calendar-day:not(.empty)",
-          function () {
-            const dateStr = $(this).data("date");
-            this.showDealsPopup(dateStr);
-          }.bind(this)
-        );
+        $(document).on("click.date", ".calendar-day:not(.empty)", (e) => {
+          const dateStr = $(e.currentTarget).data("date");
+          this.showDealsPopup(dateStr);
+        });
       } catch (e) {
         console.error("Ошибка привязки событий:", e);
       }
@@ -571,7 +547,7 @@ function createOrdersCalendarWidget($) {
 
         $(document)
           .off("click.popup")
-          .on("click.popup", ".close-popup", function () {
+          .on("click.popup", ".close-popup", () => {
             $(".deals-popup").remove();
           });
       } catch (e) {

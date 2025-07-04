@@ -43,7 +43,7 @@ define(["jquery"], function ($) {
 
     // Версия виджета
     this.get_version = function () {
-      return "1.0.32";
+      return "1.0.33";
     };
 
     // Состояние виджета
@@ -66,6 +66,110 @@ define(["jquery"], function ($) {
       cache: {
         monthsData: {},
       },
+    };
+
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
+
+    /**
+     * Форматирование даты в строку YYYY-MM-DD
+     * @param {Number} day - День
+     * @param {Number} month - Месяц
+     * @param {Number} year - Год
+     * @returns {String} - Отформатированная дата
+     */
+    this.formatDate = function (day, month, year) {
+      return `${year}-${month.toString().padStart(2, "0")}-${day
+        .toString()
+        .padStart(2, "0")}`;
+    };
+
+    /**
+     * Получение текущей даты в формате строки
+     * @returns {String} - Текущая дата в формате YYYY-MM-DD
+     */
+    this.getTodayDateString = function () {
+      const today = new Date();
+      return this.formatDate(
+        today.getDate(),
+        today.getMonth() + 1,
+        today.getFullYear()
+      );
+    };
+
+    /**
+     * Получение заголовка виджета
+     * @returns {String} - Заголовок виджета
+     */
+    this.getWidgetTitle = function () {
+      return this.langs.ru?.widget?.name || "Календарь заказов";
+    };
+
+    /**
+     * Применение настроек виджета
+     * @param {Object} settings - Настройки виджета
+     * @returns {Boolean} - Результат применения настроек
+     */
+    this.applySettings = function (settings) {
+      if (settings.deal_date_field_id) {
+        self.state.fieldIds.ORDER_DATE = parseInt(settings.deal_date_field_id);
+      }
+      if (settings.delivery_range_field) {
+        self.state.fieldIds.DELIVERY_RANGE = parseInt(
+          settings.delivery_range_field
+        );
+      }
+      return true;
+    };
+
+    /**
+     * Получение настроек виджета
+     * @returns {Object} - Настройки виджета
+     */
+    this.get_settings = function () {
+      return this.params;
+    };
+
+    /**
+     * Привязка обработчиков событий календаря
+     */
+    this.bindCalendarEvents = function () {
+      // Привязка обработчиков событий для календаря
+      $(document).on("click.calendar", ".prev-month", function () {
+        self.state.currentDate.setMonth(self.state.currentDate.getMonth() - 1);
+        self.renderCalendar();
+      });
+
+      $(document).on("click.calendar", ".next-month", function () {
+        self.state.currentDate.setMonth(self.state.currentDate.getMonth() + 1);
+        self.renderCalendar();
+      });
+
+      $(document).on("click.date", ".calendar-day:not(.empty)", function () {
+        const dateStr = $(this).data("date");
+        self.showDealsPopup(dateStr);
+      });
+    };
+
+    /**
+     * Обновление отображения календаря
+     */
+    this.updateCalendarView = function () {
+      const widgetRoot = document.getElementById("widget-root");
+      if (widgetRoot) {
+        widgetRoot.innerHTML = self.generateCalendarHTML();
+      }
+    };
+
+    /**
+     * Рендеринг виджета в standalone режиме
+     */
+    this.renderWidget = function () {
+      const widgetRoot = document.getElementById("widget-root");
+      if (widgetRoot) {
+        this.renderCalendar().then(() => {
+          this.bindCalendarEvents();
+        });
+      }
     };
 
     // ========== API ФАЙЛОВ ========== //

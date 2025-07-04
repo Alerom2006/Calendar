@@ -9,64 +9,51 @@
 </head>
 <body>
   <div id="widget-root"></div>
-  <div id="loader" style="display: none">
+  <div id="loader">
     <div class="loading-spinner"></div>
   </div>
 
   <script>
-    // Универсальная функция загрузки виджета
+    // Проверяем загружен ли API amoCRM
     function initWidget() {
       document.getElementById('loader').style.display = 'block';
       
-      // Проверяем режим работы (amoCRM или standalone)
-      if (typeof AmoCRM !== 'undefined') {
+      if (typeof OrdersCalendarWidget !== 'undefined') {
+        // Standalone режим
+        new OrdersCalendarWidget().renderWidget();
+        document.getElementById('loader').style.display = 'none';
+      } else if (typeof AmoCRM !== 'undefined') {
         // Режим amoCRM
         AmoCRM.widgets.load('script.js').then(function() {
           if (typeof OrdersCalendarWidget !== 'undefined') {
             new OrdersCalendarWidget().callbacks.render();
           }
           document.getElementById('loader').style.display = 'none';
-        }).catch(function(error) {
-          console.error('Widget load error:', error);
-          document.getElementById('loader').style.display = 'none';
         });
       } else {
-        // Standalone режим
-        var script = document.createElement('script');
-        script.src = 'script.js?v=' + new Date().getTime();
-        script.onload = function() {
-          if (typeof OrdersCalendarWidget !== 'undefined') {
-            new OrdersCalendarWidget().renderWidget();
-          }
-          document.getElementById('loader').style.display = 'none';
-        };
-        script.onerror = function() {
-          console.error('Failed to load script.js');
-          document.getElementById('loader').style.display = 'none';
-        };
-        document.head.appendChild(script);
+        console.error('Widget initialization failed');
+        document.getElementById('loader').style.display = 'none';
       }
     }
 
-    // Запускаем загрузку виджета
-    if (typeof AmoCRM !== 'undefined') {
-      // Если API amoCRM уже загружен
-      initWidget();
-    } else {
-      // Ждём загрузки API amoCRM
-      let attempts = 0;
-      const interval = setInterval(function() {
-        attempts++;
-        if (typeof AmoCRM !== 'undefined') {
-          clearInterval(interval);
-          initWidget();
-        } else if (attempts > 10) {
-          clearInterval(interval);
-          console.warn('AmoCRM API not loaded after 3 seconds');
-          initWidget(); // Все равно пытаемся загрузить виджет
-        }
-      }, 300);
-    }
+    // Запускаем после полной загрузки страницы
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof AmoCRM !== 'undefined') {
+        initWidget();
+      } else {
+        let attempts = 0;
+        const interval = setInterval(function() {
+          attempts++;
+          if (typeof AmoCRM !== 'undefined') {
+            clearInterval(interval);
+            initWidget();
+          } else if (attempts > 10) {
+            clearInterval(interval);
+            initWidget(); // Попытаться в standalone режиме
+          }
+        }, 300);
+      }
+    });
   </script>
 </body>
 </html>

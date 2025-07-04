@@ -43,6 +43,52 @@ define(["jquery"], function ($) {
       return data;
     };
 
+    // Генерация HTML календаря
+    this.generateCalendarHTML = function (
+      month,
+      year,
+      daysInMonth,
+      adjustedFirstDay
+    ) {
+      var html = '<div class="calendar-grid">';
+
+      // Заголовки дней недели
+      ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach(function (day) {
+        html += '<div class="calendar-weekday">' + day + "</div>";
+      });
+
+      // Пустые ячейки
+      for (var i = 0; i < adjustedFirstDay; i++) {
+        html += '<div class="calendar-day empty"></div>';
+      }
+
+      // Дни месяца
+      for (var day = 1; day <= daysInMonth; day++) {
+        var dateStr =
+          year +
+          "-" +
+          (month + 1).toString().padStart(2, "0") +
+          "-" +
+          day.toString().padStart(2, "0");
+        var deals = self.state.dealsData[dateStr] || [];
+        var isToday = dateStr === new Date().toISOString().split("T")[0];
+
+        html +=
+          '<div class="calendar-day ' +
+          (isToday ? "today " : "") +
+          (deals.length ? "has-deals" : "") +
+          '">';
+        html += '<div class="day-number">' + day + "</div>";
+        if (deals.length) {
+          html += '<div class="deal-count">' + deals.length + "</div>";
+        }
+        html += "</div>";
+      }
+
+      html += "</div>";
+      return html;
+    };
+
     // Основной метод рендеринга
     this.renderCalendar = function () {
       try {
@@ -52,42 +98,12 @@ define(["jquery"], function ($) {
         var firstDay = new Date(year, month, 1).getDay();
         var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-        var html = '<div class="calendar-grid">';
-
-        // Заголовки дней недели
-        ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach(function (day) {
-          html += '<div class="calendar-weekday">' + day + "</div>";
-        });
-
-        // Пустые ячейки
-        for (var i = 0; i < adjustedFirstDay; i++) {
-          html += '<div class="calendar-day empty"></div>';
-        }
-
-        // Дни месяца
-        for (var day = 1; day <= daysInMonth; day++) {
-          var dateStr =
-            year +
-            "-" +
-            (month + 1).toString().padStart(2, "0") +
-            "-" +
-            day.toString().padStart(2, "0");
-          var deals = this.state.dealsData[dateStr] || [];
-          var isToday = dateStr === new Date().toISOString().split("T")[0];
-
-          html +=
-            '<div class="calendar-day ' +
-            (isToday ? "today " : "") +
-            (deals.length ? "has-deals" : "") +
-            '">';
-          html += '<div class="day-number">' + day + "</div>";
-          if (deals.length) {
-            html += '<div class="deal-count">' + deals.length + "</div>";
-          }
-          html += "</div>";
-        }
-
-        html += "</div>";
+        var calendarHTML = this.generateCalendarHTML(
+          month,
+          year,
+          daysInMonth,
+          adjustedFirstDay
+        );
 
         var widgetHTML = '<div class="orders-calendar">';
         widgetHTML += '<div class="calendar-header">';
@@ -115,45 +131,52 @@ define(["jquery"], function ($) {
           "</span>";
         widgetHTML += '<button class="nav-button next-month">→</button>';
         widgetHTML += "</div></div>";
-        widgetHTML += html;
+        widgetHTML += calendarHTML;
         widgetHTML += "</div>";
 
-        // Используем render_template для отображения в amoCRM
+        // Используем правильный метод render для amoCRM
         if (typeof self.render === "function") {
           self.render({
-            body: widgetHTML,
-            caption: {
-              class_name: "orders-calendar-caption",
+            data: '<div class="orders-calendar-container">{{ calendar|raw }}</div>',
+            load: function (template) {
+              template.render({
+                calendar: widgetHTML,
+              });
+              self.bindCalendarEvents();
             },
           });
         } else {
+          // Fallback для standalone режима
           var container =
             document.getElementById("widget-root") || document.body;
           container.innerHTML = widgetHTML;
+          self.bindCalendarEvents();
         }
-
-        // Навешиваем обработчики
-        $(".prev-month")
-          .off("click")
-          .on("click", function () {
-            self.state.currentDate.setMonth(
-              self.state.currentDate.getMonth() - 1
-            );
-            self.renderCalendar();
-          });
-
-        $(".next-month")
-          .off("click")
-          .on("click", function () {
-            self.state.currentDate.setMonth(
-              self.state.currentDate.getMonth() + 1
-            );
-            self.renderCalendar();
-          });
       } catch (error) {
         console.error("Ошибка рендеринга:", error);
         this.showError();
       }
+    };
+
+    // Привязка событий календаря
+    this.bindCalendarEvents = function () {
+      $(".prev-month")
+        .off("click")
+        .on("click", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() - 1
+          );
+          self.renderCalendar();
+        });
+
+      $(".next-month")
+        .off("click")
+        .on("click", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() + 1
+          );
+          self.renderCalendar();
+        });
     };
 
     // Показать ошибку
@@ -165,9 +188,11 @@ define(["jquery"], function ($) {
 
       if (typeof self.render === "function") {
         self.render({
-          body: errorHTML,
-          caption: {
-            class_name: "orders-calendar-error",
+          data: "{{ error|raw }}",
+          load: function (template) {
+            template.render({
+              error: errorHTML,
+            });
           },
         });
       } else {

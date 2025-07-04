@@ -66,7 +66,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.40";
+      return "1.0.41"; // Обновленная версия
     };
 
     // Состояние виджета
@@ -107,15 +107,20 @@ define(["jquery"], function ($) {
     };
 
     this.applySettings = function (settings) {
-      if (settings.deal_date_field_id) {
-        self.state.fieldIds.ORDER_DATE = parseInt(settings.deal_date_field_id);
+      if (settings && typeof settings === "object") {
+        if (settings.deal_date_field_id) {
+          self.state.fieldIds.ORDER_DATE = parseInt(
+            settings.deal_date_field_id
+          );
+        }
+        if (settings.delivery_range_field) {
+          self.state.fieldIds.DELIVERY_RANGE = parseInt(
+            settings.delivery_range_field
+          );
+        }
+        return true;
       }
-      if (settings.delivery_range_field) {
-        self.state.fieldIds.DELIVERY_RANGE = parseInt(
-          settings.delivery_range_field
-        );
-      }
-      return true;
+      return false;
     };
 
     this.get_settings = function () {
@@ -276,7 +281,7 @@ define(["jquery"], function ($) {
 
     this.processData = function (deals) {
       try {
-        this.state.dealsData = {};
+        const newDealsData = {};
         deals.forEach(function (deal) {
           try {
             const dateField = (deal.custom_fields_values || []).find(function (
@@ -291,11 +296,11 @@ define(["jquery"], function ($) {
             const date = new Date(timestamp * 1000);
             const dateStr = date.toISOString().split("T")[0];
 
-            if (!self.state.dealsData[dateStr]) {
-              self.state.dealsData[dateStr] = [];
+            if (!newDealsData[dateStr]) {
+              newDealsData[dateStr] = [];
             }
 
-            self.state.dealsData[dateStr].push({
+            newDealsData[dateStr].push({
               id: deal.id || 0,
               name: deal.name || "Без названия",
               status_id: deal.status_id || 0,
@@ -306,6 +311,7 @@ define(["jquery"], function ($) {
             console.warn("Ошибка обработки сделки:", e);
           }
         });
+        this.state.dealsData = newDealsData;
       } catch (e) {
         console.error("Ошибка в processData:", e);
       }
@@ -469,9 +475,11 @@ define(["jquery"], function ($) {
 
         const popupHTML = `
           <div class="deals-popup">
-            <h3>Сделки на ${dateStr}</h3>
-            <div class="deals-list">${dealsHTML}</div>
-            <button class="close-popup">Закрыть</button>
+            <div class="popup-content">
+              <h3>Сделки на ${dateStr}</h3>
+              <div class="deals-list">${dealsHTML}</div>
+              <button class="close-popup">Закрыть</button>
+            </div>
           </div>
         `;
 
@@ -547,7 +555,6 @@ define(["jquery"], function ($) {
         }
       },
 
-      // Для отображения в карточке сделки
       initMenuPage: function () {
         const widgetRoot = document.getElementById("widget-root");
         if (widgetRoot) {
@@ -558,7 +565,6 @@ define(["jquery"], function ($) {
         return true;
       },
 
-      // Для работы в карточке сделки
       renderCard: function () {
         return this.callbacks.render();
       },

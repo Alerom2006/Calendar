@@ -1,15 +1,11 @@
-if (typeof define !== "function") {
-  console.error("AMD loader (define) is not available");
-}
+(function () {
+  // Проверяем окружение
+  var isAMD = typeof define === "function" && define.amd;
+  var isStandalone = typeof window !== "undefined";
 
-if (typeof $ === "undefined") {
-  console.error("jQuery is not loaded");
-}
-define(["jquery"], function ($) {
-  var OrdersCalendarWidget = function () {
+  // Основной конструктор виджета
+  function OrdersCalendarWidget() {
     var self = this;
-    var system = self.system();
-    var langs = self.langs;
 
     // Состояние виджета
     this.state = {
@@ -113,7 +109,6 @@ define(["jquery"], function ($) {
           adjustedFirstDay
         );
 
-        // Создаем объект с данными для шаблона
         var templateData = {
           title: "Календарь заказов",
           month: [
@@ -134,9 +129,8 @@ define(["jquery"], function ($) {
           calendar: calendarHTML,
         };
 
-        // Проверяем доступность API amoCRM
+        // Режим amoCRM
         if (typeof self.render === "function") {
-          // Используем шаблон в виде строки с twig-синтаксисом
           self.render({
             data: [
               '<div class="orders-calendar">',
@@ -156,8 +150,9 @@ define(["jquery"], function ($) {
               self.bindCalendarEvents();
             },
           });
-        } else {
-          // Fallback для standalone режима
+        }
+        // Standalone режим
+        else {
           var widgetHTML = [
             '<div class="orders-calendar">',
             '<div class="calendar-header">',
@@ -187,6 +182,19 @@ define(["jquery"], function ($) {
 
     // Привязка событий календаря
     this.bindCalendarEvents = function () {
+      var $ =
+        window.jQuery ||
+        function (selector) {
+          return {
+            on: function () {
+              return this;
+            },
+            off: function () {
+              return this;
+            },
+          };
+        };
+
       $(".prev-month")
         .off("click")
         .on("click", function () {
@@ -370,8 +378,31 @@ define(["jquery"], function ($) {
       },
     };
 
-    return this;
-  };
+    // Для standalone режима
+    this.renderWidget = function () {
+      this.loadData().then(
+        function () {
+          this.renderCalendar();
+        }.bind(this)
+      );
+    };
+  }
 
-  return OrdersCalendarWidget;
-});
+  // Экспорт в зависимости от окружения
+  if (isAMD) {
+    // AMD режим (для amoCRM)
+    define(["jquery"], function ($) {
+      return OrdersCalendarWidget;
+    });
+  } else if (isStandalone) {
+    // Standalone режим
+    window.OrdersCalendarWidget = OrdersCalendarWidget;
+
+    // Автоматическая инициализация при загрузке
+    document.addEventListener("DOMContentLoaded", function () {
+      if (typeof OrdersCalendarWidget !== "undefined") {
+        new OrdersCalendarWidget().renderWidget();
+      }
+    });
+  }
+})();

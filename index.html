@@ -5,10 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Календарь заказов</title>
     <link rel="stylesheet" href="style.css" />
-    <!-- Замените на актуальный URL загрузчика -->
+
+    <!-- Подключаем jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Подключаем loader.min.js с правильного домена -->
     <script src="https://cdn.amocrm.com/v2/loader.min.js"></script>
-    <!-- Добавляем RequireJS для AMD-модулей -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+
+    <!-- Content Security Policy -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+    default-src 'self' https://*.amocrm.com https://*.amocrm.ru;
+    script-src 'self' https://code.jquery.com https://cdn.amocrm.com 'unsafe-inline' 'unsafe-eval';
+    style-src 'self' 'unsafe-inline';
+    connect-src 'self' https://*.amocrm.com https://*.amocrm.ru;
+  "
+    />
   </head>
   <body>
     <div id="widget-root"></div>
@@ -17,58 +30,72 @@
     </div>
 
     <script>
+      // Функция для отображения ошибок
       function showError(message) {
         document.getElementById("widget-root").innerHTML = `
         <div class="error-message">
           <h3>Ошибка загрузки виджета</h3>
           <p>${message}</p>
+          <p>Проверьте консоль для подробностей</p>
         </div>
       `;
+        console.error(message);
       }
 
-      function initStandaloneWidget() {
-        try {
-          // Проверяем, что класс виджета определен
-          if (typeof OrdersCalendarWidget !== "undefined") {
-            new OrdersCalendarWidget().renderWidget();
-          } else {
-            showError("Класс виджета не определен. Проверьте script.js");
-          }
-        } catch (e) {
-          showError("Ошибка инициализации: " + e.message);
-        }
+      // Проверяем загружен ли jQuery
+      if (typeof jQuery === "undefined") {
+        showError("jQuery не загружен!");
+      } else {
+        console.log("jQuery загружен, версия:", jQuery.fn.jquery);
       }
 
-      // Основная функция инициализации
+      // Функция инициализации виджета
       function initWidget() {
-        // Режим amoCRM
-        if (typeof AmoCRM !== "undefined") {
-          AmoCRM.widgets
-            .load("script.js")
-            .then(() => {
+        try {
+          // Режим amoCRM
+          if (typeof AmoCRM !== "undefined") {
+            console.log("Инициализация в режиме amoCRM");
+
+            AmoCRM.widgets
+              .load("script.js")
+              .then(function () {
+                if (typeof OrdersCalendarWidget !== "undefined") {
+                  new OrdersCalendarWidget().callbacks.render();
+                } else {
+                  showError("Класс виджета не определен");
+                }
+              })
+              .catch(function (error) {
+                showError("Ошибка загрузки виджета: " + error.message);
+              });
+          }
+          // Standalone режим
+          else {
+            console.log("Инициализация в standalone режиме");
+
+            var script = document.createElement("script");
+            script.src = "script.js";
+            script.onload = function () {
               if (typeof OrdersCalendarWidget !== "undefined") {
-                new OrdersCalendarWidget().callbacks.render();
+                new OrdersCalendarWidget().renderWidget();
               } else {
-                showError(
-                  "Виджет не загрузился. Проверьте консоль для деталей."
-                );
+                showError("Класс виджета не определен");
               }
-            })
-            .catch((e) => showError(e.message));
-        }
-        // Standalone режим
-        else {
-          // Загружаем script.js через RequireJS
-          require(["script.js"], initStandaloneWidget, function (err) {
-            showError("Ошибка загрузки скрипта: " + err.requireModules);
-          });
+            };
+            script.onerror = function () {
+              showError("Не удалось загрузить script.js");
+            };
+            document.head.appendChild(script);
+          }
+        } catch (error) {
+          showError("Критическая ошибка: " + error.message);
         }
       }
 
-      // Запускаем после загрузки страницы
+      // Запускаем инициализацию после загрузки страницы
       document.addEventListener("DOMContentLoaded", function () {
         // Даем 3 секунды на загрузку API amoCRM
-        setTimeout(initWidget, 3000);
+        setTimeout(initWidget, 100);
       });
     </script>
   </body>

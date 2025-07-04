@@ -119,15 +119,14 @@ define(["jquery"], function ($) {
         widgetHTML += "</div>";
 
         // Используем render_template для отображения в amoCRM
-        if (typeof this.render_template === "function") {
-          this.render_template({
+        if (typeof self.render === "function") {
+          self.render({
             body: widgetHTML,
             caption: {
               class_name: "orders-calendar-caption",
             },
           });
         } else {
-          // Fallback для standalone режима
           var container =
             document.getElementById("widget-root") || document.body;
           container.innerHTML = widgetHTML;
@@ -164,8 +163,8 @@ define(["jquery"], function ($) {
       errorHTML += "<p>Произошла ошибка при загрузке календаря</p>";
       errorHTML += "</div>";
 
-      if (typeof this.render_template === "function") {
-        this.render_template({
+      if (typeof self.render === "function") {
+        self.render({
           body: errorHTML,
           caption: {
             class_name: "orders-calendar-error",

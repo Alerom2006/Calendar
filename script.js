@@ -16,6 +16,11 @@ define(["jquery"], function ($) {
       function () {
         return {};
       };
+    this.get_version =
+      this.get_version ||
+      function () {
+        return "1.0.0";
+      };
 
     // Состояние виджета
     this.state = {
@@ -81,111 +86,118 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Основной метод рендеринга календаря
-    this.renderCalendar = function () {
-      try {
-        var month = this.state.currentDate.getMonth();
-        var year = this.state.currentDate.getFullYear();
-        var daysInMonth = new Date(year, month + 1, 0).getDate();
-        var firstDay = new Date(year, month, 1).getDay();
-        var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+    // Генерация HTML календаря (синхронная)
+    this.generateCalendarHTML = function () {
+      var month = this.state.currentDate.getMonth();
+      var year = this.state.currentDate.getFullYear();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      var firstDay = new Date(year, month, 1).getDay();
+      var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-        var html = '<div class="calendar-grid">';
+      var monthNames = [
+        "Январь",
+        "Февраль",
+        "Март",
+        "Апрель",
+        "Май",
+        "Июнь",
+        "Июль",
+        "Август",
+        "Сентябрь",
+        "Октябрь",
+        "Ноябрь",
+        "Декабрь",
+      ];
 
-        // Заголовки дней недели
-        ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].forEach(function (day) {
-          html += '<div class="calendar-weekday">' + day + "</div>";
-        });
-
-        // Пустые ячейки
-        for (var i = 0; i < adjustedFirstDay; i++) {
-          html += '<div class="calendar-day empty"></div>';
-        }
-
-        // Дни месяца
-        for (var day = 1; day <= daysInMonth; day++) {
-          var dateStr = [
-            year,
-            (month + 1).toString().padStart(2, "0"),
-            day.toString().padStart(2, "0"),
-          ].join("-");
-
-          var deals = this.state.dealsData[dateStr] || [];
-          var isToday = dateStr === new Date().toISOString().split("T")[0];
-          var hasDeals = deals.length > 0;
-
-          html += [
-            '<div class="calendar-day',
-            isToday ? " today" : "",
-            hasDeals ? " has-deals" : "",
-            '" data-date="',
-            dateStr,
-            '">',
-            '<div class="day-number">',
-            day,
-            "</div>",
-            hasDeals
-              ? '<div class="deal-count">' + deals.length + "</div>"
-              : "",
-            "</div>",
-          ].join("");
-        }
-
-        html += "</div>";
-
-        var monthNames = [
-          "Январь",
-          "Февраль",
-          "Март",
-          "Апрель",
-          "Май",
-          "Июнь",
-          "Июль",
-          "Август",
-          "Сентябрь",
-          "Октябрь",
-          "Ноябрь",
-          "Декабрь",
-        ];
-
-        var widgetHTML = [
-          '<div class="orders-calendar">',
-          '<div class="calendar-header">',
-          "<h3>Календарь заказов</h3>",
-          '<div class="month-navigation">',
-          '<button class="nav-button prev-month">←</button>',
-          '<span class="current-month">',
-          monthNames[month],
-          " ",
+      // Генерация дней календаря
+      var daysHTML = "";
+      for (var day = 1; day <= daysInMonth; day++) {
+        var dateStr = [
           year,
-          "</span>",
-          '<button class="nav-button next-month">→</button>',
+          (month + 1).toString().padStart(2, "0"),
+          day.toString().padStart(2, "0"),
+        ].join("-");
+
+        var deals = this.state.dealsData[dateStr] || [];
+        var isToday = dateStr === new Date().toISOString().split("T")[0];
+        var hasDeals = deals.length > 0;
+
+        daysHTML += [
+          '<div class="calendar-day',
+          isToday ? " today" : "",
+          hasDeals ? " has-deals" : "",
+          '" data-date="',
+          dateStr,
+          '">',
+          '<div class="day-number">',
+          day,
           "</div>",
-          "</div>",
-          html,
+          hasDeals ? '<div class="deal-count">' + deals.length + "</div>" : "",
           "</div>",
         ].join("");
-
-        // Проверяем режим работы (amoCRM или standalone)
-        if (typeof self.render === "function") {
-          // Используем метод render для amoCRM
-          self.render({
-            data: widgetHTML,
-            load: function () {
-              self.bindCalendarEvents();
-            },
-          });
-        } else {
-          // Fallback для standalone режима
-          var container =
-            document.getElementById("widget-root") || document.body;
-          container.innerHTML = widgetHTML;
-          self.bindCalendarEvents();
-        }
-      } catch (error) {
-        console.error("Ошибка рендеринга:", error);
-        this.showError();
       }
+
+      // Собираем полный HTML
+      return [
+        '<div class="orders-calendar">',
+        '<div class="calendar-header">',
+        "<h3>Календарь заказов</h3>",
+        '<div class="month-navigation">',
+        '<button class="nav-button prev-month">←</button>',
+        '<span class="current-month">',
+        monthNames[month],
+        " ",
+        year,
+        "</span>",
+        '<button class="nav-button next-month">→</button>',
+        "</div>",
+        "</div>",
+        '<div class="calendar-grid">',
+        '<div class="calendar-weekday">Пн</div>',
+        '<div class="calendar-weekday">Вт</div>',
+        '<div class="calendar-weekday">Ср</div>',
+        '<div class="calendar-weekday">Чт</div>',
+        '<div class="calendar-weekday">Пт</div>',
+        '<div class="calendar-weekday">Сб</div>',
+        '<div class="calendar-weekday">Вс</div>',
+        Array(adjustedFirstDay)
+          .fill('<div class="calendar-day empty"></div>')
+          .join(""),
+        daysHTML,
+        "</div>",
+        "</div>",
+      ].join("");
+    };
+
+    // Основной метод рендеринга календаря
+    this.renderCalendar = function () {
+      return new Promise(function (resolve) {
+        try {
+          var html = self.generateCalendarHTML();
+
+          // Пытаемся использовать render_template для amoCRM
+          self
+            .render_template({
+              data: html,
+              load: function () {
+                self.bindCalendarEvents();
+                resolve(true);
+              },
+            })
+            .catch(function () {
+              // Fallback для standalone режима
+              var container =
+                document.getElementById("widget-root") || document.body;
+              container.innerHTML = html;
+              self.bindCalendarEvents();
+              resolve(true);
+            });
+        } catch (error) {
+          console.error("Ошибка рендеринга:", error);
+          self.showError();
+          resolve(false);
+        }
+      });
     };
 
     // Привязка событий календаря

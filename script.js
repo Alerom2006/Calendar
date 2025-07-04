@@ -7,7 +7,7 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Получаем данные аккаунта и пользователя
+    // Получаем данные аккаунта и пользователя из AMOCRM
     const accountData = AMOCRM.constant("account") || {};
     const userData = AMOCRM.constant("user") || {};
     const currentCard = AMOCRM.data.current_card || {};
@@ -54,7 +54,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.37";
+      return "1.0.38";
     };
 
     // Состояние виджета
@@ -122,50 +122,31 @@ define(["jquery"], function ($) {
       }
     };
 
-    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
-    this.bindCalendarEvents = function () {
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".prev-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() - 1
-          );
-          self.renderCalendar();
-        });
-
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".next-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() + 1
-          );
-          self.renderCalendar();
-        });
-
-      $(document)
-        .off("click.date")
-        .on("click.date", ".calendar-day:not(.empty)", function () {
-          const dateStr = $(this).data("date");
-          self.showDealsPopup(dateStr);
-        });
-    };
-
-    this.updateCalendarView = function () {
-      const widgetRoot = document.getElementById("widget-root");
-      if (widgetRoot) {
-        widgetRoot.innerHTML = self.generateCalendarHTML();
-      }
-    };
-
     // ========== API МЕТОДЫ ========== //
+    this.doRequest = function (method, path, data) {
+      return new Promise(function (resolve, reject) {
+        try {
+          if (typeof AMOCRM === "undefined") {
+            return reject(new Error("AMOCRM API недоступен"));
+          }
+
+          AMOCRM.request(method, path, data)
+            .then(function (response) {
+              resolve(response);
+            })
+            .catch(function (error) {
+              console.error("Ошибка API:", error);
+              reject(error);
+            });
+        } catch (e) {
+          reject(e);
+        }
+      });
+    };
+
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
-          if (typeof AMOCRM === "undefined") {
-            self.state.dealsData = self.generateMockData();
-            return resolve();
-          }
-
           const dateFrom = new Date(
             self.state.currentDate.getFullYear(),
             self.state.currentDate.getMonth(),
@@ -179,16 +160,17 @@ define(["jquery"], function ($) {
 
           self.state.loading = true;
 
-          AMOCRM.request("GET", "/api/v4/leads", {
-            filter: {
-              [self.state.fieldIds.ORDER_DATE]: {
-                from: Math.floor(dateFrom.getTime() / 1000),
-                to: Math.floor(dateTo.getTime() / 1000),
+          self
+            .doRequest("GET", "/api/v4/leads", {
+              filter: {
+                [self.state.fieldIds.ORDER_DATE]: {
+                  from: Math.floor(dateFrom.getTime() / 1000),
+                  to: Math.floor(dateTo.getTime() / 1000),
+                },
               },
-            },
-            limit: 250,
-            with: "contacts",
-          })
+              limit: 250,
+              with: "contacts",
+            })
             .then(function (response) {
               if (response?._embedded?.leads) {
                 self.processData(response._embedded.leads);
@@ -247,6 +229,41 @@ define(["jquery"], function ($) {
         });
       } catch (e) {
         console.error("Ошибка в processData:", e);
+      }
+    };
+
+    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
+    this.bindCalendarEvents = function () {
+      $(document)
+        .off("click.calendar")
+        .on("click.calendar", ".prev-month", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() - 1
+          );
+          self.renderCalendar();
+        });
+
+      $(document)
+        .off("click.calendar")
+        .on("click.calendar", ".next-month", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() + 1
+          );
+          self.renderCalendar();
+        });
+
+      $(document)
+        .off("click.date")
+        .on("click.date", ".calendar-day:not(.empty)", function () {
+          const dateStr = $(this).data("date");
+          self.showDealsPopup(dateStr);
+        });
+    };
+
+    this.updateCalendarView = function () {
+      const widgetRoot = document.getElementById("widget-root");
+      if (widgetRoot) {
+        widgetRoot.innerHTML = self.generateCalendarHTML();
       }
     };
 
@@ -453,6 +470,11 @@ define(["jquery"], function ($) {
           });
         }
         return true;
+      },
+
+      // Для работы в карточке сделки
+      renderCard: function () {
+        return this.callbacks.render();
       },
     };
 

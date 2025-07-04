@@ -86,12 +86,11 @@ define(["jquery"], function ($) {
       },
     };
 
-    // Получение заголовка виджета
+    // Основные методы виджета
     this.getWidgetTitle = function () {
       return this.langs.ru?.widget?.name || "Календарь заказов";
     };
 
-    // Применение настроек
     this.applySettings = function (settings) {
       if (!settings) return false;
 
@@ -108,7 +107,6 @@ define(["jquery"], function ($) {
       return true;
     };
 
-    // Форматирование даты в строку YYYY-MM-DD
     this.formatDate = function (day, month, year) {
       return [
         year,
@@ -117,12 +115,10 @@ define(["jquery"], function ($) {
       ].join("-");
     };
 
-    // Получение сегодняшней даты
     this.getTodayDateString = function () {
       return new Date().toISOString().split("T")[0];
     };
 
-    // Генерация HTML календаря
     this.generateCalendarHTML = function () {
       var month = this.state.currentDate.getMonth();
       var year = this.state.currentDate.getFullYear();
@@ -130,30 +126,8 @@ define(["jquery"], function ($) {
       var firstDay = new Date(year, month, 1).getDay();
       var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-      var monthNames = this.langs.ru?.months || [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь",
-      ];
-
-      var weekdays = this.langs.ru?.weekdays || [
-        "Пн",
-        "Вт",
-        "Ср",
-        "Чт",
-        "Пт",
-        "Сб",
-        "Вс",
-      ];
+      var monthNames = this.langs.ru?.months;
+      var weekdays = this.langs.ru?.weekdays;
 
       var daysHTML = "";
       for (var day = 1; day <= daysInMonth; day++) {
@@ -166,8 +140,7 @@ define(["jquery"], function ($) {
           <div class="calendar-day 
             ${isToday ? "today" : ""} 
             ${hasDeals ? "has-deals" : ""}" 
-            data-date="${dateStr}"
-            aria-label="${day} ${monthNames[month]} ${year}">
+            data-date="${dateStr}">
             <div class="day-number">${day}</div>
             ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
           </div>
@@ -179,9 +152,9 @@ define(["jquery"], function ($) {
           <div class="calendar-header">
             <h3>${this.getWidgetTitle()}</h3>
             <div class="month-navigation">
-              <button class="nav-button prev-month" aria-label="Предыдущий месяц">←</button>
+              <button class="nav-button prev-month">←</button>
               <span class="current-month">${monthNames[month]} ${year}</span>
-              <button class="nav-button next-month" aria-label="Следующий месяц">→</button>
+              <button class="nav-button next-month">→</button>
             </div>
           </div>
           <div class="calendar-grid">
@@ -193,16 +166,10 @@ define(["jquery"], function ($) {
               .join("")}
             ${daysHTML}
           </div>
-          ${
-            this.state.loading
-              ? '<div class="calendar-loading">Загрузка...</div>'
-              : ""
-          }
         </div>
       `;
     };
 
-    // Обновление представления календаря
     this.updateCalendarView = function () {
       var html = self.generateCalendarHTML();
       var container = document.getElementById("widget-root");
@@ -213,28 +180,18 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Привязка событий календаря
     this.bindCalendarEvents = function () {
-      // Навигация по месяцам
       $(document).on("click", ".prev-month, .next-month", function () {
         var direction = $(this).hasClass("prev-month") ? -1 : 1;
         self.navigateMonth(direction);
       });
 
-      // Клики по дням
       $(document).on("click", ".calendar-day[data-date]", function () {
         var dateStr = $(this).data("date");
         self.handleDateClick(dateStr);
       });
-
-      // Клавиатурная навигация
-      $(document).on("keydown", function (e) {
-        if (e.key === "ArrowLeft") self.navigateMonth(-1);
-        else if (e.key === "ArrowRight") self.navigateMonth(1);
-      });
     };
 
-    // Навигация по месяцам
     this.navigateMonth = function (direction) {
       self.state.currentDate.setMonth(
         self.state.currentDate.getMonth() + direction
@@ -242,7 +199,6 @@ define(["jquery"], function ($) {
       self.renderCalendar();
     };
 
-    // Обработчик клика по дате
     this.handleDateClick = function (dateStr) {
       if (typeof AmoCRM !== "undefined" && AmoCRM.router) {
         AmoCRM.router.navigate({
@@ -260,15 +216,14 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Показать попап со сделками
     this.showDealsPopup = function (dateStr) {
       var deals = self.state.dealsData[dateStr] || [];
       var noDealsText =
         self.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
 
       var popupHTML = `
-        <div class="deals-popup" role="dialog" aria-labelledby="popup-title">
-          <h3 id="popup-title">Сделки на ${dateStr}</h3>
+        <div class="deals-popup">
+          <h3>Сделки на ${dateStr}</h3>
           <div class="deals-list">
             ${
               deals.length
@@ -288,7 +243,7 @@ define(["jquery"], function ($) {
                 : `<p class="no-deals">${noDealsText}</p>`
             }
           </div>
-          <button class="close-popup" aria-label="Закрыть">Закрыть</button>
+          <button class="close-popup">Закрыть</button>
         </div>
       `;
 
@@ -298,13 +253,8 @@ define(["jquery"], function ($) {
       $(document).on("click", ".close-popup", function () {
         $(".deals-popup").remove();
       });
-
-      $(document).on("keyup", function (e) {
-        if (e.key === "Escape") $(".deals-popup").remove();
-      });
     };
 
-    // Загрузка данных
     this.loadData = function () {
       return new Promise(function (resolve) {
         if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
@@ -349,7 +299,6 @@ define(["jquery"], function ($) {
       });
     };
 
-    // Обработка данных сделок
     this.processData = function (deals) {
       this.state.dealsData = {};
       deals.forEach(function (deal) {
@@ -377,7 +326,6 @@ define(["jquery"], function ($) {
       });
     };
 
-    // Генерация тестовых данных
     this.generateMockData = function () {
       var data = {};
       var date = new Date();
@@ -402,7 +350,6 @@ define(["jquery"], function ($) {
       return data;
     };
 
-    // Основной метод рендеринга календаря
     this.renderCalendar = function () {
       return new Promise(function (resolve) {
         self.state.loading = true;
@@ -462,6 +409,21 @@ define(["jquery"], function ($) {
         $(document).off("click", "keydown", "keyup");
         return true;
       },
+    };
+
+    // Инициализация виджета
+    this.initWidget = function () {
+      if (typeof AmoCRM !== "undefined") {
+        // Режим amoCRM
+        if (typeof OrdersCalendarWidget !== "undefined") {
+          new OrdersCalendarWidget().callbacks.render();
+        }
+      } else {
+        // Standalone режим
+        if (typeof OrdersCalendarWidget !== "undefined") {
+          new OrdersCalendarWidget().renderWidget();
+        }
+      }
     };
 
     return this;

@@ -6,6 +6,9 @@
     <title>Календарь заказов</title>
     <link rel="stylesheet" href="style.css" />
 
+    <!-- Подключаем jQuery перед нашим скриптом -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
     <!-- Подключаем loader.min.js с правильного домена -->
     <script src="https://cdn.amocrm.com/v2/loader.min.js"></script>
 
@@ -13,11 +16,12 @@
     <meta
       http-equiv="Content-Security-Policy"
       content="
-    default-src 'self' https://*.amocrm.com;
-    script-src 'self' https://cdn.amocrm.com 'unsafe-inline';
-    style-src 'self' 'unsafe-inline';
-    connect-src 'self' https://*.amocrm.com;
-  "
+        default-src 'self' https://*.amocrm.com https://*.amocrm.ru;
+        script-src 'self' https://cdn.amocrm.com https://cdnjs.cloudflare.com 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        connect-src 'self' https://*.amocrm.com https://*.amocrm.ru https://drive.amocrm.ru;
+        img-src 'self' data: https://*;
+      "
     />
   </head>
   <body>
@@ -31,34 +35,39 @@
       function showError(message) {
         const widgetRoot = document.getElementById("widget-root");
         widgetRoot.innerHTML = `
-        <div class="error-message">
-          <h3>Ошибка загрузки виджета</h3>
-          <p>${message}</p>
-        </div>
-      `;
+          <div class="error-message">
+            <h3>Ошибка загрузки виджета</h3>
+            <p>${message}</p>
+          </div>
+        `;
         console.error(message);
       }
-
-      // Упрощенная замена jQuery функций
-      const $ = {
-        on: (el, event, fn) => el.addEventListener(event, fn),
-        off: (el, event, fn) => el.removeEventListener(event, fn),
-        ready: (fn) => document.addEventListener("DOMContentLoaded", fn),
-      };
 
       // Функция инициализации виджета
       function initWidget() {
         try {
+          // Проверяем загрузился ли jQuery
+          if (typeof jQuery === "undefined") {
+            return showError("jQuery не загружен");
+          }
+
           // Режим amoCRM
           if (typeof AmoCRM !== "undefined") {
             console.log("Инициализация в режиме amoCRM");
 
-            // Загружаем скрипт без jQuery зависимости
+            // Загружаем наш скрипт
             const script = document.createElement("script");
             script.src = "script.js";
             script.onload = function () {
               if (typeof OrdersCalendarWidget !== "undefined") {
-                new OrdersCalendarWidget().callbacks.render();
+                const widget = new OrdersCalendarWidget();
+
+                // Инициализация в контексте amoCRM
+                AmoCRM.widgets.onLoad(function () {
+                  widget.callbacks.init().then(function () {
+                    widget.callbacks.render();
+                  });
+                });
               } else {
                 showError("Класс виджета не определен");
               }
@@ -76,7 +85,8 @@
             script.src = "script.js";
             script.onload = function () {
               if (typeof OrdersCalendarWidget !== "undefined") {
-                new OrdersCalendarWidget().renderWidget();
+                const widget = new OrdersCalendarWidget();
+                widget.renderWidget();
               } else {
                 showError("Класс виджета не определен");
               }
@@ -92,7 +102,7 @@
       }
 
       // Запускаем при полной загрузке страницы
-      $.ready(initWidget);
+      document.addEventListener("DOMContentLoaded", initWidget);
     </script>
   </body>
 </html>

@@ -384,3 +384,37 @@
 .calendar-day:not(.empty):hover {
   background-color: #e6f7ff;
 }
+@media (max-width: 600px) {
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(30px, 1fr));
+    gap: 2px;
+  }
+
+  .calendar-day {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  .deal-count {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+  }
+}
+@media (max-width: 600px) {
+  .calendar-grid {
+    grid-template-columns: repeat(7, minmax(30px, 1fr));
+    gap: 2px;
+  }
+
+  .calendar-day {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  .deal-count {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+  }
+}

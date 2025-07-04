@@ -6,6 +6,7 @@
   <title>Календарь заказов</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.amocrm.ru/v2/loader.min.js"></script>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.amocrm.ru; script-src 'self' https://cdn.amocrm.ru 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.amocrm.ru">
 </head>
 <body>
   <div id="widget-root"></div>
@@ -14,33 +15,25 @@
   </div>
 
   <script>
-    // Проверяем загружен ли API amoCRM
     function initWidget() {
-      document.getElementById('loader').style.display = 'block';
-      
       if (typeof OrdersCalendarWidget !== 'undefined') {
         // Standalone режим
         new OrdersCalendarWidget().renderWidget();
-        document.getElementById('loader').style.display = 'none';
       } else if (typeof AmoCRM !== 'undefined') {
         // Режим amoCRM
         AmoCRM.widgets.load('script.js').then(function() {
           if (typeof OrdersCalendarWidget !== 'undefined') {
             new OrdersCalendarWidget().callbacks.render();
           }
-          document.getElementById('loader').style.display = 'none';
         });
-      } else {
-        console.error('Widget initialization failed');
-        document.getElementById('loader').style.display = 'none';
       }
     }
 
-    // Запускаем после полной загрузки страницы
-    document.addEventListener('DOMContentLoaded', function() {
-      if (typeof AmoCRM !== 'undefined') {
-        initWidget();
-      } else {
+    // Проверяем загружен ли API amoCRM
+    if (typeof AmoCRM !== 'undefined') {
+      initWidget();
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
         let attempts = 0;
         const interval = setInterval(function() {
           attempts++;
@@ -49,11 +42,11 @@
             initWidget();
           } else if (attempts > 10) {
             clearInterval(interval);
-            initWidget(); // Попытаться в standalone режиме
+            console.warn('AmoCRM API not loaded');
           }
         }, 300);
-      }
-    });
+      });
+    }
   </script>
 </body>
 </html>

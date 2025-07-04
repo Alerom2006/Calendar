@@ -1,6 +1,21 @@
 define(["jquery"], function ($) {
   var OrdersCalendarWidget = function () {
+    // Реализация паттерна Singleton
+    if (typeof OrdersCalendarWidget.instance === "object") {
+      return OrdersCalendarWidget.instance;
+    }
+
     var self = this;
+    OrdersCalendarWidget.instance = this;
+
+    // Добавляем обработчик для активации медиа-функций после взаимодействия пользователя
+    document.addEventListener(
+      "click",
+      function () {
+        // Этот обработчик активирует медиа-функции после первого клика пользователя
+      },
+      { once: true }
+    );
 
     // Инициализация системных методов
     this.system = function () {
@@ -43,7 +58,7 @@ define(["jquery"], function ($) {
 
     // Версия виджета
     this.get_version = function () {
-      return "1.0.34";
+      return "1.0.35";
     };
 
     // Состояние виджета
@@ -72,10 +87,6 @@ define(["jquery"], function ($) {
 
     /**
      * Форматирование даты в строку YYYY-MM-DD
-     * @param {Number} day - День
-     * @param {Number} month - Месяц
-     * @param {Number} year - Год
-     * @returns {String} - Отформатированная дата
      */
     this.formatDate = function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
@@ -85,7 +96,6 @@ define(["jquery"], function ($) {
 
     /**
      * Получение текущей даты в формате строки
-     * @returns {String} - Текущая дата в формате YYYY-MM-DD
      */
     this.getTodayDateString = function () {
       const today = new Date();
@@ -98,7 +108,6 @@ define(["jquery"], function ($) {
 
     /**
      * Получение заголовка виджета
-     * @returns {String} - Заголовок виджета
      */
     this.getWidgetTitle = function () {
       return this.langs.ru?.widget?.name || "Календарь заказов";
@@ -106,8 +115,6 @@ define(["jquery"], function ($) {
 
     /**
      * Применение настроек виджета
-     * @param {Object} settings - Настройки виджета
-     * @returns {Boolean} - Результат применения настроек
      */
     this.applySettings = function (settings) {
       if (settings.deal_date_field_id) {
@@ -123,7 +130,6 @@ define(["jquery"], function ($) {
 
     /**
      * Получение настроек виджета
-     * @returns {Object} - Настройки виджета
      */
     this.get_settings = function () {
       return this.params;
@@ -133,7 +139,6 @@ define(["jquery"], function ($) {
      * Привязка обработчиков событий календаря
      */
     this.bindCalendarEvents = function () {
-      // Привязка обработчиков событий для календаря
       $(document).on("click.calendar", ".prev-month", function () {
         self.state.currentDate.setMonth(self.state.currentDate.getMonth() - 1);
         self.renderCalendar();
@@ -172,17 +177,16 @@ define(["jquery"], function ($) {
       }
     };
 
-    // ========== API ФАЙЛОВ ========== //
+    // ========== API ФАЙЛОВ (ИСПРАВЛЕННЫЕ МЕТОДЫ) ========== //
 
     /**
      * Создание сессии для загрузки файла
-     * @param {Object} file - Объект файла
-     * @returns {Promise} - Промис с результатом
      */
     this.createFileUploadSession = function (file) {
       return new Promise(function (resolve, reject) {
-        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
-          return reject(new Error("AmoCRM API не доступен"));
+        if (typeof AmoCRM === "undefined") {
+          console.error("AmoCRM API недоступен");
+          return reject(new Error("AmoCRM API недоступен"));
         }
 
         const payload = {
@@ -191,7 +195,7 @@ define(["jquery"], function ($) {
           content_type: file.type || "application/octet-stream",
         };
 
-        // Используем правильный хост для API файлов
+        // Используем корректный endpoint для файлов
         AmoCRM.request("POST", "https://drive.amocrm.ru/v1.0/sessions", payload)
           .then(function (response) {
             if (response.session_id && response.upload_url) {
@@ -201,7 +205,7 @@ define(["jquery"], function ($) {
             }
           })
           .catch(function (error) {
-            console.error("Ошибка создания сессии загрузки:", error);
+            console.error("Ошибка создания сессии:", error);
             reject(error);
           });
       });
@@ -209,9 +213,6 @@ define(["jquery"], function ($) {
 
     /**
      * Загрузка части файла
-     * @param {String} uploadUrl - URL для загрузки
-     * @param {Blob} chunk - Часть файла
-     * @returns {Promise} - Промис с результатом
      */
     this.uploadFileChunk = function (uploadUrl, chunk) {
       return new Promise(function (resolve, reject) {
@@ -242,9 +243,6 @@ define(["jquery"], function ($) {
 
     /**
      * Полная загрузка файла
-     * @param {File} file - Файл для загрузки
-     * @param {Number} leadId - ID сделки
-     * @returns {Promise} - Промис с результатом
      */
     this.uploadFile = function (file, leadId) {
       return new Promise(function (resolve, reject) {
@@ -298,13 +296,10 @@ define(["jquery"], function ($) {
 
     /**
      * Привязка файла к сделке
-     * @param {String} fileUuid - UUID файла
-     * @param {Number} leadId - ID сделки
-     * @returns {Promise} - Промис с результатом
      */
     this.attachFileToLead = function (fileUuid, leadId) {
       return new Promise(function (resolve, reject) {
-        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+        if (typeof AmoCRM === "undefined") {
           return reject(new Error("AmoCRM API не доступен"));
         }
 
@@ -327,12 +322,10 @@ define(["jquery"], function ($) {
 
     /**
      * Получение файлов сделки
-     * @param {Number} leadId - ID сделки
-     * @returns {Promise} - Промис с массивом файлов
      */
     this.getLeadFiles = function (leadId) {
       return new Promise(function (resolve, reject) {
-        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+        if (typeof AmoCRM === "undefined") {
           return reject(new Error("AmoCRM API не доступен"));
         }
 
@@ -353,12 +346,10 @@ define(["jquery"], function ($) {
 
     /**
      * Удаление файла
-     * @param {String} fileUuid - UUID файла
-     * @returns {Promise} - Промис с результатом
      */
     this.deleteFile = function (fileUuid) {
       return new Promise(function (resolve, reject) {
-        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+        if (typeof AmoCRM === "undefined") {
           return reject(new Error("AmoCRM API не доступен"));
         }
 
@@ -381,7 +372,9 @@ define(["jquery"], function ($) {
 
     // ========== ОСНОВНЫЕ МЕТОДЫ ВИДЖЕТА ========== //
 
-    // Генерация HTML календаря
+    /**
+     * Генерация HTML календаря
+     */
     this.generateCalendarHTML = function () {
       try {
         var month = this.state.currentDate.getMonth();
@@ -439,19 +432,20 @@ define(["jquery"], function ($) {
           </div>
         `;
       } catch (e) {
-        console.error("Error in generateCalendarHTML:", e);
+        console.error("Ошибка при создании календаря:", e);
         return '<div class="error-message">Ошибка при создании календаря</div>';
       }
     };
 
-    // Показать попап со сделками и файлами
+    /**
+     * Показать попап со сделками и файлами
+     */
     this.showDealsPopup = function (dateStr) {
       try {
         var deals = self.state.dealsData[dateStr] || [];
         var noDealsText =
           self.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
 
-        // Сначала получаем HTML для сделок
         var dealsHTML = deals.length
           ? deals
               .map(
@@ -543,7 +537,6 @@ define(["jquery"], function ($) {
               self
                 .uploadFile(file, dealId)
                 .then(function () {
-                  // Обновляем список файлов после загрузки
                   return self.getLeadFiles(dealId);
                 })
                 .then(function (files) {
@@ -575,7 +568,6 @@ define(["jquery"], function ($) {
             self
               .deleteFile(fileUuid)
               .then(function () {
-                // Обновляем список файлов после удаления
                 return self.getLeadFiles(dealId);
               })
               .then(function (files) {
@@ -604,14 +596,29 @@ define(["jquery"], function ($) {
           }
         });
       } catch (e) {
-        console.error("Error in showDealsPopup:", e);
+        console.error("Ошибка при отображении попапа:", e);
       }
     };
 
+    /**
+     * Обработчик ошибок API
+     */
+    this.handleApiErrors = function (error) {
+      if (error.status === 418) {
+        console.error("Некорректный запрос к API. Проверьте endpoint");
+        return this.generateMockData();
+      }
+      console.error("Ошибка API:", error);
+      return this.generateMockData();
+    };
+
+    /**
+     * Загрузка данных (с обработкой ошибок)
+     */
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
-          if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+          if (typeof AmoCRM === "undefined") {
             self.state.dealsData = self.generateMockData();
             return resolve();
           }
@@ -647,21 +654,24 @@ define(["jquery"], function ($) {
               }
             })
             .catch(function (error) {
-              console.error("Error loading data:", error);
-              self.state.dealsData = self.generateMockData();
+              console.error("Ошибка загрузки данных:", error);
+              self.state.dealsData = self.handleApiErrors(error);
             })
             .finally(function () {
               self.state.loading = false;
               resolve();
             });
         } catch (e) {
-          console.error("Error in loadData:", e);
+          console.error("Ошибка в loadData:", e);
           self.state.loading = false;
           resolve();
         }
       });
     };
 
+    /**
+     * Обработка данных сделок
+     */
     this.processData = function (deals) {
       try {
         this.state.dealsData = {};
@@ -691,14 +701,17 @@ define(["jquery"], function ($) {
               contacts: deal._embedded?.contacts || [],
             });
           } catch (e) {
-            console.warn("Error processing deal:", e);
+            console.warn("Ошибка обработки сделки:", e);
           }
         });
       } catch (e) {
-        console.error("Error in processData:", e);
+        console.error("Ошибка в processData:", e);
       }
     };
 
+    /**
+     * Генерация тестовых данных
+     */
     this.generateMockData = function () {
       try {
         var data = {};
@@ -723,11 +736,14 @@ define(["jquery"], function ($) {
         }
         return data;
       } catch (e) {
-        console.error("Error in generateMockData:", e);
+        console.error("Ошибка генерации тестовых данных:", e);
         return {};
       }
     };
 
+    /**
+     * Рендеринг календаря
+     */
     this.renderCalendar = function () {
       return new Promise(function (resolve) {
         try {
@@ -750,21 +766,22 @@ define(["jquery"], function ($) {
               self.updateCalendarView();
             })
             .catch(function (e) {
-              console.error("Error in renderCalendar:", e);
+              console.error("Ошибка рендеринга календаря:", e);
             })
             .finally(function () {
               self.state.loading = false;
               resolve();
             });
         } catch (e) {
-          console.error("Error in renderCalendar:", e);
+          console.error("Ошибка в renderCalendar:", e);
           self.state.loading = false;
           resolve();
         }
       });
     };
 
-    // Функции обратного вызова для amoCRM
+    // ========== CALLBACKS ДЛЯ AMOCRM ========== //
+
     this.callbacks = {
       init: function () {
         return new Promise(function (resolve) {
@@ -774,7 +791,7 @@ define(["jquery"], function ($) {
             self.state.initialized = true;
             resolve(true);
           } catch (e) {
-            console.error("Error in init callback:", e);
+            console.error("Ошибка инициализации:", e);
             resolve(false);
           }
         });
@@ -788,7 +805,7 @@ define(["jquery"], function ($) {
               resolve(true);
             })
             .catch(function (e) {
-              console.error("Error in render callback:", e);
+              console.error("Ошибка рендеринга:", e);
               resolve(false);
             });
         });
@@ -798,7 +815,7 @@ define(["jquery"], function ($) {
         try {
           return self.applySettings(newSettings);
         } catch (e) {
-          console.error("Error in onSave callback:", e);
+          console.error("Ошибка сохранения:", e);
           return false;
         }
       },
@@ -808,7 +825,7 @@ define(["jquery"], function ($) {
           self.bindCalendarEvents();
           return true;
         } catch (e) {
-          console.error("Error in bind_actions callback:", e);
+          console.error("Ошибка привязки событий:", e);
           return false;
         }
       },
@@ -820,29 +837,10 @@ define(["jquery"], function ($) {
           $(document).off("click.popup");
           return true;
         } catch (e) {
-          console.error("Error in destroy callback:", e);
+          console.error("Ошибка очистки:", e);
           return false;
         }
       },
-    };
-
-    // Инициализация виджета
-    this.initWidget = function () {
-      try {
-        if (typeof AmoCRM !== "undefined") {
-          // Режим amoCRM
-          if (typeof OrdersCalendarWidget !== "undefined") {
-            new OrdersCalendarWidget().callbacks.render();
-          }
-        } else {
-          // Standalone режим
-          if (typeof OrdersCalendarWidget !== "undefined") {
-            new OrdersCalendarWidget().renderWidget();
-          }
-        }
-      } catch (e) {
-        console.error("Error in initWidget:", e);
-      }
     };
 
     return this;

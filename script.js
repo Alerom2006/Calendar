@@ -120,7 +120,7 @@ function createOrdersCalendarWidget($) {
     },
 
     get_version: function () {
-      return "1.0.45";
+      return "1.0.46";
     },
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -508,7 +508,7 @@ function createOrdersCalendarWidget($) {
       try {
         const deals = this.state.dealsData[dateStr] || [];
         const noDealsText =
-          this.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
+          this.langs.ru?.errors?.noDeals || "Нет сделок на выбранную дату";
 
         const dealsHTML = deals.length
           ? deals

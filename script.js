@@ -62,7 +62,7 @@ define(["jquery"], function ($) {
     };
 
     this.get_version = function () {
-      return "1.0.0";
+      return "1.0.30";
     };
 
     // Состояние виджета

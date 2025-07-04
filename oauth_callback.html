@@ -9,7 +9,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
       const state = urlParams.get("state");
-
+      //Токен: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImM1NzdkNDliNjZkZTJmMjkwODQ0Y2MwZTAwYmU5YzU3MjRhMDg2YzgwNDY1YmNmN2I3ZWNmNGUyNGFlYTM5NzI1MWFiMzg1OTNjMThjZDI5In0.eyJhdWQiOiJjYzI4MGNiYS03YjM3LTRkZDAtOWM5MS04MmUwOTRkNjM5NjIiLCJqdGkiOiJjNTc3ZDQ5YjY2ZGUyZjI5MDg0NGNjMGUwMGJlOWM1NzI0YTA4NmM4MDQ2NWJjZjdiN2VjZjRlMjRhZWEzOTcyNTFhYjM4NTkzYzE4Y2QyOSIsImlhdCI6MTc1MTYxMjA5MiwibmJmIjoxNzUxNjEyMDkyLCJleHAiOjE5MDkzNTM2MDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYzliYTBlMjAtYTI5NC00ZGQ1LTlhYjktMTk4MTJhMWIzMjg4IiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.OIszwSMhAz7JvnxruCYV9nyEa3pfZUCnKy0RTGopb2TNjOhrkJuSfoh6J0xyPHpHazxklohCXnaQNxLB_SKHKFGW676gF2MaoarRt1bqnxPbxPiWlznD7OmY_snh7Iu7QrA6e3dXGccPXPhg2jHdUZmGu-Kz7ssfsPzMmWo6-ax7tn3NIOxG1MXTS0karScchM9nz4PyaWiBFyiGD5SHmTYlfeZ8JPREX3b2I6fgsTzOllG-AiPHLk3HErdXxg5NNdESrDCjwe93bd49QDHIGpCt3z8nhF3rInx7XOG0lS7BC-k-YRpy85nU_oCJwQ4Lto2Ip8WLEn1KpAXbxAV1Yw
       if (!code || !state) {
         alert("Ошибка авторизации: отсутствует код или состояние.");
       } else {
@@ -19,11 +19,11 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            client_id: "3009e68d-7b97-4e70-b024-94360f47b3e1",
+            client_id: "cc280cba-7b37-4dd0-9c91-82e094d63962",
             client_secret:
-              "sryXOdHnDdFvRHf5PeLO1GlrAP5UxVMGNc1so9ppkCZOKvlTPhpG3ce4LNQzDykT", //885453
+              "2uXNkrHq7WFMBrH3TiOm6DIcfMqwxvjUJI90ZFmPFeih3pXwHHSU0KD8Rgh2dxKo", //885453
             grant_type: "authorization_code", //892009
-            code: code, //eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjJmNTAyODIyNWQ3NTExNWY1MDg0OWJhYmM1YTAxNWMxYTdhM2ZhYjYzOThhN2I1NDg5NzlmOWVlMmZmNmRmZGMxZjAzNzA0OWQyNWE0OWJkIn0.eyJhdWQiOiIzMDA5ZTY4ZC03Yjk3LTRlNzAtYjAyNC05NDM2MGY0N2IzZTEiLCJqdGkiOiIyZjUwMjgyMjVkNzUxMTVmNTA4NDliYWJjNWEwMTVjMWE3YTNmYWI2Mzk4YTdiNTQ4OTc5ZjllZTJmZjZkZmRjMWYwMzcwNDlkMjVhNDliZCIsImlhdCI6MTc1MTU2NjYzNywibmJmIjoxNzUxNTY2NjM3LCJleHAiOjE5MDkyNjcyMDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiYjdiMzczOGUtMTEyZS00NDgxLTkzNTYtNmZlMWRkODc4NDVjIiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.EfA78UQL40v0rmxc471FlOAa-bQ8Ftjl1wU6A0m8sVUWSQNPZnldW5pkpFLhTLJ2KLJxsN2sQSaeGAGrjyH1SgeLuYgpSD_3D3XZvJ7tzbFaYdP-cJgg5BNABLJgyuahOUFPyROUJuE4YM3EuwKDqxgiR96K72-Io1uoyYcMoyGkrAYaa5vL_iMIfmx_r6FSp1ZAnguywXgV8Krk1yPwDZSD6dpDb18WcKm6b6ArXHuX6B2onvPckShBsQAcfYrLR1xBzDJMb9ciZwl4VUF-toW9I2byZXC16yJq8u8R3X7MYQGOryWaEqEtw8e-xn3aXmnN-73BVE6ZyesPxeDfZw
+            code: code,
             redirect_uri:
               "https://alerom2006.github.io/Calendar/oauth_callback.html",
           }),

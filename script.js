@@ -7,6 +7,18 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
+    // Проверка доступности AMOCRM API
+    if (typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function") {
+      this.showError("AMOCRM API недоступен");
+      return this;
+    }
+
+    // Проверка авторизации
+    if (!AMOCRM.constant("user") || !AMOCRM.constant("user").id) {
+      this.showError("Требуется авторизация в amoCRM");
+      return this;
+    }
+
     // Получаем данные аккаунта и пользователя из AMOCRM
     const accountData = AMOCRM.constant("account") || {};
     const userData = AMOCRM.constant("user") || {};
@@ -54,7 +66,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.38";
+      return "1.0.39";
     };
 
     // Состояние виджета
@@ -115,8 +127,13 @@ define(["jquery"], function ($) {
       if (widgetRoot) {
         widgetRoot.innerHTML = `
           <div class="error-message">
-            <h3>Ошибка</h3>
+            <h3>${this.getWidgetTitle()}</h3>
             <p>${message}</p>
+            ${
+              this.system().area === "standalone"
+                ? '<button onclick="location.reload()">Обновить</button>'
+                : ""
+            }
           </div>
         `;
       }
@@ -130,13 +147,17 @@ define(["jquery"], function ($) {
             return reject(new Error("AMOCRM API недоступен"));
           }
 
+          console.log("Making request to", path, "with data:", data);
+
           AMOCRM.request(method, path, data)
-            .then(function (response) {
-              resolve(response);
-            })
+            .then(resolve)
             .catch(function (error) {
               console.error("Ошибка API:", error);
-              reject(error);
+              reject(
+                new Error(
+                  self.langs.ru?.errors?.load || "Ошибка загрузки данных"
+                )
+              );
             });
         } catch (e) {
           reject(e);

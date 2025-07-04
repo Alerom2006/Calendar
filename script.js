@@ -1,3 +1,10 @@
+if (typeof define !== "function") {
+  console.error("AMD loader (define) is not available");
+}
+
+if (typeof $ === "undefined") {
+  console.error("jQuery is not loaded");
+}
 define(["jquery"], function ($) {
   var OrdersCalendarWidget = function () {
     var self = this;

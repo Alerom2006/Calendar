@@ -119,7 +119,7 @@ function createOrdersCalendarWidget($) {
     },
 
     get_version: function () {
-      return "1.0.44";
+      return "1.0.44"; // Обновленная версия
     },
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -361,14 +361,34 @@ function createOrdersCalendarWidget($) {
       try {
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
+
+        // Получаем первый день месяца и количество дней в месяце
+        const firstDay = new Date(year, month, 1);
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDay = new Date(year, month, 1).getDay();
-        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+
+        // Определяем день недели для первого дня месяца (0 - воскресенье, 1 - понедельник и т.д.)
+        const firstDayOfWeek = firstDay.getDay();
+        // Корректируем для отображения (понедельник - первый день недели)
+        const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
         const monthNames = this.langs.ru?.months || [];
-        const weekdays = this.langs.ru?.weekdays || [];
+        const weekdays = this.langs.ru?.weekdays || [
+          "Пн",
+          "Вт",
+          "Ср",
+          "Чт",
+          "Пт",
+          "Сб",
+          "Вс",
+        ];
 
         let daysHTML = "";
+        // Добавляем пустые ячейки для дней предыдущего месяца
+        for (let i = 0; i < adjustedFirstDay; i++) {
+          daysHTML += '<div class="calendar-day empty"></div>';
+        }
+
+        // Добавляем дни текущего месяца
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
           const deals = this.state.dealsData[dateStr] || [];
@@ -398,9 +418,6 @@ function createOrdersCalendarWidget($) {
             <div class="calendar-grid">
               ${weekdays
                 .map((day) => `<div class="calendar-weekday">${day}</div>`)
-                .join("")}
-              ${Array(adjustedFirstDay)
-                .fill('<div class="calendar-day empty"></div>')
                 .join("")}
               ${daysHTML}
             </div>
@@ -468,42 +485,44 @@ function createOrdersCalendarWidget($) {
     // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
     bindCalendarEvents: function () {
       try {
-        $(document)
-          .off("click.calendar")
-          .on(
-            "click.calendar",
-            ".prev-month",
-            function () {
-              this.state.currentDate.setMonth(
-                this.state.currentDate.getMonth() - 1
-              );
-              this.renderCalendar();
-            }.bind(this)
-          );
+        // Удаляем старые обработчики
+        $(document).off("click.calendar");
 
-        $(document)
-          .off("click.calendar")
-          .on(
-            "click.calendar",
-            ".next-month",
-            function () {
-              this.state.currentDate.setMonth(
-                this.state.currentDate.getMonth() + 1
-              );
-              this.renderCalendar();
-            }.bind(this)
-          );
+        // Обработчик для перехода на предыдущий месяц
+        $(document).on(
+          "click.calendar",
+          ".prev-month",
+          function () {
+            const newDate = new Date(this.state.currentDate);
+            newDate.setMonth(newDate.getMonth() - 1);
+            this.state.currentDate = newDate;
+            this.state.dealsData = {}; // Очищаем кэш данных
+            this.renderCalendar();
+          }.bind(this)
+        );
 
-        $(document)
-          .off("click.date")
-          .on(
-            "click.date",
-            ".calendar-day:not(.empty)",
-            function () {
-              const dateStr = $(this).data("date");
-              this.showDealsPopup(dateStr);
-            }.bind(this)
-          );
+        // Обработчик для перехода на следующий месяц
+        $(document).on(
+          "click.calendar",
+          ".next-month",
+          function () {
+            const newDate = new Date(this.state.currentDate);
+            newDate.setMonth(newDate.getMonth() + 1);
+            this.state.currentDate = newDate;
+            this.state.dealsData = {}; // Очищаем кэш данных
+            this.renderCalendar();
+          }.bind(this)
+        );
+
+        // Обработчик для выбора дня
+        $(document).on(
+          "click.date",
+          ".calendar-day:not(.empty)",
+          function () {
+            const dateStr = $(this).data("date");
+            this.showDealsPopup(dateStr);
+          }.bind(this)
+        );
       } catch (e) {
         console.error("Ошибка привязки событий:", e);
       }

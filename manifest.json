@@ -16,33 +16,37 @@
     },
     "content_security_policy": "script-src 'self' https://cdn.amocrm.ru 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https://*.amocrm.ru; frame-src 'self' https://*.amocrm.ru; object-src 'self'"
   },
-
   "locations": ["lcard-1", "lcard-2", "settings"],
   "settings": {
     "api_key": {
       "name": "widget.api_key",
       "type": "text",
-      "required": true
+      "required": true,
+      "placeholder": "widget.api_key"
     },
     "account": {
       "name": "widget.account",
       "type": "text",
-      "required": true
+      "required": true,
+      "placeholder": "widget.account"
     },
     "language": {
       "name": "widget.language",
       "type": "text",
-      "required": false
+      "required": false,
+      "placeholder": "widget.language"
     },
     "deal_date_field_id": {
       "name": "widget.deal_date_field",
       "type": "text",
-      "required": true
+      "required": true,
+      "placeholder": "widget.deal_date_field"
     },
     "delivery_range_field": {
       "name": "widget.delivery_range",
       "type": "text",
-      "required": false
+      "required": false,
+      "placeholder": "widget.delivery_range"
     }
   }
 }

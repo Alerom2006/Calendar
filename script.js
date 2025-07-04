@@ -2,20 +2,74 @@ define(["jquery"], function ($) {
   var OrdersCalendarWidget = function () {
     var self = this;
 
-    // Инициализация системных методов
+    // Инициализация системных методов с улучшенными fallback-ами
     this.system =
       this.system ||
       function () {
-        return {};
+        return {
+          area: "standalone",
+          amouser_id: null,
+          amouser: null,
+          amohash: null,
+        };
       };
-    this.langs = this.langs || {};
+
+    this.langs = this.langs || {
+      ru: {
+        widget: { name: "Календарь заказов" },
+        months: [
+          "Январь",
+          "Февраль",
+          "Март",
+          "Апрель",
+          "Май",
+          "Июнь",
+          "Июль",
+          "Август",
+          "Сентябрь",
+          "Октябрь",
+          "Ноябрь",
+          "Декабрь",
+        ],
+        weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+        errors: {
+          load: "Ошибка загрузки данных",
+          noDeals: "Нет сделок на эту дату",
+        },
+      },
+    };
+
     this.params = this.params || {};
-    this.render_template = this.render_template || function () {};
+
+    // Улучшенный fallback для render_template
+    this.render_template =
+      this.render_template ||
+      function (options) {
+        try {
+          if (options && options.body) {
+            var container =
+              document.getElementById("widget-root") || document.body;
+            container.innerHTML = options.body;
+            if (typeof options.load === "function") {
+              options.load();
+            }
+            return Promise.resolve();
+          }
+          return Promise.reject("No body provided");
+        } catch (e) {
+          return Promise.reject(e);
+        }
+      };
+
     this.get_settings =
       this.get_settings ||
       function () {
-        return {};
+        return {
+          deal_date_field_id: 885453,
+          delivery_range_field: null,
+        };
       };
+
     this.get_version =
       this.get_version ||
       function () {
@@ -38,7 +92,6 @@ define(["jquery"], function ($) {
         144: "Завершена",
         145: "Отменена",
       },
-      // Кэш для хранения загруженных данных
       cache: {
         monthsData: {},
       },
@@ -99,86 +152,91 @@ define(["jquery"], function ($) {
 
     // Генерация HTML календаря
     this.generateCalendarHTML = function () {
-      var month = this.state.currentDate.getMonth();
-      var year = this.state.currentDate.getFullYear();
-      var daysInMonth = new Date(year, month + 1, 0).getDate();
-      var firstDay = new Date(year, month, 1).getDay();
-      var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
+      try {
+        var month = this.state.currentDate.getMonth();
+        var year = this.state.currentDate.getFullYear();
+        var daysInMonth = new Date(year, month + 1, 0).getDate();
+        var firstDay = new Date(year, month, 1).getDay();
+        var adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-      // Используем локализованные названия месяцев
-      var monthNames = this.langs.ru?.months || [
-        "Январь",
-        "Февраль",
-        "Март",
-        "Апрель",
-        "Май",
-        "Июнь",
-        "Июль",
-        "Август",
-        "Сентябрь",
-        "Октябрь",
-        "Ноябрь",
-        "Декабрь",
-      ];
+        // Используем локализованные названия месяцев
+        var monthNames = this.langs.ru?.months || [
+          "Январь",
+          "Февраль",
+          "Март",
+          "Апрель",
+          "Май",
+          "Июнь",
+          "Июль",
+          "Август",
+          "Сентябрь",
+          "Октябрь",
+          "Ноябрь",
+          "Декабрь",
+        ];
 
-      // Используем локализованные дни недели
-      var weekdays = this.langs.ru?.weekdays || [
-        "Пн",
-        "Вт",
-        "Ср",
-        "Чт",
-        "Пт",
-        "Сб",
-        "Вс",
-      ];
+        // Используем локализованные дни недели
+        var weekdays = this.langs.ru?.weekdays || [
+          "Пн",
+          "Вт",
+          "Ср",
+          "Чт",
+          "Пт",
+          "Сб",
+          "Вс",
+        ];
 
-      // Генерация дней календаря
-      var daysHTML = "";
-      for (var day = 1; day <= daysInMonth; day++) {
-        var dateStr = this.formatDate(day, month + 1, year);
-        var deals = this.state.dealsData[dateStr] || [];
-        var isToday = dateStr === this.getTodayDateString();
-        var hasDeals = deals.length > 0;
+        // Генерация дней календаря
+        var daysHTML = "";
+        for (var day = 1; day <= daysInMonth; day++) {
+          var dateStr = this.formatDate(day, month + 1, year);
+          var deals = this.state.dealsData[dateStr] || [];
+          var isToday = dateStr === this.getTodayDateString();
+          var hasDeals = deals.length > 0;
 
-        daysHTML += `
-          <div class="calendar-day 
-            ${isToday ? "today" : ""} 
-            ${hasDeals ? "has-deals" : ""}" 
-            data-date="${dateStr}"
-            aria-label="${day} ${monthNames[month]} ${year}">
-            <div class="day-number">${day}</div>
-            ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
+          daysHTML += `
+            <div class="calendar-day 
+              ${isToday ? "today" : ""} 
+              ${hasDeals ? "has-deals" : ""}" 
+              data-date="${dateStr}"
+              aria-label="${day} ${monthNames[month]} ${year}">
+              <div class="day-number">${day}</div>
+              ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
+            </div>
+          `;
+        }
+
+        // Собираем полный HTML
+        return `
+          <div class="orders-calendar">
+            <div class="calendar-header">
+              <h3>${this.getWidgetTitle()}</h3>
+              <div class="month-navigation">
+                <button class="nav-button prev-month" aria-label="Предыдущий месяц">←</button>
+                <span class="current-month">${monthNames[month]} ${year}</span>
+                <button class="nav-button next-month" aria-label="Следующий месяц">→</button>
+              </div>
+            </div>
+            <div class="calendar-grid">
+              ${weekdays
+                .map((day) => `<div class="calendar-weekday">${day}</div>`)
+                .join("")}
+              ${Array(adjustedFirstDay)
+                .fill('<div class="calendar-day empty"></div>')
+                .join("")}
+              ${daysHTML}
+            </div>
+            ${
+              this.state.loading
+                ? '<div class="calendar-loading">Загрузка...</div>'
+                : ""
+            }
           </div>
         `;
+      } catch (e) {
+        console.error("Ошибка генерации HTML:", e);
+        return '<div class="calendar-error">Ошибка создания календаря</div>';
       }
-
-      // Собираем полный HTML
-      return `
-        <div class="orders-calendar">
-          <div class="calendar-header">
-            <h3>${this.getWidgetTitle()}</h3>
-            <div class="month-navigation">
-              <button class="nav-button prev-month" aria-label="Предыдущий месяц">←</button>
-              <span class="current-month">${monthNames[month]} ${year}</span>
-              <button class="nav-button next-month" aria-label="Следующий месяц">→</button>
-            </div>
-          </div>
-          <div class="calendar-grid">
-            ${weekdays
-              .map((day) => `<div class="calendar-weekday">${day}</div>`)
-              .join("")}
-            ${Array(adjustedFirstDay)
-              .fill('<div class="calendar-day empty"></div>')
-              .join("")}
-            ${daysHTML}
-          </div>
-          ${
-            this.state.loading
-              ? '<div class="calendar-loading">Загрузка...</div>'
-              : ""
-          }
-        </div>
-      `;
     };
 
     // Форматирование даты в строку YYYY-MM-DD
@@ -240,23 +298,40 @@ define(["jquery"], function ($) {
 
     // Обновление представления календаря
     this.updateCalendarView = function () {
-      var html = self.generateCalendarHTML();
+      try {
+        var html = self.generateCalendarHTML();
 
-      // Пытаемся использовать render_template для amoCRM
-      self
-        .render_template({
-          data: html,
-          load: function () {
-            self.bindCalendarEvents();
-          },
-        })
-        .catch(function () {
-          // Fallback для standalone режима
+        // Проверяем доступность render_template
+        if (typeof self.render_template === "function") {
+          self
+            .render_template({
+              data: html,
+              load: function () {
+                self.bindCalendarEvents();
+              },
+            })
+            .catch(function (e) {
+              console.error("Ошибка render_template:", e);
+              // Fallback если render_template завершился с ошибкой
+              var container =
+                document.getElementById("widget-root") || document.body;
+              container.innerHTML = html;
+              self.bindCalendarEvents();
+            });
+        } else {
+          // Standalone режим
           var container =
             document.getElementById("widget-root") || document.body;
           container.innerHTML = html;
           self.bindCalendarEvents();
-        });
+        }
+      } catch (e) {
+        console.error("Error in updateCalendarView:", e);
+        // Fallback в случае ошибки
+        var container = document.getElementById("widget-root") || document.body;
+        container.innerHTML =
+          '<div class="calendar-error">Ошибка отображения календаря</div>';
+      }
     };
 
     // Привязка событий календаря
@@ -341,14 +416,14 @@ define(["jquery"], function ($) {
                   ? deals
                       .map(
                         (deal) => `
-                  <div class="deal-item">
-                    <h4>${deal.name}</h4>
-                    <p>Статус: ${
-                      self.state.statuses[deal.status_id] || "Неизвестно"
-                    }</p>
-                    <p>Сумма: ${deal.price} руб.</p>
-                  </div>
-                `
+                    <div class="deal-item">
+                      <h4>${deal.name}</h4>
+                      <p>Статус: ${
+                        self.state.statuses[deal.status_id] || "Неизвестно"
+                      }</p>
+                      <p>Сумма: ${deal.price} руб.</p>
+                    </div>
+                  `
                       )
                       .join("")
                   : `<p class="no-deals">${noDealsText}</p>`
@@ -393,18 +468,8 @@ define(["jquery"], function ($) {
           </div>
         `;
 
-        if (typeof this.render_template === "function") {
-          this.render_template({
-            body: errorHTML,
-            caption: {
-              class_name: "orders-calendar-error",
-            },
-          });
-        } else {
-          var container =
-            document.getElementById("widget-root") || document.body;
-          container.innerHTML = errorHTML;
-        }
+        var container = document.getElementById("widget-root") || document.body;
+        container.innerHTML = errorHTML;
       } catch (e) {
         console.error("Ошибка показа ошибки:", e);
       }

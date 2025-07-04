@@ -43,7 +43,7 @@ define(["jquery"], function ($) {
 
     // Версия виджета
     this.get_version = function () {
-      return "1.0.33";
+      return "1.0.34";
     };
 
     // Состояние виджета
@@ -191,7 +191,8 @@ define(["jquery"], function ($) {
           content_type: file.type || "application/octet-stream",
         };
 
-        AmoCRM.request("POST", "/v1.0/sessions", payload)
+        // Используем правильный хост для API файлов
+        AmoCRM.request("POST", "https://drive.amocrm.ru/v1.0/sessions", payload)
           .then(function (response) {
             if (response.session_id && response.upload_url) {
               resolve(response);
@@ -216,6 +217,7 @@ define(["jquery"], function ($) {
       return new Promise(function (resolve, reject) {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", uploadUrl, true);
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
         xhr.onload = function () {
           if (xhr.status === 200) {
@@ -270,7 +272,6 @@ define(["jquery"], function ($) {
                     uploadUrl = response.next_url;
                     uploadNextChunk();
                   } else if (response.uuid) {
-                    // Файл загружен, привязываем к сделке
                     return self.attachFileToLead(response.uuid, leadId);
                   } else {
                     throw new Error("Не удалось завершить загрузку");
@@ -367,7 +368,7 @@ define(["jquery"], function ($) {
           },
         ];
 
-        AmoCRM.request("DELETE", "/v1.0/files", payload)
+        AmoCRM.request("DELETE", "https://drive.amocrm.ru/v1.0/files", payload)
           .then(function () {
             resolve();
           })

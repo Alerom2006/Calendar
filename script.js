@@ -33,46 +33,17 @@ define(["jquery"], function ($) {
         errors: {
           load: "Ошибка загрузки данных",
           noDeals: "Нет сделок на эту дату",
+          fileUpload: "Ошибка загрузки файла",
+          fileDelete: "Ошибка удаления файла",
         },
       },
     };
 
     this.params = {};
 
-    this.render_template = function (options) {
-      return new Promise(function (resolve) {
-        try {
-          if (!options || !options.data) return resolve();
-
-          var container = document.getElementById("widget-root");
-          if (container) {
-            container.innerHTML = options.data;
-            if (typeof options.load === "function") {
-              options.load();
-            }
-          }
-          resolve();
-        } catch (e) {
-          console.error("Error in render_template:", e);
-          resolve();
-        }
-      });
-    };
-
-    this.get_settings = function () {
-      try {
-        return {
-          deal_date_field_id: 885453,
-          delivery_range_field: null,
-        };
-      } catch (e) {
-        console.error("Error in get_settings:", e);
-        return {};
-      }
-    };
-
+    // Версия виджета
     this.get_version = function () {
-      return "1.0.31"; // Синхронизировано с manifest.json
+      return "1.0.32";
     };
 
     // Состояние виджета
@@ -81,6 +52,7 @@ define(["jquery"], function ($) {
       currentDate: new Date(),
       dealsData: {},
       loading: false,
+      fileUploading: false,
       fieldIds: {
         ORDER_DATE: 885453,
         DELIVERY_RANGE: null,
@@ -96,59 +68,215 @@ define(["jquery"], function ($) {
       },
     };
 
-    // Основные методы виджета
-    this.getWidgetTitle = function () {
-      try {
-        return this.langs.ru?.widget?.name || "Календарь заказов";
-      } catch (e) {
-        console.error("Error in getWidgetTitle:", e);
-        return "Календарь заказов";
-      }
+    // ========== API ФАЙЛОВ ========== //
+
+    /**
+     * Создание сессии для загрузки файла
+     * @param {Object} file - Объект файла
+     * @returns {Promise} - Промис с результатом
+     */
+    this.createFileUploadSession = function (file) {
+      return new Promise(function (resolve, reject) {
+        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+          return reject(new Error("AmoCRM API не доступен"));
+        }
+
+        const payload = {
+          file_name: file.name,
+          file_size: file.size,
+          content_type: file.type || "application/octet-stream",
+        };
+
+        AmoCRM.request("POST", "/v1.0/sessions", payload)
+          .then(function (response) {
+            if (response.session_id && response.upload_url) {
+              resolve(response);
+            } else {
+              reject(new Error("Неверный ответ сервера"));
+            }
+          })
+          .catch(function (error) {
+            console.error("Ошибка создания сессии загрузки:", error);
+            reject(error);
+          });
+      });
     };
 
-    this.applySettings = function (settings) {
-      try {
-        if (!settings) return false;
+    /**
+     * Загрузка части файла
+     * @param {String} uploadUrl - URL для загрузки
+     * @param {Blob} chunk - Часть файла
+     * @returns {Promise} - Промис с результатом
+     */
+    this.uploadFileChunk = function (uploadUrl, chunk) {
+      return new Promise(function (resolve, reject) {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", uploadUrl, true);
 
-        self.state.apiKey = settings.api_key || null;
-        self.state.account = settings.account || null;
-        self.state.language = settings.language || null;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve(response);
+            } catch (e) {
+              reject(new Error("Ошибка парсинга ответа"));
+            }
+          } else {
+            reject(new Error(`Ошибка загрузки: ${xhr.status}`));
+          }
+        };
 
-        self.state.fieldIds.ORDER_DATE =
-          parseInt(settings.deal_date_field_id) || 885453;
-        self.state.fieldIds.DELIVERY_RANGE = settings.delivery_range_field
-          ? parseInt(settings.delivery_range_field)
-          : null;
+        xhr.onerror = function () {
+          reject(new Error("Ошибка сети"));
+        };
 
-        return true;
-      } catch (e) {
-        console.error("Error in applySettings:", e);
-        return false;
-      }
+        xhr.send(chunk);
+      });
     };
 
-    this.formatDate = function (day, month, year) {
-      try {
-        return [
-          year,
-          month.toString().padStart(2, "0"),
-          day.toString().padStart(2, "0"),
-        ].join("-");
-      } catch (e) {
-        console.error("Error in formatDate:", e);
-        return "1970-01-01";
-      }
+    /**
+     * Полная загрузка файла
+     * @param {File} file - Файл для загрузки
+     * @param {Number} leadId - ID сделки
+     * @returns {Promise} - Промис с результатом
+     */
+    this.uploadFile = function (file, leadId) {
+      return new Promise(function (resolve, reject) {
+        self.state.fileUploading = true;
+
+        self
+          .createFileUploadSession(file)
+          .then(function (session) {
+            const chunkSize = session.max_part_size || 524288;
+            const chunks = Math.ceil(file.size / chunkSize);
+            let currentChunk = 0;
+            let uploadUrl = session.upload_url;
+
+            function uploadNextChunk() {
+              const start = currentChunk * chunkSize;
+              const end = Math.min(start + chunkSize, file.size);
+              const chunk = file.slice(start, end);
+
+              self
+                .uploadFileChunk(uploadUrl, chunk)
+                .then(function (response) {
+                  currentChunk++;
+
+                  if (currentChunk < chunks && response.next_url) {
+                    uploadUrl = response.next_url;
+                    uploadNextChunk();
+                  } else if (response.uuid) {
+                    // Файл загружен, привязываем к сделке
+                    return self.attachFileToLead(response.uuid, leadId);
+                  } else {
+                    throw new Error("Не удалось завершить загрузку");
+                  }
+                })
+                .then(function () {
+                  self.state.fileUploading = false;
+                  resolve();
+                })
+                .catch(function (error) {
+                  self.state.fileUploading = false;
+                  reject(error);
+                });
+            }
+
+            uploadNextChunk();
+          })
+          .catch(function (error) {
+            self.state.fileUploading = false;
+            reject(error);
+          });
+      });
     };
 
-    this.getTodayDateString = function () {
-      try {
-        return new Date().toISOString().split("T")[0];
-      } catch (e) {
-        console.error("Error in getTodayDateString:", e);
-        return "1970-01-01";
-      }
+    /**
+     * Привязка файла к сделке
+     * @param {String} fileUuid - UUID файла
+     * @param {Number} leadId - ID сделки
+     * @returns {Promise} - Промис с результатом
+     */
+    this.attachFileToLead = function (fileUuid, leadId) {
+      return new Promise(function (resolve, reject) {
+        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+          return reject(new Error("AmoCRM API не доступен"));
+        }
+
+        const payload = [
+          {
+            file_uuid: fileUuid,
+          },
+        ];
+
+        AmoCRM.request("PUT", `/api/v4/leads/${leadId}/files`, payload)
+          .then(function () {
+            resolve();
+          })
+          .catch(function (error) {
+            console.error("Ошибка привязки файла:", error);
+            reject(error);
+          });
+      });
     };
 
+    /**
+     * Получение файлов сделки
+     * @param {Number} leadId - ID сделки
+     * @returns {Promise} - Промис с массивом файлов
+     */
+    this.getLeadFiles = function (leadId) {
+      return new Promise(function (resolve, reject) {
+        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+          return reject(new Error("AmoCRM API не доступен"));
+        }
+
+        AmoCRM.request("GET", `/api/v4/leads/${leadId}/files`)
+          .then(function (response) {
+            if (response._embedded && response._embedded.files) {
+              resolve(response._embedded.files);
+            } else {
+              resolve([]);
+            }
+          })
+          .catch(function (error) {
+            console.error("Ошибка получения файлов:", error);
+            reject(error);
+          });
+      });
+    };
+
+    /**
+     * Удаление файла
+     * @param {String} fileUuid - UUID файла
+     * @returns {Promise} - Промис с результатом
+     */
+    this.deleteFile = function (fileUuid) {
+      return new Promise(function (resolve, reject) {
+        if (typeof AmoCRM === "undefined" || !AmoCRM.request) {
+          return reject(new Error("AmoCRM API не доступен"));
+        }
+
+        const payload = [
+          {
+            uuid: fileUuid,
+          },
+        ];
+
+        AmoCRM.request("DELETE", "/v1.0/files", payload)
+          .then(function () {
+            resolve();
+          })
+          .catch(function (error) {
+            console.error("Ошибка удаления файла:", error);
+            reject(error);
+          });
+      });
+    };
+
+    // ========== ОСНОВНЫЕ МЕТОДЫ ВИДЖЕТА ========== //
+
+    // Генерация HTML календаря
     this.generateCalendarHTML = function () {
       try {
         var month = this.state.currentDate.getMonth();
@@ -198,6 +326,11 @@ define(["jquery"], function ($) {
               ${daysHTML}
             </div>
             ${this.state.loading ? '<div class="loading-spinner"></div>' : ""}
+            ${
+              this.state.fileUploading
+                ? '<div class="file-upload-progress">Загрузка файла...</div>'
+                : ""
+            }
           </div>
         `;
       } catch (e) {
@@ -206,101 +339,49 @@ define(["jquery"], function ($) {
       }
     };
 
-    this.updateCalendarView = function () {
-      try {
-        var html = self.generateCalendarHTML();
-        var container = document.getElementById("widget-root");
-
-        if (container) {
-          container.innerHTML = html;
-          self.bindCalendarEvents();
-        }
-      } catch (e) {
-        console.error("Error in updateCalendarView:", e);
-      }
-    };
-
-    this.bindCalendarEvents = function () {
-      try {
-        $(document).off("click.calendar");
-        $(document).on(
-          "click.calendar",
-          ".prev-month, .next-month",
-          function () {
-            var direction = $(this).hasClass("prev-month") ? -1 : 1;
-            self.navigateMonth(direction);
-          }
-        );
-
-        $(document).off("click.date");
-        $(document).on("click.date", ".calendar-day[data-date]", function () {
-          var dateStr = $(this).data("date");
-          self.handleDateClick(dateStr);
-        });
-      } catch (e) {
-        console.error("Error in bindCalendarEvents:", e);
-      }
-    };
-
-    this.navigateMonth = function (direction) {
-      try {
-        self.state.currentDate.setMonth(
-          self.state.currentDate.getMonth() + direction
-        );
-        self.renderCalendar();
-      } catch (e) {
-        console.error("Error in navigateMonth:", e);
-      }
-    };
-
-    this.handleDateClick = function (dateStr) {
-      try {
-        if (typeof AmoCRM !== "undefined" && AmoCRM.router) {
-          AmoCRM.router.navigate({
-            leads: {
-              filter: {
-                [self.state.fieldIds.ORDER_DATE]: {
-                  from: Math.floor(new Date(dateStr).getTime() / 1000),
-                  to: Math.floor(new Date(dateStr).getTime() / 1000 + 86399),
-                },
-              },
-            },
-          });
-        } else {
-          self.showDealsPopup(dateStr);
-        }
-      } catch (e) {
-        console.error("Error in handleDateClick:", e);
-      }
-    };
-
+    // Показать попап со сделками и файлами
     this.showDealsPopup = function (dateStr) {
       try {
         var deals = self.state.dealsData[dateStr] || [];
         var noDealsText =
           self.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
 
+        // Сначала получаем HTML для сделок
+        var dealsHTML = deals.length
+          ? deals
+              .map(
+                (deal) => `
+              <div class="deal-item" data-deal-id="${deal.id}">
+                <h4>${deal.name}</h4>
+                <p>Статус: ${
+                  self.state.statuses[deal.status_id] || "Неизвестно"
+                }</p>
+                <p>Сумма: ${deal.price} руб.</p>
+                <div class="deal-files">
+                  <h5>Файлы:</h5>
+                  <div class="files-list" id="files-${deal.id}">
+                    <div class="loading-files">Загрузка файлов...</div>
+                  </div>
+                  <div class="file-upload-container">
+                    <input type="file" id="file-input-${
+                      deal.id
+                    }" class="file-input" multiple>
+                    <button class="upload-file-btn" data-deal-id="${
+                      deal.id
+                    }">Добавить файл</button>
+                  </div>
+                </div>
+              </div>
+            `
+              )
+              .join("")
+          : `<p class="no-deals">${noDealsText}</p>`;
+
         var popupHTML = `
           <div class="deals-popup">
             <h3>Сделки на ${dateStr}</h3>
             <div class="deals-list">
-              ${
-                deals.length
-                  ? deals
-                      .map(
-                        (deal) => `
-                    <div class="deal-item">
-                      <h4>${deal.name}</h4>
-                      <p>Статус: ${
-                        self.state.statuses[deal.status_id] || "Неизвестно"
-                      }</p>
-                      <p>Сумма: ${deal.price} руб.</p>
-                    </div>
-                  `
-                      )
-                      .join("")
-                  : `<p class="no-deals">${noDealsText}</p>`
-              }
+              ${dealsHTML}
             </div>
             <button class="close-popup">Закрыть</button>
           </div>
@@ -309,9 +390,113 @@ define(["jquery"], function ($) {
         $(".deals-popup").remove();
         $("#widget-root").append(popupHTML);
 
+        // Загружаем файлы для каждой сделки
+        deals.forEach(function (deal) {
+          if (typeof AmoCRM !== "undefined") {
+            self
+              .getLeadFiles(deal.id)
+              .then(function (files) {
+                const filesContainer = $(`#files-${deal.id}`);
+                filesContainer.empty();
+
+                if (files.length) {
+                  files.forEach(function (file) {
+                    filesContainer.append(`
+                      <div class="file-item" data-file-uuid="${file.file_uuid}">
+                        <span>Файл ${file.file_uuid}</span>
+                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                      </div>
+                    `);
+                  });
+                } else {
+                  filesContainer.append(
+                    '<div class="no-files">Нет прикрепленных файлов</div>'
+                  );
+                }
+              })
+              .catch(function (error) {
+                console.error("Ошибка загрузки файлов:", error);
+                $(`#files-${deal.id}`).html(
+                  '<div class="files-error">Ошибка загрузки файлов</div>'
+                );
+              });
+          }
+        });
+
+        // Обработчики событий
         $(document).off("click.popup");
         $(document).on("click.popup", ".close-popup", function () {
           $(".deals-popup").remove();
+        });
+
+        $(document).on("click.popup", ".upload-file-btn", function () {
+          const dealId = $(this).data("deal-id");
+          const fileInput = $(`#file-input-${dealId}`)[0];
+
+          if (fileInput.files.length) {
+            Array.from(fileInput.files).forEach(function (file) {
+              self
+                .uploadFile(file, dealId)
+                .then(function () {
+                  // Обновляем список файлов после загрузки
+                  return self.getLeadFiles(dealId);
+                })
+                .then(function (files) {
+                  const filesContainer = $(`#files-${dealId}`);
+                  filesContainer.empty();
+
+                  files.forEach(function (file) {
+                    filesContainer.append(`
+                      <div class="file-item" data-file-uuid="${file.file_uuid}">
+                        <span>Файл ${file.file_uuid}</span>
+                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                      </div>
+                    `);
+                  });
+                })
+                .catch(function (error) {
+                  console.error("Ошибка загрузки:", error);
+                  alert(self.langs.ru.errors.fileUpload);
+                });
+            });
+          }
+        });
+
+        $(document).on("click.popup", ".delete-file-btn", function () {
+          const fileUuid = $(this).data("file-uuid");
+          const dealId = $(this).closest(".deal-item").data("deal-id");
+
+          if (confirm("Вы уверены, что хотите удалить этот файл?")) {
+            self
+              .deleteFile(fileUuid)
+              .then(function () {
+                // Обновляем список файлов после удаления
+                return self.getLeadFiles(dealId);
+              })
+              .then(function (files) {
+                const filesContainer = $(`#files-${dealId}`);
+                filesContainer.empty();
+
+                if (files.length) {
+                  files.forEach(function (file) {
+                    filesContainer.append(`
+                      <div class="file-item" data-file-uuid="${file.file_uuid}">
+                        <span>Файл ${file.file_uuid}</span>
+                        <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">×</button>
+                      </div>
+                    `);
+                  });
+                } else {
+                  filesContainer.append(
+                    '<div class="no-files">Нет прикрепленных файлов</div>'
+                  );
+                }
+              })
+              .catch(function (error) {
+                console.error("Ошибка удаления:", error);
+                alert(self.langs.ru.errors.fileDelete);
+              });
+          }
         });
       } catch (e) {
         console.error("Error in showDealsPopup:", e);

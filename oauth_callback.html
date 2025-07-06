@@ -9,7 +9,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get("code");
       const state = urlParams.get("state");
-      //Токен: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjlhM2M3YjA4MTU1NjJhZWFkMGNmZWVlNTZlNmEzMGJlOTg2YTQ5ZWQzNWZhMWZiMjMyYjUyZjFmMjQ1MTYwYTRkYWU1MDA0MTM5YWQyMGI0In0.eyJhdWQiOiIzMDE5N2FjMi0yODc3LTRjMDItOTNjNy00ZmNmOGRjMTMwMDkiLCJqdGkiOiI5YTNjN2IwODE1NTYyYWVhZDBjZmVlZTU2ZTZhMzBiZTk4NmE0OWVkMzVmYTFmYjIzMmI1MmYxZjI0NTE2MGE0ZGFlNTAwNDEzOWFkMjBiNCIsImlhdCI6MTc1MTY2NDI2OSwibmJmIjoxNzUxNjY0MjY5LCJleHAiOjE5MDkzNTM2MDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiN2QxZDk5NDYtOWZiNC00MzQ1LTg2NzAtZTFjZDAzZWY1ZDVlIiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.Lb9RHunxt4jGw14rQisPpPMPIg4SBaXjLL7CIbdykr1dErqDn4vbuLSNKWbAz2lwHn9K79ZZ4fHL9src4PASbTB5T-pzSPw7tQtn4izf5eQCeDmpvs62W9-WNovwV4Ln16XAQX8lYbGbe6VoG9YHbHPw54AHzeaAV4aSvO48stkEKki0JVAw1e1ZJ4gpRUywSjJsbrdUY8UsjeSEZhwKjLEQgNMXqx8CJN2R1gVpl1TYokHDmUZSYq-I9xTE9zsuT1j-iO1V68SBilZRN8823xhBtuZR2v3msOOqGW_GvNWqpn5iY5M0OK-NW7B8pZhKOMpRAFSLQbMMFuEL-hD2pw
+      //Токен: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjQwYzI2Y2QxMGQzZmQxZTNiMDA2MDhjM2YwNDRkYmY0OWI5OGMxMWFiMTQxNDhmOGI1MTcyYzQ1MmI2NDdkOTI0MjU0MGZiYjFlYjI5YmEzIn0.eyJhdWQiOiJiZmM4OGYyOS1hNGFlLTRmNjUtYTY2ZC1mZGFmNmRiYjEzZjUiLCJqdGkiOiI0MGMyNmNkMTBkM2ZkMWUzYjAwNjA4YzNmMDQ0ZGJmNDliOThjMTFhYjE0MTQ4ZjhiNTE3MmM0NTJiNjQ3ZDkyNDI1NDBmYmIxZWIyOWJhMyIsImlhdCI6MTc1MTgyMjAxOCwibmJmIjoxNzUxODIyMDE4LCJleHAiOjE5MDk1MjY0MDAsInN1YiI6IjEwNDgwMDQ2IiwiZ3JhbnRfdHlwZSI6IiIsImFjY291bnRfaWQiOjMxNDcyMTEwLCJiYXNlX2RvbWFpbiI6ImFtb2NybS5ydSIsInZlcnNpb24iOjIsInNjb3BlcyI6WyJjcm0iLCJmaWxlcyIsImZpbGVzX2RlbGV0ZSIsIm5vdGlmaWNhdGlvbnMiLCJwdXNoX25vdGlmaWNhdGlvbnMiXSwiaGFzaF91dWlkIjoiNTk5YjIxZGEtN2EzMi00Mzc3LTgwYTQtOTg1N2ZiYThiMTNmIiwiYXBpX2RvbWFpbiI6ImFwaS1iLmFtb2NybS5ydSJ9.B86eMbWCSlRz9GAiaiR2wuvRFOleFaYKLgDaZYnBSA0nNPRVcZu1wMtE90DyOhwsRTew-QQza5knTAyReQiKu_VHAfguiigOMZoU7JKOt6tM-rT_WsxNcLktPp_X8iSJirB9juSqoNf7L6CB93C4wUvC1uiD6dYhQvwmGrnDGxWUII-0N7nbE42QgU4nNef2bA4rLigXav7hSHw7ojlSp2xhh6zpm2vzY6k9HQYiqX4uGC--fRe2DV8roQgBItB-qNQ7FJKqcksrV0R1Mm3y5Knho8Vrvey2s_N7rRnTrCianZmwF9VMSrCub_hQ7q9AcvxPvZUavDtX0h446C1tVA
       if (!code || !state) {
         alert("Ошибка авторизации: отсутствует код или состояние.");
       } else {
@@ -19,9 +19,9 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            client_id: "30197ac2-2877-4c02-93c7-4fcf8dc13009",
+            client_id: "bfc88f29-a4ae-4f65-a66d-fdaf6dbb13f5",
             client_secret:
-              "urilvRb4DRFYT9PI24frUEbVcPe2FjUovugVgT7dZ1weugjPNLxGwPh8EAfQoGdF", //885453
+              "Bbw5UXCaHx9WtDYXHO7SpjRydiD4UjgKJtsOJlzNn39Q5rZfm3vxMNkBYtuAvLxW", //885453
             grant_type: "authorization_code", //892009
             code: code,
             redirect_uri:

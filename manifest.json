@@ -5,7 +5,7 @@
     "description": "widget.description",
     "short_description": "widget.short_description",
     "tour_description": "widget.tour_description",
-    "version": "1.0.60",
+    "version": "1.0.61",
     "interface_version": 3,
     "init_once": false,
     "locale": ["ru", "en"],

@@ -14,8 +14,9 @@ if (typeof define === "function") {
 function createOrdersCalendarWidget($) {
   "use strict";
 
-  // Сначала определяем конструктор
+  // Конструктор виджета
   var OrdersCalendarWidget = function (params) {
+    // Реализация паттерна Singleton
     if (typeof OrdersCalendarWidget.instance === "object") {
       return OrdersCalendarWidget.instance;
     }
@@ -28,7 +29,7 @@ function createOrdersCalendarWidget($) {
 
     // Проверяем доступность jQuery
     if (!$) {
-      this.showError("jQuery не загружен");
+      console.error("jQuery не загружен");
       return this;
     }
 
@@ -49,21 +50,16 @@ function createOrdersCalendarWidget($) {
       }
 
       if (!this.isAMOCRMReady) {
-        this.showError("AMOCRM API недоступен или требуется авторизация");
+        console.error("AMOCRM API недоступен или требуется авторизация");
         return this;
       }
     }
 
     // Инициализация виджета
-    if (typeof this.initialize === "function") {
-      this.initialize();
-    } else {
-      console.error("Метод initialize не найден");
-      this.showError("Ошибка инициализации виджета");
-    }
+    this.initialize();
   };
 
-  // Затем определяем прототип
+  // Прототип виджета
   OrdersCalendarWidget.prototype = {
     initialize: function () {
       console.log("Инициализация виджета...");
@@ -141,53 +137,7 @@ function createOrdersCalendarWidget($) {
       console.log("Инициализация завершена");
     },
 
-    get_version: function () {
-      return "1.0.48";
-    },
-
-    formatDate: function (day, month, year) {
-      return `${year}-${month.toString().padStart(2, "0")}-${day
-        .toString()
-        .padStart(2, "0")}`;
-    },
-
-    getTodayDateString: function () {
-      const today = new Date();
-      return this.formatDate(
-        today.getDate(),
-        today.getMonth() + 1,
-        today.getFullYear()
-      );
-    },
-
-    getWidgetTitle: function () {
-      return this.langs.ru?.widget?.name || "Календарь заказов";
-    },
-
-    applySettings: function (settings) {
-      try {
-        if (settings && typeof settings === "object") {
-          if (settings.deal_date_field_id) {
-            this.state.fieldIds.ORDER_DATE =
-              parseInt(settings.deal_date_field_id) || 885453;
-          }
-          if (settings.delivery_range_field) {
-            this.state.fieldIds.DELIVERY_RANGE =
-              parseInt(settings.delivery_range_field) || null;
-          }
-          return true;
-        }
-        return false;
-      } catch (e) {
-        console.error("Ошибка применения настроек:", e);
-        return false;
-      }
-    },
-
-    get_settings: function () {
-      return this.params;
-    },
-
+    // Метод для отображения ошибок
     showError: function (message) {
       try {
         const widgetRoot = document.getElementById("widget-root");
@@ -209,6 +159,50 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Метод для форматирования даты
+    formatDate: function (day, month, year) {
+      return `${year}-${month.toString().padStart(2, "0")}-${day
+        .toString()
+        .padStart(2, "0")}`;
+    },
+
+    // Получение текущей даты в виде строки
+    getTodayDateString: function () {
+      const today = new Date();
+      return this.formatDate(
+        today.getDate(),
+        today.getMonth() + 1,
+        today.getFullYear()
+      );
+    },
+
+    // Получение заголовка виджета
+    getWidgetTitle: function () {
+      return this.langs.ru?.widget?.name || "Календарь заказов";
+    },
+
+    // Применение настроек
+    applySettings: function (settings) {
+      try {
+        if (settings && typeof settings === "object") {
+          if (settings.deal_date_field_id) {
+            this.state.fieldIds.ORDER_DATE =
+              parseInt(settings.deal_date_field_id) || 885453;
+          }
+          if (settings.delivery_range_field) {
+            this.state.fieldIds.DELIVERY_RANGE =
+              parseInt(settings.delivery_range_field) || null;
+          }
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error("Ошибка применения настроек:", e);
+        return false;
+      }
+    },
+
+    // Выполнение запроса к API
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
@@ -249,6 +243,7 @@ function createOrdersCalendarWidget($) {
       });
     },
 
+    // Загрузка данных сделок
     loadData: function () {
       return new Promise((resolve) => {
         try {
@@ -314,6 +309,7 @@ function createOrdersCalendarWidget($) {
       });
     },
 
+    // Генерация тестовых данных для standalone режима
     generateMockData: function (dateFrom, dateTo) {
       const mockData = {};
       const daysInMonth = new Date(
@@ -350,6 +346,7 @@ function createOrdersCalendarWidget($) {
       return mockData;
     },
 
+    // Обработка данных сделок
     processData: function (deals) {
       try {
         const newDealsData = {};
@@ -386,6 +383,7 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Генерация HTML календаря
     generateCalendarHTML: function () {
       try {
         if (!this.state.initialized) {
@@ -456,6 +454,7 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Обновление отображения календаря
     updateCalendarView: function () {
       try {
         const widgetRoot = document.getElementById("widget-root");
@@ -468,6 +467,7 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Рендеринг календаря
     renderCalendar: function () {
       return new Promise((resolve) => {
         try {
@@ -508,6 +508,7 @@ function createOrdersCalendarWidget($) {
       });
     },
 
+    // Привязка событий календаря
     bindCalendarEvents: function () {
       try {
         $(document).off("click.calendar");
@@ -537,6 +538,7 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Отображение попапа со сделками
     showDealsPopup: function (dateStr) {
       try {
         const deals = this.state.dealsData[dateStr] || [];
@@ -588,6 +590,7 @@ function createOrdersCalendarWidget($) {
       }
     },
 
+    // Основной метод рендеринга виджета
     renderWidget: function () {
       return this.renderCalendar();
     },

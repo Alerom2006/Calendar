@@ -22,39 +22,51 @@ define(["jquery"], function ($) {
       return this;
     }
 
-    // Инициализация callbacks объекта с проверкой существования
-    this.callbacks = this.callbacks || {};
-    this.callbacks = {
-      settings: function () {},
-      init: function () {
-        return true;
+    // Инициализация состояния виджета
+    this.state = {
+      initialized: false,
+      currentDate: new Date(),
+      dealsData: {},
+      loading: false,
+      fieldIds: { ORDER_DATE: 885453, DELIVERY_RANGE: null },
+      statuses: {
+        142: "Новая",
+        143: "В работе",
+        144: "Завершена",
+        145: "Отменена",
       },
-      bind_actions: function () {
-        return true;
-      },
-      render: function () {
-        return true;
-      },
-      dpSettings: function () {},
-      advancedSettings: function () {},
-      destroy: function () {},
-      contacts: {
-        selected: function () {},
-      },
-      leads: {
-        selected: function () {},
-      },
-      todo: {
-        selected: function () {},
-      },
-      onSave: function () {
-        console.log("onSave callback executed");
-        return true;
-      },
-      onAddAsSource: function (pipeline_id) {},
+      cache: { monthsData: {} },
     };
 
-    // Проверка доступности AMOCRM API с обработкой ошибок
+    // Локализация
+    this.langs = {
+      ru: {
+        widget: { name: "Календарь заказов" },
+        months: [
+          "Январь",
+          "Февраль",
+          "Март",
+          "Апрель",
+          "Май",
+          "Июнь",
+          "Июль",
+          "Август",
+          "Сентябрь",
+          "Октябрь",
+          "Ноябрь",
+          "Декабрь",
+        ],
+        weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+        errors: {
+          load: "Ошибка загрузки данных",
+          noDeals: "Нет сделок на эту дату",
+          noAuth: "Требуется авторизация",
+          apiError: "Ошибка API: ресурс не найден",
+        },
+      },
+    };
+
+    // Проверка доступности AMOCRM API
     this.isAmoCRMMode = typeof AmoCRM !== "undefined";
     this.isAMOCRMReady = false;
 
@@ -69,14 +81,33 @@ define(["jquery"], function ($) {
         console.error("Ошибка проверки AMOCRM API:", e);
         this.isAMOCRMReady = false;
       }
-
-      if (!this.isAMOCRMReady) {
-        console.error("AMOCRM API недоступен или требуется авторизация");
-        return this;
-      }
     }
 
-    // Защищенная инициализация
+    // Получаем данные аккаунта и пользователя
+    const accountData = this.isAMOCRMReady
+      ? AMOCRM.constant("account") || {}
+      : {};
+    const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
+    const currentCard = this.isAMOCRMReady
+      ? AMOCRM.data.current_card || {}
+      : {};
+
+    // Системные настройки
+    this.system = {
+      area: currentCard.type || "standalone",
+      amouser_id: userData.id || null,
+      amouser: userData.name || null,
+      amohash: userData.api_key || null,
+      subdomain: accountData.subdomain || "yourdomain",
+      account_id: accountData.id || null,
+    };
+
+    // Применяем переданные настройки
+    if (this.params.settings && typeof this.params.settings === "object") {
+      this.applySettings(this.params.settings);
+    }
+
+    // Инициализация виджета
     try {
       this.initialize();
     } catch (e) {
@@ -87,91 +118,18 @@ define(["jquery"], function ($) {
     return this;
   };
 
-  // Прототип виджета с улучшенной обработкой ошибок
+  // Прототип виджета
   OrdersCalendarWidget.prototype = {
     initialize: function () {
       console.log("Инициализация виджета...");
-
-      // Получаем данные аккаунта и пользователя из AMOCRM (если доступно)
-      const accountData = this.isAMOCRMReady
-        ? AMOCRM.constant("account") || {}
-        : {};
-      const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
-      const currentCard = this.isAMOCRMReady
-        ? AMOCRM.data.current_card || {}
-        : {};
-
-      // Системные настройки
-      this.system = {
-        area: currentCard.type || "standalone",
-        amouser_id: userData.id || null,
-        amouser: userData.name || null,
-        amohash: userData.api_key || null,
-        subdomain: accountData.subdomain || "yourdomain",
-        account_id: accountData.id || null,
-      };
-
-      // Локализация
-      this.langs = {
-        ru: {
-          widget: { name: "Календарь заказов" },
-          months: [
-            "Январь",
-            "Февраль",
-            "Март",
-            "Апрель",
-            "Май",
-            "Июнь",
-            "Июль",
-            "Август",
-            "Сентябрь",
-            "Октябрь",
-            "Ноябрь",
-            "Декабрь",
-          ],
-          weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-          errors: {
-            load: "Ошибка загрузки данных",
-            noDeals: "Нет сделок на эту дату",
-            noAuth: "Требуется авторизация",
-            apiError: "Ошибка API: ресурс не найден",
-          },
-        },
-      };
-
-      // Состояние виджета
-      this.state = {
-        initialized: false,
-        currentDate: new Date(),
-        dealsData: {},
-        loading: false,
-        fieldIds: { ORDER_DATE: 885453, DELIVERY_RANGE: null },
-        statuses: {
-          142: "Новая",
-          143: "В работе",
-          144: "Завершена",
-          145: "Отменена",
-        },
-        cache: { monthsData: {} },
-      };
-
-      // Применяем переданные настройки с проверкой
-      if (this.params.settings && typeof this.params.settings === "object") {
-        this.applySettings(this.params.settings);
-      }
-
-      // Помечаем, что инициализация завершена
       this.state.initialized = true;
       console.log("Инициализация завершена");
-
-      // Вызываем renderWidget после инициализации
       this.renderWidget().catch((e) => {
         console.error("Ошибка при рендеринге виджета:", e);
         this.showError("Ошибка отображения виджета");
       });
     },
 
-    // Метод для отображения ошибок
     showError: function (message) {
       try {
         const widgetRoot = document.getElementById("widget-root");
@@ -193,14 +151,12 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Метод для форматирования даты
     formatDate: function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
         .padStart(2, "0")}`;
     },
 
-    // Получение текущей даты в виде строки
     getTodayDateString: function () {
       const today = new Date();
       return this.formatDate(
@@ -210,12 +166,10 @@ define(["jquery"], function ($) {
       );
     },
 
-    // Получение заголовка виджета
     getWidgetTitle: function () {
       return this.langs.ru?.widget?.name || "Календарь заказов";
     },
 
-    // Применение настроек с улучшенной обработкой ошибок
     applySettings: function (settings) {
       try {
         if (settings && typeof settings === "object") {
@@ -236,7 +190,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Выполнение запроса к API с улучшенной обработкой ошибок
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
@@ -277,7 +230,6 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Загрузка данных сделок с улучшенной обработкой ошибок
     loadData: function () {
       return new Promise((resolve) => {
         try {
@@ -343,7 +295,6 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Генерация тестовых данных для standalone режима
     generateMockData: function (dateFrom, dateTo) {
       const mockData = {};
       const daysInMonth = new Date(
@@ -380,7 +331,6 @@ define(["jquery"], function ($) {
       return mockData;
     },
 
-    // Обработка данных сделок с улучшенной обработкой ошибок
     processData: function (deals) {
       try {
         const newDealsData = {};
@@ -417,7 +367,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Генерация HTML календаря с улучшенной обработкой ошибок
     generateCalendarHTML: function () {
       try {
         if (!this.state.initialized) {
@@ -487,7 +436,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Обновление отображения календаря с проверкой
     updateCalendarView: function () {
       try {
         const widgetRoot = document.getElementById("widget-root");
@@ -500,7 +448,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Рендеринг календаря с улучшенной обработкой ошибок
     renderCalendar: function () {
       return new Promise((resolve) => {
         try {
@@ -541,7 +488,6 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Привязка событий календаря с проверкой
     bindCalendarEvents: function () {
       try {
         $(document).off("click.calendar");
@@ -571,7 +517,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Отображение попапа со сделками с проверкой
     showDealsPopup: function (dateStr) {
       try {
         const deals = this.state.dealsData[dateStr] || [];
@@ -623,7 +568,6 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Основной метод рендеринга виджета с проверкой
     renderWidget: function () {
       if (!this.state.initialized) {
         console.error("Попытка рендеринга до инициализации");
@@ -637,13 +581,35 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Добавленный метод для безопасного вызова onSave
-    safeOnSave: function () {
-      if (this.callbacks && typeof this.callbacks.onSave === "function") {
-        return this.callbacks.onSave();
-      }
-      console.warn("Метод onSave не доступен");
-      return false;
+    // Callbacks для работы с amoCRM
+    callbacks: {
+      settings: function () {},
+      init: function () {
+        return true;
+      },
+      bind_actions: function () {
+        return true;
+      },
+      render: function () {
+        return true;
+      },
+      dpSettings: function () {},
+      advancedSettings: function () {},
+      destroy: function () {},
+      contacts: {
+        selected: function () {},
+      },
+      leads: {
+        selected: function () {},
+      },
+      todo: {
+        selected: function () {},
+      },
+      onSave: function () {
+        console.log("onSave callback executed");
+        return true;
+      },
+      onAddAsSource: function (pipeline_id) {},
     },
   };
 

@@ -157,7 +157,7 @@
     },
 
     get_version: function () {
-      return "1.0.54";
+      return "1.0.55";
     },
 
     formatDate: function (day, month, year) {

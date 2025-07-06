@@ -2,8 +2,11 @@ define(["jquery"], function ($) {
   "use strict";
 
   var OrdersCalendarWidget = function (params) {
-    // Реализация паттерна Singleton
-    if (typeof OrdersCalendarWidget.instance === "object") {
+    // Реализация паттерна Singleton с проверкой инициализации
+    if (
+      OrdersCalendarWidget.instance &&
+      OrdersCalendarWidget.instance.state.initialized
+    ) {
       return OrdersCalendarWidget.instance;
     }
 
@@ -19,7 +22,8 @@ define(["jquery"], function ($) {
       return this;
     }
 
-    // Инициализация callbacks объекта
+    // Инициализация callbacks объекта с проверкой существования
+    this.callbacks = this.callbacks || {};
     this.callbacks = {
       settings: function () {},
       init: function () {
@@ -44,12 +48,13 @@ define(["jquery"], function ($) {
         selected: function () {},
       },
       onSave: function () {
+        console.log("onSave callback executed");
         return true;
       },
       onAddAsSource: function (pipeline_id) {},
     };
 
-    // Проверка доступности AMOCRM API
+    // Проверка доступности AMOCRM API с обработкой ошибок
     this.isAmoCRMMode = typeof AmoCRM !== "undefined";
     this.isAMOCRMReady = false;
 
@@ -71,13 +76,18 @@ define(["jquery"], function ($) {
       }
     }
 
-    // Инициализация виджета
-    this.initialize();
+    // Защищенная инициализация
+    try {
+      this.initialize();
+    } catch (e) {
+      console.error("Ошибка инициализации виджета:", e);
+      this.showError("Ошибка инициализации виджета");
+    }
 
     return this;
   };
 
-  // Прототип виджета
+  // Прототип виджета с улучшенной обработкой ошибок
   OrdersCalendarWidget.prototype = {
     initialize: function () {
       console.log("Инициализация виджета...");
@@ -145,14 +155,20 @@ define(["jquery"], function ($) {
         cache: { monthsData: {} },
       };
 
-      // Применяем переданные настройки
-      if (this.params.settings) {
+      // Применяем переданные настройки с проверкой
+      if (this.params.settings && typeof this.params.settings === "object") {
         this.applySettings(this.params.settings);
       }
 
       // Помечаем, что инициализация завершена
       this.state.initialized = true;
       console.log("Инициализация завершена");
+
+      // Вызываем renderWidget после инициализации
+      this.renderWidget().catch((e) => {
+        console.error("Ошибка при рендеринге виджета:", e);
+        this.showError("Ошибка отображения виджета");
+      });
     },
 
     // Метод для отображения ошибок
@@ -199,7 +215,7 @@ define(["jquery"], function ($) {
       return this.langs.ru?.widget?.name || "Календарь заказов";
     },
 
-    // Применение настроек
+    // Применение настроек с улучшенной обработкой ошибок
     applySettings: function (settings) {
       try {
         if (settings && typeof settings === "object") {
@@ -220,7 +236,7 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Выполнение запроса к API
+    // Выполнение запроса к API с улучшенной обработкой ошибок
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
@@ -261,7 +277,7 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Загрузка данных сделок
+    // Загрузка данных сделок с улучшенной обработкой ошибок
     loadData: function () {
       return new Promise((resolve) => {
         try {
@@ -364,7 +380,7 @@ define(["jquery"], function ($) {
       return mockData;
     },
 
-    // Обработка данных сделок
+    // Обработка данных сделок с улучшенной обработкой ошибок
     processData: function (deals) {
       try {
         const newDealsData = {};
@@ -401,7 +417,7 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Генерация HTML календаря
+    // Генерация HTML календаря с улучшенной обработкой ошибок
     generateCalendarHTML: function () {
       try {
         if (!this.state.initialized) {
@@ -471,7 +487,7 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Обновление отображения календаря
+    // Обновление отображения календаря с проверкой
     updateCalendarView: function () {
       try {
         const widgetRoot = document.getElementById("widget-root");
@@ -484,7 +500,7 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Рендеринг календаря
+    // Рендеринг календаря с улучшенной обработкой ошибок
     renderCalendar: function () {
       return new Promise((resolve) => {
         try {
@@ -525,7 +541,7 @@ define(["jquery"], function ($) {
       });
     },
 
-    // Привязка событий календаря
+    // Привязка событий календаря с проверкой
     bindCalendarEvents: function () {
       try {
         $(document).off("click.calendar");
@@ -555,7 +571,7 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Отображение попапа со сделками
+    // Отображение попапа со сделками с проверкой
     showDealsPopup: function (dateStr) {
       try {
         const deals = this.state.dealsData[dateStr] || [];
@@ -607,9 +623,27 @@ define(["jquery"], function ($) {
       }
     },
 
-    // Основной метод рендеринга виджета
+    // Основной метод рендеринга виджета с проверкой
     renderWidget: function () {
-      return this.renderCalendar();
+      if (!this.state.initialized) {
+        console.error("Попытка рендеринга до инициализации");
+        return Promise.reject(new Error("Виджет не инициализирован"));
+      }
+
+      return this.renderCalendar().catch((e) => {
+        console.error("Ошибка при рендеринге виджета:", e);
+        this.showError("Ошибка отображения виджета");
+        throw e;
+      });
+    },
+
+    // Добавленный метод для безопасного вызова onSave
+    safeOnSave: function () {
+      if (this.callbacks && typeof this.callbacks.onSave === "function") {
+        return this.callbacks.onSave();
+      }
+      console.warn("Метод onSave не доступен");
+      return false;
     },
   };
 

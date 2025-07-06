@@ -13,6 +13,7 @@
     var self = this;
     self.params = params || {};
     self.instance = this;
+    self.__amowidget__ = true;
 
     // Check jQuery availability
     if (!$) {
@@ -50,7 +51,7 @@
       init: function () {
         return new Promise(function (resolve) {
           self.initialize();
-          resolve();
+          resolve(true);
         });
       },
       render: function () {
@@ -59,23 +60,31 @@
         });
       },
       bind_actions: function () {
-        // Bind any necessary actions
+        try {
+          self.bindCalendarEvents();
+          return true;
+        } catch (e) {
+          console.error("Ошибка привязки действий:", e);
+          return false;
+        }
       },
-      onSave: function () {
+      onSave: function (settings) {
         return new Promise(function (resolve) {
           try {
-            if (self.params && self.params.settings) {
-              self.applySettings(self.params.settings);
+            if (settings) {
+              self.applySettings(settings);
+              resolve(true);
+            } else {
+              resolve(false);
             }
-            resolve();
           } catch (e) {
             console.error("Ошибка сохранения настроек:", e);
-            resolve();
+            resolve(false);
           }
         });
       },
       onShow: function () {
-        // Handle widget show event
+        return true;
       },
     };
 
@@ -157,7 +166,7 @@
     },
 
     get_version: function () {
-      return "1.0.55";
+      return "1.0.56";
     },
 
     formatDate: function (day, month, year) {

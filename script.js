@@ -1,12 +1,21 @@
-define(["jquery"], function ($) {
+// Проверка доступности RequireJS/AMD
+if (typeof define === "function") {
+  define(["jquery"], function ($) {
+    "use strict";
+    return createOrdersCalendarWidget($);
+  });
+} else {
+  // Если RequireJS не доступен, используем глобальную переменную
+  window.OrdersCalendarWidget = createOrdersCalendarWidget(
+    window.jQuery || window.$
+  );
+}
+
+function createOrdersCalendarWidget($) {
   "use strict";
 
   var OrdersCalendarWidget = function (params) {
-    // Реализация паттерна Singleton с проверкой инициализации
-    if (
-      OrdersCalendarWidget.instance &&
-      OrdersCalendarWidget.instance.state.initialized
-    ) {
+    if (typeof OrdersCalendarWidget.instance === "object") {
       return OrdersCalendarWidget.instance;
     }
 
@@ -18,53 +27,9 @@ define(["jquery"], function ($) {
 
     // Проверяем доступность jQuery
     if (!$) {
-      console.error("jQuery не загружен");
+      this.showError("jQuery не загружен");
       return this;
     }
-
-    // Инициализация состояния виджета
-    this.state = {
-      initialized: false,
-      currentDate: new Date(),
-      dealsData: {},
-      loading: false,
-      fieldIds: { ORDER_DATE: 885453, DELIVERY_RANGE: null },
-      statuses: {
-        142: "Новая",
-        143: "В работе",
-        144: "Завершена",
-        145: "Отменена",
-      },
-      cache: { monthsData: {} },
-    };
-
-    // Локализация
-    this.langs = {
-      ru: {
-        widget: { name: "Календарь заказов" },
-        months: [
-          "Январь",
-          "Февраль",
-          "Март",
-          "Апрель",
-          "Май",
-          "Июнь",
-          "Июль",
-          "Август",
-          "Сентябрь",
-          "Октябрь",
-          "Ноябрь",
-          "Декабрь",
-        ],
-        weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-        errors: {
-          load: "Ошибка загрузки данных",
-          noDeals: "Нет сделок на эту дату",
-          noAuth: "Требуется авторизация",
-          apiError: "Ошибка API: ресурс не найден",
-        },
-      },
-    };
 
     // Проверка доступности AMOCRM API
     this.isAmoCRMMode = typeof AmoCRM !== "undefined";
@@ -81,76 +46,96 @@ define(["jquery"], function ($) {
         console.error("Ошибка проверки AMOCRM API:", e);
         this.isAMOCRMReady = false;
       }
-    }
 
-    // Получаем данные аккаунта и пользователя
-    const accountData = this.isAMOCRMReady
-      ? AMOCRM.constant("account") || {}
-      : {};
-    const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
-    const currentCard = this.isAMOCRMReady
-      ? AMOCRM.data.current_card || {}
-      : {};
-
-    // Системные настройки
-    this.system = {
-      area: currentCard.type || "standalone",
-      amouser_id: userData.id || null,
-      amouser: userData.name || null,
-      amohash: userData.api_key || null,
-      subdomain: accountData.subdomain || "yourdomain",
-      account_id: accountData.id || null,
-    };
-
-    // Применяем переданные настройки
-    if (this.params.settings && typeof this.params.settings === "object") {
-      this.applySettings(this.params.settings);
+      if (!this.isAMOCRMReady) {
+        this.showError("AMOCRM API недоступен или требуется авторизация");
+        return this;
+      }
     }
 
     // Инициализация виджета
-    try {
-      this.initialize();
-    } catch (e) {
-      console.error("Ошибка инициализации виджета:", e);
-      this.showError("Ошибка инициализации виджета");
-    }
-
-    return this;
+    this.initialize();
   };
 
-  // Прототип виджета
   OrdersCalendarWidget.prototype = {
     initialize: function () {
-      console.log("Инициализация виджета...");
-      this.state.initialized = true;
-      console.log("Инициализация завершена");
-      this.renderWidget().catch((e) => {
-        console.error("Ошибка при рендеринге виджета:", e);
-        this.showError("Ошибка отображения виджета");
-      });
-    },
+      // Получаем данные аккаунта и пользователя из AMOCRM (если доступно)
+      const accountData = this.isAMOCRMReady
+        ? AMOCRM.constant("account") || {}
+        : {};
+      const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
+      const currentCard = this.isAMOCRMReady
+        ? AMOCRM.data.current_card || {}
+        : {};
 
-    showError: function (message) {
-      try {
-        const widgetRoot = document.getElementById("widget-root");
-        if (widgetRoot) {
-          widgetRoot.innerHTML = `
-            <div class="error-message">
-              <h3>${this.getWidgetTitle()}</h3>
-              <p>${message}</p>
-              ${
-                this.system.area === "standalone"
-                  ? '<button onclick="location.reload()">Обновить</button>'
-                  : ""
-              }
-            </div>
-          `;
-        }
-      } catch (e) {
-        console.error("Ошибка отображения ошибки:", e);
+      // Системные настройки
+      this.system = {
+        area: currentCard.type || "standalone",
+        amouser_id: userData.id || null,
+        amouser: userData.name || null,
+        amohash: userData.api_key || null,
+        subdomain: accountData.subdomain || "yourdomain",
+        account_id: accountData.id || null,
+      };
+
+      // Локализация
+      this.langs = {
+        ru: {
+          widget: { name: "Календарь заказов" },
+          months: [
+            "Январь",
+            "Февраль",
+            "Март",
+            "Апрель",
+            "Май",
+            "Июнь",
+            "Июль",
+            "Август",
+            "Сентябрь",
+            "Октябрь",
+            "Ноябрь",
+            "Декабрь",
+          ],
+          weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+          errors: {
+            load: "Ошибка загрузки данных",
+            noDeals: "Нет сделок на эту дату",
+            noAuth: "Требуется авторизация",
+            apiError: "Ошибка API: ресурс не найден",
+          },
+        },
+      };
+
+      // Состояние виджета
+      this.state = {
+        initialized: false,
+        currentDate: new Date(),
+        dealsData: {},
+        loading: false,
+        fieldIds: { ORDER_DATE: 885453, DELIVERY_RANGE: null },
+        statuses: {
+          142: "Новая",
+          143: "В работе",
+          144: "Завершена",
+          145: "Отменена",
+        },
+        cache: { monthsData: {} },
+      };
+
+      // Применяем переданные настройки
+      if (this.params.settings) {
+        this.applySettings(this.params.settings);
       }
+
+      // Помечаем, что инициализация завершена
+      this.state.initialized = true;
     },
 
+    get_version: function () {
+      return "1.0.54";
+    },
+
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
     formatDate: function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
@@ -190,10 +175,37 @@ define(["jquery"], function ($) {
       }
     },
 
+    get_settings: function () {
+      return this.params;
+    },
+
+    showError: function (message) {
+      try {
+        const widgetRoot = document.getElementById("widget-root");
+        if (widgetRoot) {
+          widgetRoot.innerHTML = `
+            <div class="error-message">
+              <h3>${this.getWidgetTitle()}</h3>
+              <p>${message}</p>
+              ${
+                this.system.area === "standalone"
+                  ? '<button onclick="location.reload()">Обновить</button>'
+                  : ""
+              }
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error("Ошибка отображения ошибки:", e);
+      }
+    },
+
+    // ========== API МЕТОДЫ ========== //
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
           if (!this.isAMOCRMReady) {
+            // В standalone режиме используем mock данные
             console.log("Standalone режим: запрос не выполнен");
             setTimeout(() => resolve({ _embedded: { leads: [] } }), 100);
             return;
@@ -230,6 +242,7 @@ define(["jquery"], function ($) {
       });
     },
 
+    // ========== ОСНОВНЫЕ ФУНКЦИИ ВИДЖЕТА ========== //
     loadData: function () {
       return new Promise((resolve) => {
         try {
@@ -251,6 +264,7 @@ define(["jquery"], function ($) {
 
           this.state.loading = true;
 
+          // В standalone режиме используем mock данные
           if (!this.isAMOCRMReady) {
             console.log("Standalone режим: загрузка mock данных");
             setTimeout(() => {
@@ -367,6 +381,7 @@ define(["jquery"], function ($) {
       }
     },
 
+    // ========== ОТОБРАЖЕНИЕ ИНТЕРФЕЙСА ========== //
     generateCalendarHTML: function () {
       try {
         if (!this.state.initialized) {
@@ -376,9 +391,13 @@ define(["jquery"], function ($) {
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
 
+        // Получаем первый день месяца и количество дней в месяце
         const firstDay = new Date(year, month, 1);
         const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Определяем день недели для первого дня месяца (0 - воскресенье, 1 - понедельник и т.д.)
         const firstDayOfWeek = firstDay.getDay();
+        // Корректируем для отображения (понедельник - первый день недели)
         const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
         const monthNames = this.langs.ru?.months || [];
@@ -393,10 +412,12 @@ define(["jquery"], function ($) {
         ];
 
         let daysHTML = "";
+        // Добавляем пустые ячейки для дней предыдущего месяца
         for (let i = 0; i < adjustedFirstDay; i++) {
           daysHTML += '<div class="calendar-day empty"></div>';
         }
 
+        // Добавляем дни текущего месяца
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
           const deals = this.state.dealsData[dateStr] || [];
@@ -406,7 +427,8 @@ define(["jquery"], function ($) {
           daysHTML += `
             <div class="calendar-day ${isToday ? "today" : ""} ${
             hasDeals ? "has-deals" : ""
-          }" data-date="${dateStr}">
+          }" 
+                   data-date="${dateStr}">
               <div class="day-number">${day}</div>
               ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
             </div>`;
@@ -488,26 +510,31 @@ define(["jquery"], function ($) {
       });
     },
 
+    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
     bindCalendarEvents: function () {
       try {
+        // Удаляем старые обработчики
         $(document).off("click.calendar");
 
+        // Обработчик для перехода на предыдущий месяц
         $(document).on("click.calendar", ".prev-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() - 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {};
+          this.state.dealsData = {}; // Очищаем кэш данных
           this.renderCalendar();
         });
 
+        // Обработчик для перехода на следующий месяц
         $(document).on("click.calendar", ".next-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() + 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {};
+          this.state.dealsData = {}; // Очищаем кэш данных
           this.renderCalendar();
         });
 
+        // Обработчик для выбора дня
         $(document).on("click.date", ".calendar-day:not(.empty)", (e) => {
           const dateStr = $(e.currentTarget).data("date");
           this.showDealsPopup(dateStr);
@@ -568,50 +595,11 @@ define(["jquery"], function ($) {
       }
     },
 
+    // Standalone метод для рендеринга вне amoCRM
     renderWidget: function () {
-      if (!this.state.initialized) {
-        console.error("Попытка рендеринга до инициализации");
-        return Promise.reject(new Error("Виджет не инициализирован"));
-      }
-
-      return this.renderCalendar().catch((e) => {
-        console.error("Ошибка при рендеринге виджета:", e);
-        this.showError("Ошибка отображения виджета");
-        throw e;
-      });
-    },
-
-    // Callbacks для работы с amoCRM
-    callbacks: {
-      settings: function () {},
-      init: function () {
-        return true;
-      },
-      bind_actions: function () {
-        return true;
-      },
-      render: function () {
-        return true;
-      },
-      dpSettings: function () {},
-      advancedSettings: function () {},
-      destroy: function () {},
-      contacts: {
-        selected: function () {},
-      },
-      leads: {
-        selected: function () {},
-      },
-      todo: {
-        selected: function () {},
-      },
-      onSave: function () {
-        console.log("onSave callback executed");
-        return true;
-      },
-      onAddAsSource: function (pipeline_id) {},
+      return this.renderCalendar();
     },
   };
 
   return OrdersCalendarWidget;
-});
+}

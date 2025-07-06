@@ -1,110 +1,72 @@
-(function (root, factory) {
-  if (typeof define === "function" && define.amd) {
-    define(["jquery"], factory);
-  } else if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("jquery"));
-  } else {
-    root.OrdersCalendarWidget = factory(root.jQuery || root.$);
-  }
-})(this, function ($) {
+// Проверка доступности RequireJS/AMD
+if (typeof define === "function") {
+  define(["jquery"], function ($) {
+    "use strict";
+    return createOrdersCalendarWidget($);
+  });
+} else {
+  // Если RequireJS не доступен, используем глобальную переменную
+  window.OrdersCalendarWidget = createOrdersCalendarWidget(
+    window.jQuery || window.$
+  );
+}
+
+function createOrdersCalendarWidget($) {
   "use strict";
 
-  function OrdersCalendarWidget(params) {
-    var self = this;
-    self.params = params || {};
-    self.instance = this;
-    self.__amowidget__ = true;
+  var OrdersCalendarWidget = function () {
+    if (typeof OrdersCalendarWidget.instance === "object") {
+      return OrdersCalendarWidget.instance;
+    }
 
-    // Check jQuery availability
+    var self = this;
+    OrdersCalendarWidget.instance = this;
+
+    // Проверяем доступность jQuery
     if (!$) {
-      self.showError("jQuery не загружен");
+      this.showError("jQuery не загружен");
       return this;
     }
 
-    // Check AMOCRM API availability
-    self.isAmoCRMMode = typeof AmoCRM !== "undefined";
-    self.isAMOCRMReady = false;
+    // Проверка доступности AMOCRM API
+    this.isAmoCRMMode = typeof AmoCRM !== "undefined";
+    this.isAMOCRMReady = false;
 
-    if (self.isAmoCRMMode) {
+    if (this.isAmoCRMMode) {
       try {
-        self.isAMOCRMReady =
+        this.isAMOCRMReady =
           typeof AMOCRM !== "undefined" &&
           typeof AMOCRM.request === "function" &&
           AMOCRM.constant("user") &&
           AMOCRM.constant("user").id;
       } catch (e) {
         console.error("Ошибка проверки AMOCRM API:", e);
-        self.isAMOCRMReady = false;
+        this.isAMOCRMReady = false;
       }
 
-      if (!self.isAMOCRMReady) {
-        self.showError("AMOCRM API недоступен или требуется авторизация");
+      if (!this.isAMOCRMReady) {
+        this.showError("AMOCRM API недоступен или требуется авторизация");
         return this;
       }
     }
 
-    // Initialize widget
-    self.initialize();
-
-    // Callbacks object must be defined after all methods
-    this.callbacks = {
-      init: function () {
-        return new Promise(function (resolve) {
-          self.initialize();
-          resolve(true);
-        });
-      },
-      render: function () {
-        return new Promise(function (resolve) {
-          self.renderCalendar().then(resolve);
-        });
-      },
-      bind_actions: function () {
-        try {
-          self.bindCalendarEvents();
-          return true;
-        } catch (e) {
-          console.error("Ошибка привязки действий:", e);
-          return false;
-        }
-      },
-      onSave: function (settings) {
-        return new Promise(function (resolve) {
-          try {
-            if (settings) {
-              self.applySettings(settings);
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          } catch (e) {
-            console.error("Ошибка сохранения настроек:", e);
-            resolve(false);
-          }
-        });
-      },
-      onShow: function () {
-        return true;
-      },
-    };
-
-    return this;
-  }
+    // Инициализация виджета
+    this.initialize();
+  };
 
   OrdersCalendarWidget.prototype = {
     initialize: function () {
-      var self = this;
-
-      const accountData = self.isAMOCRMReady
+      // Получаем данные аккаунта и пользователя из AMOCRM (если доступно)
+      const accountData = this.isAMOCRMReady
         ? AMOCRM.constant("account") || {}
         : {};
-      const userData = self.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
-      const currentCard = self.isAMOCRMReady
+      const userData = this.isAMOCRMReady ? AMOCRM.constant("user") || {} : {};
+      const currentCard = this.isAMOCRMReady
         ? AMOCRM.data.current_card || {}
         : {};
 
-      // System settings
-      self.system = {
+      // Системные настройки
+      this.system = {
         area: currentCard.type || "standalone",
         amouser_id: userData.id || null,
         amouser: userData.name || null,
@@ -113,8 +75,8 @@
         account_id: accountData.id || null,
       };
 
-      // Localization
-      self.langs = {
+      // Локализация
+      this.langs = {
         ru: {
           widget: { name: "Календарь заказов" },
           months: [
@@ -136,13 +98,12 @@
             load: "Ошибка загрузки данных",
             noDeals: "Нет сделок на эту дату",
             noAuth: "Требуется авторизация",
-            apiError: "Ошибка API: ресурс не найден",
           },
         },
       };
 
-      // Widget state
-      self.state = {
+      // Состояние виджета
+      this.state = {
         initialized: false,
         currentDate: new Date(),
         dealsData: {},
@@ -156,19 +117,13 @@
         },
         cache: { monthsData: {} },
       };
-
-      // Apply settings if provided
-      if (self.params.settings) {
-        self.applySettings(self.params.settings);
-      }
-
-      self.state.initialized = true;
     },
 
     get_version: function () {
-      return "1.0.56";
+      return "1.0.57";
     },
 
+    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
     formatDate: function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
@@ -233,10 +188,13 @@
       }
     },
 
+    // ========== API МЕТОДЫ ========== //
     doRequest: function (method, path, data) {
       return new Promise((resolve, reject) => {
         try {
           if (!this.isAMOCRMReady) {
+            // В standalone режиме используем mock данные
+            console.log("Standalone режим: запрос не выполнен");
             setTimeout(() => resolve({ _embedded: { leads: [] } }), 100);
             return;
           }
@@ -247,24 +205,10 @@
           }
 
           AMOCRM.request(method, path, data)
-            .then((response) => {
-              if (response && !response.error) {
-                resolve(response);
-              } else {
-                reject(new Error(response.error || "Неизвестная ошибка API"));
-              }
-            })
+            .then(resolve)
             .catch((error) => {
               console.error("Ошибка API:", error);
-              if (error.status === 404) {
-                this.showError(this.langs.ru.errors.apiError);
-              }
-              reject(
-                new Error(
-                  "Ошибка загрузки данных: " +
-                    (error.message || error.statusText)
-                )
-              );
+              reject(new Error("Ошибка загрузки данных"));
             });
         } catch (e) {
           reject(e);
@@ -272,14 +216,10 @@
       });
     },
 
+    // ========== ОСНОВНЫЕ ФУНКЦИИ ВИДЖЕТА ========== //
     loadData: function () {
       return new Promise((resolve) => {
         try {
-          if (!this.state.initialized) {
-            console.error("Виджет не инициализирован");
-            return resolve();
-          }
-
           const dateFrom = new Date(
             this.state.currentDate.getFullYear(),
             this.state.currentDate.getMonth(),
@@ -293,7 +233,9 @@
 
           this.state.loading = true;
 
+          // В standalone режиме используем mock данные
           if (!this.isAMOCRMReady) {
+            console.log("Standalone режим: загрузка mock данных");
             setTimeout(() => {
               this.state.dealsData = this.generateMockData(dateFrom, dateTo);
               this.state.loading = false;
@@ -408,18 +350,19 @@
       }
     },
 
+    // ========== ОТОБРАЖЕНИЕ ИНТЕРФЕЙСА ========== //
     generateCalendarHTML: function () {
       try {
-        if (!this.state.initialized) {
-          return '<div class="error-message">Виджет не инициализирован</div>';
-        }
-
         const month = this.state.currentDate.getMonth();
         const year = this.state.currentDate.getFullYear();
 
+        // Получаем первый день месяца и количество дней в месяце
         const firstDay = new Date(year, month, 1);
         const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        // Определяем день недели для первого дня месяца (0 - воскресенье, 1 - понедельник и т.д.)
         const firstDayOfWeek = firstDay.getDay();
+        // Корректируем для отображения (понедельник - первый день недели)
         const adjustedFirstDay = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
         const monthNames = this.langs.ru?.months || [];
@@ -434,10 +377,12 @@
         ];
 
         let daysHTML = "";
+        // Добавляем пустые ячейки для дней предыдущего месяца
         for (let i = 0; i < adjustedFirstDay; i++) {
           daysHTML += '<div class="calendar-day empty"></div>';
         }
 
+        // Добавляем дни текущего месяца
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
           const deals = this.state.dealsData[dateStr] || [];
@@ -493,11 +438,6 @@
     renderCalendar: function () {
       return new Promise((resolve) => {
         try {
-          if (!this.state.initialized) {
-            console.error("Виджет не инициализирован");
-            return resolve();
-          }
-
           this.state.loading = true;
           const cacheKey = `${this.state.currentDate.getFullYear()}-${this.state.currentDate.getMonth()}`;
 
@@ -530,26 +470,31 @@
       });
     },
 
+    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
     bindCalendarEvents: function () {
       try {
+        // Удаляем старые обработчики
         $(document).off("click.calendar");
 
+        // Обработчик для перехода на предыдущий месяц
         $(document).on("click.calendar", ".prev-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() - 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {};
+          this.state.dealsData = {}; // Очищаем кэш данных
           this.renderCalendar();
         });
 
+        // Обработчик для перехода на следующий месяц
         $(document).on("click.calendar", ".next-month", () => {
           const newDate = new Date(this.state.currentDate);
           newDate.setMonth(newDate.getMonth() + 1);
           this.state.currentDate = newDate;
-          this.state.dealsData = {};
+          this.state.dealsData = {}; // Очищаем кэш данных
           this.renderCalendar();
         });
 
+        // Обработчик для выбора дня
         $(document).on("click.date", ".calendar-day:not(.empty)", (e) => {
           const dateStr = $(e.currentTarget).data("date");
           this.showDealsPopup(dateStr);
@@ -563,7 +508,7 @@
       try {
         const deals = this.state.dealsData[dateStr] || [];
         const noDealsText =
-          this.langs.ru?.errors?.noDeals || "Нет сделок на выбранную дату";
+          this.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
 
         const dealsHTML = deals.length
           ? deals
@@ -610,10 +555,11 @@
       }
     },
 
+    // Standalone метод для рендеринга вне amoCRM
     renderWidget: function () {
       return this.renderCalendar();
     },
   };
 
   return OrdersCalendarWidget;
-});
+}

@@ -1,20 +1,6 @@
-// Проверка доступности RequireJS/AMD
-if (typeof define === "function") {
-  define(["jquery"], function ($) {
-    "use strict";
-    return createOrdersCalendarWidget($);
-  });
-} else {
-  // Если RequireJS не доступен, используем глобальную переменную
-  window.OrdersCalendarWidget = createOrdersCalendarWidget(
-    window.jQuery || window.$
-  );
-}
-
-function createOrdersCalendarWidget($) {
+define(["jquery"], function ($) {
   "use strict";
 
-  // Конструктор виджета
   var OrdersCalendarWidget = function (params) {
     // Реализация паттерна Singleton
     if (typeof OrdersCalendarWidget.instance === "object") {
@@ -32,6 +18,36 @@ function createOrdersCalendarWidget($) {
       console.error("jQuery не загружен");
       return this;
     }
+
+    // Инициализация callbacks объекта
+    this.callbacks = {
+      settings: function () {},
+      init: function () {
+        return true;
+      },
+      bind_actions: function () {
+        return true;
+      },
+      render: function () {
+        return true;
+      },
+      dpSettings: function () {},
+      advancedSettings: function () {},
+      destroy: function () {},
+      contacts: {
+        selected: function () {},
+      },
+      leads: {
+        selected: function () {},
+      },
+      todo: {
+        selected: function () {},
+      },
+      onSave: function () {
+        return true;
+      },
+      onAddAsSource: function (pipeline_id) {},
+    };
 
     // Проверка доступности AMOCRM API
     this.isAmoCRMMode = typeof AmoCRM !== "undefined";
@@ -57,6 +73,8 @@ function createOrdersCalendarWidget($) {
 
     // Инициализация виджета
     this.initialize();
+
+    return this;
   };
 
   // Прототип виджета
@@ -423,8 +441,7 @@ function createOrdersCalendarWidget($) {
           daysHTML += `
             <div class="calendar-day ${isToday ? "today" : ""} ${
             hasDeals ? "has-deals" : ""
-          }" 
-                   data-date="${dateStr}">
+          }" data-date="${dateStr}">
               <div class="day-number">${day}</div>
               ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
             </div>`;
@@ -597,4 +614,4 @@ function createOrdersCalendarWidget($) {
   };
 
   return OrdersCalendarWidget;
-}
+});

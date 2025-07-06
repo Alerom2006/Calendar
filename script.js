@@ -60,13 +60,14 @@ define(["jquery"], function ($) {
           noAuth: "Требуется авторизация",
           fileUpload: "Ошибка загрузки файла",
           fileDelete: "Ошибка удаления файла",
+          settingsSave: "Ошибка сохранения настроек",
         },
       },
     };
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.59"; // Обновленная версия
+      return "1.0.60";
     };
 
     // Состояние виджета
@@ -152,7 +153,7 @@ define(["jquery"], function ($) {
             return reject(new Error("AMOCRM API недоступен"));
           }
 
-          console.log("Making request to", path, "with data:", data);
+          console.log("Отправка запроса к", path, "с данными:", data);
 
           AMOCRM.request(method, path, data)
             .then(resolve)
@@ -170,64 +171,7 @@ define(["jquery"], function ($) {
       });
     };
 
-    // ========== API ФАЙЛОВ ========== //
-    this.createFileUploadSession = function (
-      fileName,
-      fileSize,
-      fileUuid = null,
-      contentType = "application/octet-stream"
-    ) {
-      return self.doRequest("POST", "https://drive.amocrm.ru/v1.0/sessions", {
-        file_name: fileName,
-        file_size: fileSize,
-        file_uuid: fileUuid,
-        content_type: contentType,
-        with_preview: true,
-      });
-    };
-
-    this.uploadFilePart = function (uploadUrl, fileData, isLastPart = false) {
-      return new Promise((resolve, reject) => {
-        $.ajax({
-          url: uploadUrl,
-          type: "POST",
-          data: fileData,
-          processData: false,
-          contentType: false,
-          success: function (response) {
-            resolve(response);
-          },
-          error: function (error) {
-            console.error("Ошибка загрузки части файла:", error);
-            reject(
-              new Error(
-                self.langs.ru?.errors?.fileUpload || "Ошибка загрузки файла"
-              )
-            );
-          },
-        });
-      });
-    };
-
-    this.getFileInfo = function (fileUuid) {
-      return self.doRequest(
-        "GET",
-        `https://drive.amocrm.ru/v1.0/files/${fileUuid}`
-      );
-    };
-
-    this.deleteFile = function (fileUuid) {
-      return self.doRequest("DELETE", "https://drive.amocrm.ru/v1.0/files", [
-        { uuid: fileUuid },
-      ]);
-    };
-
-    this.attachFileToEntity = function (entityType, entityId, fileUuid) {
-      return self.doRequest("PUT", `/api/v4/${entityType}/${entityId}/files`, [
-        { file_uuid: fileUuid },
-      ]);
-    };
-
+    // ========== ЗАГРУЗКА ДАННЫХ ========== //
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
@@ -314,41 +258,6 @@ define(["jquery"], function ($) {
         this.state.dealsData = newDealsData;
       } catch (e) {
         console.error("Ошибка в processData:", e);
-      }
-    };
-
-    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
-    this.bindCalendarEvents = function () {
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".prev-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() - 1
-          );
-          self.renderCalendar();
-        });
-
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".next-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() + 1
-          );
-          self.renderCalendar();
-        });
-
-      $(document)
-        .off("click.date")
-        .on("click.date", ".calendar-day:not(.empty)", function () {
-          const dateStr = $(this).data("date");
-          self.showDealsPopup(dateStr);
-        });
-    };
-
-    this.updateCalendarView = function () {
-      const widgetRoot = document.getElementById("widget-root");
-      if (widgetRoot) {
-        widgetRoot.innerHTML = self.generateCalendarHTML();
       }
     };
 
@@ -444,6 +353,41 @@ define(["jquery"], function ($) {
       });
     };
 
+    this.updateCalendarView = function () {
+      const widgetRoot = document.getElementById("widget-root");
+      if (widgetRoot) {
+        widgetRoot.innerHTML = self.generateCalendarHTML();
+      }
+    };
+
+    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
+    this.bindCalendarEvents = function () {
+      $(document)
+        .off("click.calendar")
+        .on("click.calendar", ".prev-month", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() - 1
+          );
+          self.renderCalendar();
+        });
+
+      $(document)
+        .off("click.calendar")
+        .on("click.calendar", ".next-month", function () {
+          self.state.currentDate.setMonth(
+            self.state.currentDate.getMonth() + 1
+          );
+          self.renderCalendar();
+        });
+
+      $(document)
+        .off("click.date")
+        .on("click.date", ".calendar-day:not(.empty)", function () {
+          const dateStr = $(this).data("date");
+          self.showDealsPopup(dateStr);
+        });
+    };
+
     // ========== POPUP СО СДЕЛКАМИ ========== //
     this.showDealsPopup = function (dateStr) {
       try {
@@ -525,12 +469,23 @@ define(["jquery"], function ($) {
       },
 
       onSave: function (newSettings) {
-        try {
-          return self.applySettings(newSettings);
-        } catch (e) {
-          console.error("Ошибка сохранения:", e);
-          return false;
-        }
+        return new Promise(function (resolve) {
+          try {
+            const result = self.applySettings(newSettings);
+            if (result) {
+              // Очищаем кэш при изменении настроек
+              self.state.cache.monthsData = {};
+              // Перерисовываем календарь с новыми настройками
+              self.renderCalendar().then(() => resolve(true));
+            } else {
+              resolve(false);
+            }
+          } catch (e) {
+            console.error("Ошибка сохранения настроек:", e);
+            self.showError(self.langs.ru.errors.settingsSave);
+            resolve(false);
+          }
+        });
       },
 
       bind_actions: function () {

@@ -6,13 +6,9 @@
     <title>Календарь заказов</title>
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Подключаем jQuery перед нашим скриптом -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-
-    <!-- Подключаем loader.min.js с правильного домена -->
     <script src="https://cdn.amocrm.com/v2/loader.min.js"></script>
 
-    <!-- Content Security Policy -->
     <meta
       http-equiv="Content-Security-Policy"
       content="
@@ -31,7 +27,6 @@
     </div>
 
     <script>
-      // Функция для отображения ошибок
       function showError(message) {
         const widgetRoot = document.getElementById("widget-root");
         widgetRoot.innerHTML = `
@@ -43,44 +38,36 @@
         console.error(message);
       }
 
-      // Функция инициализации виджета
       function initWidget() {
         try {
-          // Проверяем загрузился ли jQuery
           if (typeof jQuery === "undefined") {
             return showError("jQuery не загружен");
           }
 
-          // Режим amoCRM
+          // Проверяем, загружен ли AmoCRM API
           if (typeof AmoCRM !== "undefined") {
             console.log("Инициализация в режиме amoCRM");
 
-            // Загружаем наш скрипт
-            const script = document.createElement("script");
-            script.src = "script.js";
-            script.onload = function () {
-              if (typeof OrdersCalendarWidget !== "undefined") {
-                const widget = new OrdersCalendarWidget();
-
-                // Инициализация в контексте amoCRM
-                AmoCRM.widgets.onLoad(function () {
+            AmoCRM.widgets.onLoad(function () {
+              const script = document.createElement("script");
+              script.src = "script.js";
+              script.onload = function () {
+                if (typeof OrdersCalendarWidget !== "undefined") {
+                  const widget = new OrdersCalendarWidget();
                   widget.callbacks.init().then(function () {
                     widget.callbacks.render();
                   });
-                });
-              } else {
-                showError("Класс виджета не определен");
-              }
-            };
-            script.onerror = function () {
-              showError("Не удалось загрузить script.js");
-            };
-            document.head.appendChild(script);
-          }
-          // Standalone режим
-          else {
+                } else {
+                  showError("Класс виджета не определен");
+                }
+              };
+              script.onerror = function () {
+                showError("Не удалось загрузить script.js");
+              };
+              document.head.appendChild(script);
+            });
+          } else {
             console.log("Инициализация в standalone режиме");
-
             const script = document.createElement("script");
             script.src = "script.js";
             script.onload = function () {
@@ -101,7 +88,6 @@
         }
       }
 
-      // Запускаем при полной загрузке страницы
       document.addEventListener("DOMContentLoaded", initWidget);
     </script>
   </body>

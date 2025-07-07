@@ -7,34 +7,27 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Проверка доступности AMOCRM API
-    if (typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function") {
-      console.error("AMOCRM API недоступен");
-      return this;
-    }
+    // Проверка режима работы
+    this.isStandalone =
+      typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function";
 
-    // Проверка авторизации
-    if (!AMOCRM.constant("user") || !AMOCRM.constant("user").id) {
-      console.error("Требуется авторизация в amoCRM");
-      return this;
-    }
-
-    // Получаем данные аккаунта и пользователя из AMOCRM
-    const accountData = AMOCRM.constant("account") || {};
-    const userData = AMOCRM.constant("user") || {};
-    const currentCard = AMOCRM.data.current_card || {};
+    // Получаем данные аккаунта и пользователя
+    const accountData =
+      (!this.isStandalone && AMOCRM.constant("account")) || {};
+    const userData = (!this.isStandalone && AMOCRM.constant("user")) || {};
+    const currentCard = (!this.isStandalone && AMOCRM.data.current_card) || {};
 
     // Инициализация системных методов
     this.system = function () {
       return {
-        area: currentCard.type || "standalone",
+        area: this.isStandalone ? "standalone" : currentCard.type || "unknown",
         amouser_id: userData.id || null,
         amouser: userData.name || null,
         amohash: userData.api_key || null,
         subdomain: accountData.subdomain || "yourdomain",
         account_id: accountData.id || null,
       };
-    };
+    }.bind(this);
 
     this.langs = {
       ru: {
@@ -57,17 +50,45 @@ define(["jquery"], function ($) {
         errors: {
           load: "Ошибка загрузки данных",
           noDeals: "Нет сделок на эту дату",
-          noAuth: "Требуется авторизация",
+          noAuth: "Требуется авторизация в amoCRM",
           fileUpload: "Ошибка загрузки файла",
           fileDelete: "Ошибка удаления файла",
           settingsSave: "Ошибка сохранения настроек",
+          standalone: "Виджет работает в автономном режиме",
+        },
+      },
+      en: {
+        widget: { name: "Orders Calendar" },
+        months: [
+          "January",
+          "February",
+          "March",
+          "April",
+          "May",
+          "June",
+          "July",
+          "August",
+          "September",
+          "October",
+          "November",
+          "December",
+        ],
+        weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        errors: {
+          load: "Data loading error",
+          noDeals: "No deals for selected date",
+          noAuth: "Authorization required",
+          fileUpload: "File upload error",
+          fileDelete: "File delete error",
+          settingsSave: "Error saving settings",
+          standalone: "Widget works in standalone mode",
         },
       },
     };
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.0";
+      return "1.0.1";
     };
 
     // Состояние виджета
@@ -85,6 +106,7 @@ define(["jquery"], function ($) {
         145: "Отменена",
       },
       cache: { monthsData: {} },
+      standaloneData: {}, // Данные для standalone режима
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -136,8 +158,8 @@ define(["jquery"], function ($) {
             <h3>${this.getWidgetTitle()}</h3>
             <p>${message}</p>
             ${
-              this.system().area === "standalone"
-                ? '<button onclick="location.reload()">Обновить</button>'
+              this.isStandalone
+                ? '<button class="btn" onclick="location.reload()">Обновить</button>'
                 : ""
             }
           </div>
@@ -148,12 +170,32 @@ define(["jquery"], function ($) {
     // ========== API МЕТОДЫ ========== //
     this.doRequest = function (method, path, data) {
       return new Promise(function (resolve, reject) {
+        if (self.isStandalone) {
+          // Эмуляция API в standalone режиме
+          setTimeout(() => {
+            const dateStr = self.formatDate(
+              self.state.currentDate.getDate(),
+              self.state.currentDate.getMonth() + 1,
+              self.state.currentDate.getFullYear()
+            );
+
+            if (self.state.standaloneData[dateStr]) {
+              resolve({
+                _embedded: {
+                  leads: self.state.standaloneData[dateStr],
+                },
+              });
+            } else {
+              resolve({ _embedded: { leads: [] } });
+            }
+          }, 300);
+          return;
+        }
+
         try {
           if (typeof AMOCRM === "undefined") {
             return reject(new Error("AMOCRM API недоступен"));
           }
-
-          console.log("Отправка запроса к", path, "с данными:", data);
 
           AMOCRM.request(method, path, data)
             .then(resolve)
@@ -175,6 +217,40 @@ define(["jquery"], function ($) {
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
+          self.state.loading = true;
+
+          if (self.isStandalone) {
+            // Генерация тестовых данных для standalone режима
+            const today = new Date();
+            const dateStr = self.formatDate(
+              today.getDate(),
+              today.getMonth() + 1,
+              today.getFullYear()
+            );
+
+            self.state.standaloneData[dateStr] = [
+              {
+                id: 1,
+                name: "Тестовая сделка",
+                status_id: 143,
+                price: 1000,
+                custom_fields_values: [
+                  {
+                    field_id: self.state.fieldIds.ORDER_DATE,
+                    values: [{ value: Math.floor(today.getTime() / 1000) }],
+                  },
+                ],
+                _embedded: {
+                  contacts: [{ name: "Тестовый контакт" }],
+                },
+              },
+            ];
+
+            self.processData(self.state.standaloneData[dateStr]);
+            self.state.loading = false;
+            return resolve();
+          }
+
           const dateFrom = new Date(
             self.state.currentDate.getFullYear(),
             self.state.currentDate.getMonth(),
@@ -185,8 +261,6 @@ define(["jquery"], function ($) {
             self.state.currentDate.getMonth() + 1,
             0
           );
-
-          self.state.loading = true;
 
           self
             .doRequest("GET", "/api/v4/leads", {
@@ -294,6 +368,13 @@ define(["jquery"], function ($) {
           <div class="orders-calendar">
             <div class="calendar-header">
               <h3>${this.getWidgetTitle()}</h3>
+              ${
+                this.isStandalone
+                  ? '<p class="standalone-notice">' +
+                    this.langs.ru.errors.standalone +
+                    "</p>"
+                  : ""
+              }
               <div class="month-navigation">
                 <button class="nav-button prev-month">←</button>
                 <span class="current-month">${monthNames[month]} ${year}</span>
@@ -357,6 +438,7 @@ define(["jquery"], function ($) {
       const widgetRoot = document.getElementById("widget-root");
       if (widgetRoot) {
         widgetRoot.innerHTML = self.generateCalendarHTML();
+        self.bindCalendarEvents();
       }
     };
 
@@ -421,6 +503,13 @@ define(["jquery"], function ($) {
           <div class="deals-popup">
             <div class="popup-content">
               <h3>Сделки на ${dateStr}</h3>
+              ${
+                self.isStandalone
+                  ? '<p class="standalone-notice">' +
+                    self.langs.ru.errors.standalone +
+                    "</p>"
+                  : ""
+              }
               <div class="deals-list">${dealsHTML}</div>
               <button class="close-popup">Закрыть</button>
             </div>
@@ -473,9 +562,7 @@ define(["jquery"], function ($) {
           try {
             const result = self.applySettings(newSettings);
             if (result) {
-              // Очищаем кэш при изменении настроек
               self.state.cache.monthsData = {};
-              // Перерисовываем календарь с новыми настройками
               self.renderCalendar().then(() => resolve(true));
             } else {
               resolve(false);
@@ -524,6 +611,13 @@ define(["jquery"], function ($) {
         return this.callbacks.render();
       },
     };
+
+    // Инициализация виджета
+    if (this.isStandalone) {
+      this.renderCalendar().then(() => {
+        this.bindCalendarEvents();
+      });
+    }
 
     return this;
   };

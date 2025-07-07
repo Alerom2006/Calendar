@@ -88,7 +88,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.1";
+      return "1.0.2";
     };
 
     // Состояние виджета
@@ -106,7 +106,7 @@ define(["jquery"], function ($) {
         145: "Отменена",
       },
       cache: { monthsData: {} },
-      standaloneData: {}, // Данные для standalone режима
+      standaloneData: {},
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -132,14 +132,16 @@ define(["jquery"], function ($) {
     this.applySettings = function (settings) {
       if (settings && typeof settings === "object") {
         if (settings.deal_date_field_id) {
-          self.state.fieldIds.ORDER_DATE = parseInt(
-            settings.deal_date_field_id
-          );
+          const fieldId = parseInt(settings.deal_date_field_id);
+          if (!isNaN(fieldId)) {
+            self.state.fieldIds.ORDER_DATE = fieldId;
+          }
         }
         if (settings.delivery_range_field) {
-          self.state.fieldIds.DELIVERY_RANGE = parseInt(
-            settings.delivery_range_field
-          );
+          const fieldId = parseInt(settings.delivery_range_field);
+          if (!isNaN(fieldId)) {
+            self.state.fieldIds.DELIVERY_RANGE = fieldId;
+          }
         }
         return true;
       }
@@ -151,19 +153,23 @@ define(["jquery"], function ($) {
     };
 
     this.showError = function (message) {
-      const widgetRoot = document.getElementById("widget-root");
-      if (widgetRoot) {
-        widgetRoot.innerHTML = `
-          <div class="error-message">
-            <h3>${this.getWidgetTitle()}</h3>
-            <p>${message}</p>
-            ${
-              this.isStandalone
-                ? '<button class="btn" onclick="location.reload()">Обновить</button>'
-                : ""
-            }
-          </div>
-        `;
+      try {
+        const widgetRoot = document.getElementById("widget-root");
+        if (widgetRoot) {
+          widgetRoot.innerHTML = `
+            <div class="error-message">
+              <h3>${this.getWidgetTitle()}</h3>
+              <p>${message}</p>
+              ${
+                this.isStandalone
+                  ? '<button class="btn" onclick="location.reload()">Обновить</button>'
+                  : ""
+              }
+            </div>
+          `;
+        }
+      } catch (e) {
+        console.error("Ошибка при отображении ошибки:", e);
       }
     };
 
@@ -197,10 +203,23 @@ define(["jquery"], function ($) {
             return reject(new Error("AMOCRM API недоступен"));
           }
 
+          if (typeof AMOCRM.request !== "function") {
+            return reject(new Error("AMOCRM.request не является функцией"));
+          }
+
           AMOCRM.request(method, path, data)
-            .then(resolve)
+            .then((response) => {
+              if (!response) {
+                throw new Error("Пустой ответ от сервера");
+              }
+              resolve(response);
+            })
             .catch(function (error) {
-              console.error("Ошибка API:", error);
+              console.error("Ошибка API запроса:", {
+                method,
+                path,
+                error,
+              });
               reject(
                 new Error(
                   self.langs.ru?.errors?.load || "Ошибка загрузки данных"
@@ -208,6 +227,7 @@ define(["jquery"], function ($) {
               );
             });
         } catch (e) {
+          console.error("Критическая ошибка в doRequest:", e);
           reject(e);
         }
       });
@@ -217,6 +237,11 @@ define(["jquery"], function ($) {
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
+          if (self.state.loading) {
+            console.warn("Загрузка уже выполняется");
+            return resolve();
+          }
+
           self.state.loading = true;
 
           if (self.isStandalone) {
@@ -247,6 +272,13 @@ define(["jquery"], function ($) {
             ];
 
             self.processData(self.state.standaloneData[dateStr]);
+            self.state.loading = false;
+            return resolve();
+          }
+
+          // Проверка обязательных полей
+          if (!self.state.fieldIds.ORDER_DATE) {
+            self.showError("Не настроено поле с датой заказа");
             self.state.loading = false;
             return resolve();
           }
@@ -290,7 +322,7 @@ define(["jquery"], function ($) {
               resolve();
             });
         } catch (e) {
-          console.error("Ошибка в loadData:", e);
+          console.error("Неожиданная ошибка в loadData:", e);
           self.state.loading = false;
           resolve();
         }
@@ -300,8 +332,16 @@ define(["jquery"], function ($) {
     this.processData = function (deals) {
       try {
         const newDealsData = {};
+
+        if (!deals || !Array.isArray(deals)) {
+          console.warn("Некорректные данные сделок:", deals);
+          return;
+        }
+
         deals.forEach(function (deal) {
           try {
+            if (!deal || typeof deal !== "object") return;
+
             const dateField = (deal.custom_fields_values || []).find(function (
               f
             ) {
@@ -312,6 +352,11 @@ define(["jquery"], function ($) {
             if (!timestamp) return;
 
             const date = new Date(timestamp * 1000);
+            if (isNaN(date.getTime())) {
+              console.warn("Некорректная дата в сделке:", deal.id, timestamp);
+              return;
+            }
+
             const dateStr = date.toISOString().split("T")[0];
 
             if (!newDealsData[dateStr]) {
@@ -329,9 +374,10 @@ define(["jquery"], function ($) {
             console.warn("Ошибка обработки сделки:", e);
           }
         });
+
         this.state.dealsData = newDealsData;
       } catch (e) {
-        console.error("Ошибка в processData:", e);
+        console.error("Критическая ошибка в processData:", e);
       }
     };
 
@@ -401,6 +447,11 @@ define(["jquery"], function ($) {
     this.renderCalendar = function () {
       return new Promise(function (resolve) {
         try {
+          if (self.state.loading) {
+            console.log("Рендеринг отложен - данные уже загружаются");
+            return resolve();
+          }
+
           self.state.loading = true;
           const cacheKey = `${self.state.currentDate.getFullYear()}-${self.state.currentDate.getMonth()}`;
 
@@ -427,7 +478,7 @@ define(["jquery"], function ($) {
               resolve();
             });
         } catch (e) {
-          console.error("Ошибка в renderCalendar:", e);
+          console.error("Критическая ошибка в renderCalendar:", e);
           self.state.loading = false;
           resolve();
         }
@@ -435,39 +486,47 @@ define(["jquery"], function ($) {
     };
 
     this.updateCalendarView = function () {
-      const widgetRoot = document.getElementById("widget-root");
-      if (widgetRoot) {
-        widgetRoot.innerHTML = self.generateCalendarHTML();
-        self.bindCalendarEvents();
+      try {
+        const widgetRoot = document.getElementById("widget-root");
+        if (widgetRoot) {
+          widgetRoot.innerHTML = self.generateCalendarHTML();
+          self.bindCalendarEvents();
+        }
+      } catch (e) {
+        console.error("Ошибка при обновлении календаря:", e);
       }
     };
 
     // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
     this.bindCalendarEvents = function () {
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".prev-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() - 1
-          );
-          self.renderCalendar();
-        });
+      try {
+        $(document)
+          .off("click.calendar")
+          .on("click.calendar", ".prev-month", function () {
+            self.state.currentDate.setMonth(
+              self.state.currentDate.getMonth() - 1
+            );
+            self.renderCalendar();
+          });
 
-      $(document)
-        .off("click.calendar")
-        .on("click.calendar", ".next-month", function () {
-          self.state.currentDate.setMonth(
-            self.state.currentDate.getMonth() + 1
-          );
-          self.renderCalendar();
-        });
+        $(document)
+          .off("click.calendar")
+          .on("click.calendar", ".next-month", function () {
+            self.state.currentDate.setMonth(
+              self.state.currentDate.getMonth() + 1
+            );
+            self.renderCalendar();
+          });
 
-      $(document)
-        .off("click.date")
-        .on("click.date", ".calendar-day:not(.empty)", function () {
-          const dateStr = $(this).data("date");
-          self.showDealsPopup(dateStr);
-        });
+        $(document)
+          .off("click.date")
+          .on("click.date", ".calendar-day:not(.empty)", function () {
+            const dateStr = $(this).data("date");
+            self.showDealsPopup(dateStr);
+          });
+      } catch (e) {
+        console.error("Ошибка привязки событий календаря:", e);
+      }
     };
 
     // ========== POPUP СО СДЕЛКАМИ ========== //
@@ -535,7 +594,9 @@ define(["jquery"], function ($) {
         return new Promise(function (resolve) {
           try {
             const currentSettings = self.get_settings();
-            if (currentSettings) self.applySettings(currentSettings);
+            if (currentSettings) {
+              self.applySettings(currentSettings);
+            }
             self.state.initialized = true;
             resolve(true);
           } catch (e) {
@@ -598,13 +659,18 @@ define(["jquery"], function ($) {
       },
 
       initMenuPage: function () {
-        const widgetRoot = document.getElementById("widget-root");
-        if (widgetRoot) {
-          self.renderCalendar().then(() => {
-            self.bindCalendarEvents();
-          });
+        try {
+          const widgetRoot = document.getElementById("widget-root");
+          if (widgetRoot) {
+            self.renderCalendar().then(() => {
+              self.bindCalendarEvents();
+            });
+          }
+          return true;
+        } catch (e) {
+          console.error("Ошибка инициализации страницы меню:", e);
+          return false;
         }
-        return true;
       },
 
       renderCard: function () {

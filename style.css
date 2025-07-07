@@ -476,3 +476,19 @@
   margin-top: 10px;
   text-align: center;
 }
+.standalone-warning {
+  padding: 20px;
+  border: 1px solid #ffecb3;
+  background-color: #fff8e1;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.standalone-warning h3 {
+  color: #ffa000;
+  margin-top: 0;
+}
+
+.standalone-warning p {
+  margin-bottom: 15px;
+}

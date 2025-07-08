@@ -93,7 +93,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.3";
+      return "1.0.4";
     };
 
     // Состояние виджета
@@ -112,6 +112,8 @@ define(["jquery"], function ($) {
       },
       cache: { monthsData: {} },
       standaloneData: {},
+      fileUploadProgress: 0,
+      attachedFiles: {},
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
@@ -179,7 +181,7 @@ define(["jquery"], function ($) {
     };
 
     // ========== API МЕТОДЫ ========== //
-    this.doRequest = function (method, path, data) {
+    this.doRequest = function (method, path, data, options = {}) {
       return new Promise(function (resolve, reject) {
         if (self.isStandalone) {
           // Эмуляция API в standalone режиме
@@ -190,7 +192,9 @@ define(["jquery"], function ($) {
               self.state.currentDate.getFullYear()
             );
 
-            if (self.state.standaloneData[dateStr]) {
+            if (path.includes("/files") && method === "GET") {
+              resolve({ _embedded: { files: [] } });
+            } else if (self.state.standaloneData[dateStr]) {
               resolve({
                 _embedded: {
                   leads: self.state.standaloneData[dateStr],
@@ -215,7 +219,15 @@ define(["jquery"], function ($) {
           }
 
           console.log("Отправка запроса к API:", { method, path, data });
-          AMOCRM.request(method, path, data)
+
+          const requestOptions = {
+            method,
+            path,
+            data,
+            ...options,
+          };
+
+          AMOCRM.request(requestOptions)
             .then((response) => {
               if (!response) {
                 console.error("Пустой ответ от сервера для", path);
@@ -240,6 +252,105 @@ define(["jquery"], function ($) {
           console.error("Критическая ошибка в doRequest:", e);
           reject(e);
         }
+      });
+    };
+
+    // ========== API ФАЙЛОВ ========== //
+    this.createFileUploadSession = function (file) {
+      return self.doRequest(
+        "POST",
+        "/v1.0/sessions",
+        {
+          file_name: file.name,
+          file_size: file.size,
+          content_type: file.type || "application/octet-stream",
+        },
+        { host: "https://drive.amocrm.ru" }
+      );
+    };
+
+    this.uploadFilePart = function (sessionData, file, partNumber = 1) {
+      return new Promise((resolve, reject) => {
+        const chunkSize = sessionData.max_part_size;
+        const offset = (partNumber - 1) * chunkSize;
+        const chunk = file.slice(offset, offset + chunkSize);
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", sessionData.upload_url, true);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+
+          xhr.onload = function () {
+            if (xhr.status === 200) {
+              const response = JSON.parse(xhr.responseText);
+              self.state.fileUploadProgress = Math.min(
+                Math.round(((partNumber * chunkSize) / file.size) * 100),
+                100
+              );
+              resolve(response);
+            } else {
+              reject(new Error("Ошибка загрузки части файла"));
+            }
+          };
+
+          xhr.onerror = function () {
+            reject(new Error("Ошибка сети при загрузке файла"));
+          };
+
+          xhr.send(e.target.result);
+        };
+
+        reader.onerror = function () {
+          reject(new Error("Ошибка чтения файла"));
+        };
+
+        reader.readAsArrayBuffer(chunk);
+      });
+    };
+
+    this.completeFileUpload = async function (file, dealId) {
+      try {
+        // 1. Создаем сессию загрузки
+        const sessionData = await self.createFileUploadSession(file);
+
+        // 2. Загружаем части файла
+        let partNumber = 1;
+        let nextUrl = sessionData.upload_url;
+        let response;
+
+        while (nextUrl) {
+          response = await self.uploadFilePart(sessionData, file, partNumber);
+          nextUrl = response.next_url;
+          partNumber++;
+        }
+
+        // 3. Привязываем файл к сделке
+        if (response && response.uuid && dealId) {
+          await self.attachFileToDeal(response.uuid, dealId);
+          return response;
+        }
+
+        return response;
+      } catch (error) {
+        console.error("Ошибка загрузки файла:", error);
+        throw error;
+      }
+    };
+
+    this.attachFileToDeal = function (fileUuid, dealId) {
+      return self.doRequest("PUT", `/api/v4/leads/${dealId}/files`, [
+        { file_uuid: fileUuid },
+      ]);
+    };
+
+    this.getDealFiles = function (dealId) {
+      return self.doRequest("GET", `/api/v4/leads/${dealId}/files`);
+    };
+
+    this.deleteFile = function (fileUuid) {
+      return self.doRequest("DELETE", "/v1.0/files", [{ uuid: fileUuid }], {
+        host: "https://drive.amocrm.ru",
       });
     };
 
@@ -585,6 +696,21 @@ define(["jquery"], function ($) {
                         .join(", ")}</p>`
                     : ""
                 }
+                <div class="deal-files">
+                  <h5>Прикрепленные файлы:</h5>
+                  <div class="files-list" data-deal-id="${deal.id}">
+                    <div class="file-upload-progress" style="display: none;">
+                      <progress value="0" max="100"></progress>
+                      <span>0%</span>
+                    </div>
+                    <div class="file-upload-container">
+                      <input type="file" class="file-input" data-deal-id="${
+                        deal.id
+                      }" style="display: none;">
+                      <button class="upload-file-btn">Загрузить файл</button>
+                    </div>
+                  </div>
+                </div>
               </div>`
               )
               .join("")
@@ -610,6 +736,27 @@ define(["jquery"], function ($) {
         $(".deals-popup").remove();
         $("#widget-root").append(popupHTML);
 
+        // Загружаем файлы для каждой сделки
+        if (!self.isStandalone) {
+          deals.forEach((deal) => {
+            self.loadDealFiles(deal.id);
+          });
+        }
+
+        // Навешиваем обработчики для загрузки файлов
+        $(".upload-file-btn").on("click", function () {
+          const dealId = $(this).closest(".files-list").data("deal-id");
+          $(`input.file-input[data-deal-id="${dealId}"]`).click();
+        });
+
+        $(".file-input").on("change", function (e) {
+          const dealId = $(this).data("deal-id");
+          const file = e.target.files[0];
+          if (file) {
+            self.uploadFile(file, dealId);
+          }
+        });
+
         $(document)
           .off("click.popup")
           .on("click.popup", ".close-popup", function () {
@@ -618,6 +765,80 @@ define(["jquery"], function ($) {
       } catch (e) {
         console.error("Ошибка при отображении попапа:", e);
       }
+    };
+
+    this.loadDealFiles = function (dealId) {
+      if (self.isStandalone) return;
+
+      self
+        .getDealFiles(dealId)
+        .then((response) => {
+          if (response && response._embedded && response._embedded.files) {
+            const filesContainer = $(`.files-list[data-deal-id="${dealId}"]`);
+            filesContainer.find(".file-upload-container").before(
+              response._embedded.files
+                .map(
+                  (file) => `
+                <div class="file-item">
+                  <span>${file.file_uuid}</span>
+                  <button class="delete-file-btn" data-file-uuid="${file.file_uuid}">Удалить</button>
+                </div>
+              `
+                )
+                .join("")
+            );
+
+            $(".delete-file-btn").on("click", function () {
+              const fileUuid = $(this).data("file-uuid");
+              self.deleteFile(fileUuid).then(() => {
+                $(this).closest(".file-item").remove();
+              });
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Ошибка загрузки файлов сделки:", error);
+        });
+    };
+
+    this.uploadFile = function (file, dealId) {
+      if (self.isStandalone) {
+        alert("В standalone режиме загрузка файлов невозможна");
+        return;
+      }
+
+      const progressContainer = $(
+        `.files-list[data-deal-id="${dealId}"] .file-upload-progress`
+      );
+      const progressBar = progressContainer.find("progress");
+      const progressText = progressContainer.find("span");
+
+      progressContainer.show();
+      progressBar.val(0);
+      progressText.text("0%");
+
+      const progressInterval = setInterval(() => {
+        progressBar.val(self.state.fileUploadProgress);
+        progressText.text(`${self.state.fileUploadProgress}%`);
+      }, 100);
+
+      self
+        .completeFileUpload(file, dealId)
+        .then((response) => {
+          clearInterval(progressInterval);
+          progressBar.val(100);
+          progressText.text("100%");
+          setTimeout(() => {
+            progressContainer.hide();
+            self.loadDealFiles(dealId);
+          }, 500);
+        })
+        .catch((error) => {
+          clearInterval(progressInterval);
+          progressContainer.html(
+            `<div class="error">Ошибка загрузки: ${error.message}</div>`
+          );
+        });
     };
 
     // ========== CALLBACKS ДЛЯ AMOCRM ========== //

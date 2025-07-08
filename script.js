@@ -11,6 +11,11 @@ define(["jquery"], function ($) {
     this.isStandalone =
       typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function";
 
+    console.log(
+      "Виджет инициализирован",
+      AMOCRM ? "API доступен" : "API недоступен"
+    );
+
     // Получаем данные аккаунта и пользователя
     const accountData =
       (!this.isStandalone && AMOCRM.constant("account")) || {};
@@ -88,7 +93,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.2";
+      return "1.0.3";
     };
 
     // Состояние виджета
@@ -200,18 +205,23 @@ define(["jquery"], function ($) {
 
         try {
           if (typeof AMOCRM === "undefined") {
+            console.error("AMOCRM API недоступен");
             return reject(new Error("AMOCRM API недоступен"));
           }
 
           if (typeof AMOCRM.request !== "function") {
+            console.error("AMOCRM.request не является функцией");
             return reject(new Error("AMOCRM.request не является функцией"));
           }
 
+          console.log("Отправка запроса к API:", { method, path, data });
           AMOCRM.request(method, path, data)
             .then((response) => {
               if (!response) {
-                throw new Error("Пустой ответ от сервера");
+                console.error("Пустой ответ от сервера для", path);
+                return reject(new Error("Пустой ответ сервера"));
               }
+              console.log("Успешный ответ от API для", path, response);
               resolve(response);
             })
             .catch(function (error) {
@@ -238,10 +248,11 @@ define(["jquery"], function ($) {
       return new Promise(function (resolve) {
         try {
           if (self.state.loading) {
-            console.warn("Загрузка уже выполняется");
+            console.warn("Загрузка уже выполняется - пропускаем новый запрос");
             return resolve();
           }
 
+          console.log("Начало загрузки данных", new Date().toISOString());
           self.state.loading = true;
 
           if (self.isStandalone) {
@@ -273,11 +284,16 @@ define(["jquery"], function ($) {
 
             self.processData(self.state.standaloneData[dateStr]);
             self.state.loading = false;
+            console.log(
+              "Данные загружены (standalone)",
+              Object.keys(self.state.dealsData).length
+            );
             return resolve();
           }
 
           // Проверка обязательных полей
           if (!self.state.fieldIds.ORDER_DATE) {
+            console.error("Не настроено поле с датой заказа");
             self.showError("Не настроено поле с датой заказа");
             self.state.loading = false;
             return resolve();
@@ -308,7 +324,12 @@ define(["jquery"], function ($) {
             .then(function (response) {
               if (response?._embedded?.leads) {
                 self.processData(response._embedded.leads);
+                console.log(
+                  "Данные загружены",
+                  Object.keys(self.state.dealsData).length
+                );
               } else {
+                console.warn("Нет данных о сделках в ответе");
                 self.state.dealsData = {};
               }
             })
@@ -436,7 +457,12 @@ define(["jquery"], function ($) {
                 .join("")}
               ${daysHTML}
             </div>
-            ${this.state.loading ? '<div class="loading-spinner"></div>' : ""}
+            ${
+              this.state.loading
+                ? '<div class="loading-spinner" style="padding: 20px; text-align: center;">Загрузка данных...</div>'
+                : ""
+            }
+            <button class="test-button" style="margin-top: 20px;">Тестовая кнопка</button>
           </div>`;
       } catch (e) {
         console.error("Ошибка при создании календаря:", e);
@@ -523,6 +549,12 @@ define(["jquery"], function ($) {
           .on("click.date", ".calendar-day:not(.empty)", function () {
             const dateStr = $(this).data("date");
             self.showDealsPopup(dateStr);
+          });
+
+        $(document)
+          .off("click.test")
+          .on("click.test", ".test-button", function () {
+            self.showError("Тестовое сообщение об ошибке");
           });
       } catch (e) {
         console.error("Ошибка привязки событий календаря:", e);

@@ -1,26 +1,36 @@
 define(["jquery"], function ($) {
   var OrdersCalendarWidget = function () {
     if (typeof OrdersCalendarWidget.instance === "object") {
+      console.log("Возвращаем существующий экземпляр виджета");
       return OrdersCalendarWidget.instance;
     }
 
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Проверка режима работы
+    // Проверка режима работы с дополнительным логированием
     this.isStandalone =
       typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function";
 
     console.log(
       "Виджет инициализирован",
-      AMOCRM ? "API доступен" : "API недоступен"
+      "Режим:",
+      this.isStandalone ? "standalone" : "integrated",
+      "AMOCRM API:",
+      typeof AMOCRM !== "undefined" ? "доступен" : "недоступен",
+      "AMOCRM.request:",
+      typeof AMOCRM.request === "function" ? "доступен" : "недоступен"
     );
 
-    // Получаем данные аккаунта и пользователя
+    // Получаем данные аккаунта и пользователя с проверками
     const accountData =
       (!this.isStandalone && AMOCRM.constant("account")) || {};
     const userData = (!this.isStandalone && AMOCRM.constant("user")) || {};
     const currentCard = (!this.isStandalone && AMOCRM.data.current_card) || {};
+
+    console.log("Данные аккаунта:", accountData);
+    console.log("Данные пользователя:", userData);
+    console.log("Данные текущей карточки:", currentCard);
 
     // Инициализация системных методов
     this.system = function () {
@@ -93,7 +103,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.4";
+      return "1.0.5";
     };
 
     // Состояние виджета
@@ -358,16 +368,22 @@ define(["jquery"], function ($) {
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
-          if (self.state.loading) {
-            console.warn("Загрузка уже выполняется - пропускаем новый запрос");
-            return resolve();
-          }
+          console.log(
+            "Начало loadData, текущее состояние loading:",
+            self.state.loading
+          );
+
+          // Временно убираем проверку на loading для тестирования
+          // if (self.state.loading) {
+          //   console.warn("Загрузка уже выполняется - пропускаем новый запрос");
+          //   return resolve();
+          // }
 
           console.log("Начало загрузки данных", new Date().toISOString());
           self.state.loading = true;
 
           if (self.isStandalone) {
-            // Генерация тестовых данных для standalone режима
+            console.log("Загрузка тестовых данных в standalone режиме");
             const today = new Date();
             const dateStr = self.formatDate(
               today.getDate(),
@@ -410,6 +426,8 @@ define(["jquery"], function ($) {
             return resolve();
           }
 
+          console.log("Поле ORDER_DATE:", self.state.fieldIds.ORDER_DATE);
+
           const dateFrom = new Date(
             self.state.currentDate.getFullYear(),
             self.state.currentDate.getMonth(),
@@ -420,6 +438,8 @@ define(["jquery"], function ($) {
             self.state.currentDate.getMonth() + 1,
             0
           );
+
+          console.log("Диапазон дат для запроса:", dateFrom, "до", dateTo);
 
           self
             .doRequest("GET", "/api/v4/leads", {
@@ -433,6 +453,7 @@ define(["jquery"], function ($) {
               with: "contacts",
             })
             .then(function (response) {
+              console.log("Ответ от API:", response);
               if (response?._embedded?.leads) {
                 self.processData(response._embedded.leads);
                 console.log(
@@ -584,24 +605,33 @@ define(["jquery"], function ($) {
     this.renderCalendar = function () {
       return new Promise(function (resolve) {
         try {
-          if (self.state.loading) {
-            console.log("Рендеринг отложен - данные уже загружаются");
-            return resolve();
-          }
+          console.log("Начало renderCalendar, loading:", self.state.loading);
+
+          // Временно убираем проверку на loading для тестирования
+          // if (self.state.loading) {
+          //   console.log("Рендеринг отложен - данные уже загружаются");
+          //   return resolve();
+          // }
 
           self.state.loading = true;
           const cacheKey = `${self.state.currentDate.getFullYear()}-${self.state.currentDate.getMonth()}`;
 
+          console.log("Ключ кэша:", cacheKey);
+          console.log("Данные в кэше:", self.state.cache.monthsData[cacheKey]);
+
           if (self.state.cache.monthsData[cacheKey]) {
+            console.log("Используем данные из кэша");
             self.state.dealsData = self.state.cache.monthsData[cacheKey];
             self.state.loading = false;
             self.updateCalendarView();
             return resolve();
           }
 
+          console.log("Загружаем новые данные");
           self
             .loadData()
             .then(function () {
+              console.log("Данные загружены, сохраняем в кэш");
               self.state.cache.monthsData[cacheKey] = {
                 ...self.state.dealsData,
               };
@@ -933,9 +963,13 @@ define(["jquery"], function ($) {
 
     // Инициализация виджета
     if (this.isStandalone) {
+      console.log("Инициализация в standalone режиме");
       this.renderCalendar().then(() => {
+        console.log("Рендеринг завершен в standalone режиме");
         this.bindCalendarEvents();
       });
+    } else {
+      console.log("Инициализация в integrated режиме");
     }
 
     return this;

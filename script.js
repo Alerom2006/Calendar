@@ -8,25 +8,39 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Проверка режима работы с дополнительным логированием
-    this.isStandalone =
-      typeof AMOCRM === "undefined" || typeof AMOCRM.request !== "function";
+    // Улучшенная проверка доступности AMOCRM API
+    try {
+      this.isStandalone = !(
+        typeof AMOCRM !== "undefined" &&
+        typeof AMOCRM.constant === "function" &&
+        typeof AMOCRM.request === "function"
+      );
+    } catch (e) {
+      console.error("Ошибка проверки AMOCRM API:", e);
+      this.isStandalone = true;
+    }
 
     console.log(
       "Виджет инициализирован",
       "Режим:",
-      this.isStandalone ? "standalone" : "integrated",
-      "AMOCRM API:",
-      typeof AMOCRM !== "undefined" ? "доступен" : "недоступен",
-      "AMOCRM.request:",
-      typeof AMOCRM.request === "function" ? "доступен" : "недоступен"
+      this.isStandalone ? "standalone" : "integrated"
     );
 
-    // Получаем данные аккаунта и пользователя с проверками
-    const accountData =
-      (!this.isStandalone && AMOCRM.constant("account")) || {};
-    const userData = (!this.isStandalone && AMOCRM.constant("user")) || {};
-    const currentCard = (!this.isStandalone && AMOCRM.data.current_card) || {};
+    // Получаем данные аккаунта и пользователя с улучшенной обработкой ошибок
+    let accountData = {};
+    let userData = {};
+    let currentCard = {};
+
+    try {
+      if (!this.isStandalone) {
+        accountData = AMOCRM.constant("account") || {};
+        userData = AMOCRM.constant("user") || {};
+        currentCard = AMOCRM.data.current_card || {};
+      }
+    } catch (e) {
+      console.error("Ошибка получения данных AMOCRM:", e);
+      this.isStandalone = true;
+    }
 
     console.log("Данные аккаунта:", accountData);
     console.log("Данные пользователя:", userData);
@@ -70,6 +84,7 @@ define(["jquery"], function ($) {
           fileDelete: "Ошибка удаления файла",
           settingsSave: "Ошибка сохранения настроек",
           standalone: "Виджет работает в автономном режиме",
+          apiError: "Ошибка подключения к API AMOCRM",
         },
       },
       en: {
@@ -97,13 +112,14 @@ define(["jquery"], function ($) {
           fileDelete: "File delete error",
           settingsSave: "Error saving settings",
           standalone: "Widget works in standalone mode",
+          apiError: "AMOCRM API connection error",
         },
       },
     };
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.5";
+      return "1.0.6";
     };
 
     // Состояние виджета
@@ -194,7 +210,6 @@ define(["jquery"], function ($) {
     this.doRequest = function (method, path, data, options = {}) {
       return new Promise(function (resolve, reject) {
         if (self.isStandalone) {
-          // Эмуляция API в standalone режиме
           setTimeout(() => {
             const dateStr = self.formatDate(
               self.state.currentDate.getDate(),
@@ -220,12 +235,7 @@ define(["jquery"], function ($) {
         try {
           if (typeof AMOCRM === "undefined") {
             console.error("AMOCRM API недоступен");
-            return reject(new Error("AMOCRM API недоступен"));
-          }
-
-          if (typeof AMOCRM.request !== "function") {
-            console.error("AMOCRM.request не является функцией");
-            return reject(new Error("AMOCRM.request не является функцией"));
+            return reject(new Error(self.langs.ru.errors.apiError));
           }
 
           console.log("Отправка запроса к API:", { method, path, data });
@@ -265,120 +275,10 @@ define(["jquery"], function ($) {
       });
     };
 
-    // ========== API ФАЙЛОВ ========== //
-    this.createFileUploadSession = function (file) {
-      return self.doRequest(
-        "POST",
-        "/v1.0/sessions",
-        {
-          file_name: file.name,
-          file_size: file.size,
-          content_type: file.type || "application/octet-stream",
-        },
-        { host: "https://drive.amocrm.ru" }
-      );
-    };
-
-    this.uploadFilePart = function (sessionData, file, partNumber = 1) {
-      return new Promise((resolve, reject) => {
-        const chunkSize = sessionData.max_part_size;
-        const offset = (partNumber - 1) * chunkSize;
-        const chunk = file.slice(offset, offset + chunkSize);
-
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", sessionData.upload_url, true);
-          xhr.setRequestHeader("Content-Type", "application/octet-stream");
-
-          xhr.onload = function () {
-            if (xhr.status === 200) {
-              const response = JSON.parse(xhr.responseText);
-              self.state.fileUploadProgress = Math.min(
-                Math.round(((partNumber * chunkSize) / file.size) * 100),
-                100
-              );
-              resolve(response);
-            } else {
-              reject(new Error("Ошибка загрузки части файла"));
-            }
-          };
-
-          xhr.onerror = function () {
-            reject(new Error("Ошибка сети при загрузке файла"));
-          };
-
-          xhr.send(e.target.result);
-        };
-
-        reader.onerror = function () {
-          reject(new Error("Ошибка чтения файла"));
-        };
-
-        reader.readAsArrayBuffer(chunk);
-      });
-    };
-
-    this.completeFileUpload = async function (file, dealId) {
-      try {
-        // 1. Создаем сессию загрузки
-        const sessionData = await self.createFileUploadSession(file);
-
-        // 2. Загружаем части файла
-        let partNumber = 1;
-        let nextUrl = sessionData.upload_url;
-        let response;
-
-        while (nextUrl) {
-          response = await self.uploadFilePart(sessionData, file, partNumber);
-          nextUrl = response.next_url;
-          partNumber++;
-        }
-
-        // 3. Привязываем файл к сделке
-        if (response && response.uuid && dealId) {
-          await self.attachFileToDeal(response.uuid, dealId);
-          return response;
-        }
-
-        return response;
-      } catch (error) {
-        console.error("Ошибка загрузки файла:", error);
-        throw error;
-      }
-    };
-
-    this.attachFileToDeal = function (fileUuid, dealId) {
-      return self.doRequest("PUT", `/api/v4/leads/${dealId}/files`, [
-        { file_uuid: fileUuid },
-      ]);
-    };
-
-    this.getDealFiles = function (dealId) {
-      return self.doRequest("GET", `/api/v4/leads/${dealId}/files`);
-    };
-
-    this.deleteFile = function (fileUuid) {
-      return self.doRequest("DELETE", "/v1.0/files", [{ uuid: fileUuid }], {
-        host: "https://drive.amocrm.ru",
-      });
-    };
-
     // ========== ЗАГРУЗКА ДАННЫХ ========== //
     this.loadData = function () {
       return new Promise(function (resolve) {
         try {
-          console.log(
-            "Начало loadData, текущее состояние loading:",
-            self.state.loading
-          );
-
-          // Временно убираем проверку на loading для тестирования
-          // if (self.state.loading) {
-          //   console.warn("Загрузка уже выполняется - пропускаем новый запрос");
-          //   return resolve();
-          // }
-
           console.log("Начало загрузки данных", new Date().toISOString());
           self.state.loading = true;
 
@@ -411,22 +311,16 @@ define(["jquery"], function ($) {
 
             self.processData(self.state.standaloneData[dateStr]);
             self.state.loading = false;
-            console.log(
-              "Данные загружены (standalone)",
-              Object.keys(self.state.dealsData).length
-            );
+            console.log("Данные загружены (standalone)");
             return resolve();
           }
 
-          // Проверка обязательных полей
           if (!self.state.fieldIds.ORDER_DATE) {
             console.error("Не настроено поле с датой заказа");
             self.showError("Не настроено поле с датой заказа");
             self.state.loading = false;
             return resolve();
           }
-
-          console.log("Поле ORDER_DATE:", self.state.fieldIds.ORDER_DATE);
 
           const dateFrom = new Date(
             self.state.currentDate.getFullYear(),
@@ -456,10 +350,7 @@ define(["jquery"], function ($) {
               console.log("Ответ от API:", response);
               if (response?._embedded?.leads) {
                 self.processData(response._embedded.leads);
-                console.log(
-                  "Данные загружены",
-                  Object.keys(self.state.dealsData).length
-                );
+                console.log("Данные загружены");
               } else {
                 console.warn("Нет данных о сделках в ответе");
                 self.state.dealsData = {};
@@ -594,7 +485,6 @@ define(["jquery"], function ($) {
                 ? '<div class="loading-spinner" style="padding: 20px; text-align: center;">Загрузка данных...</div>'
                 : ""
             }
-            <button class="test-button" style="margin-top: 20px;">Тестовая кнопка</button>
           </div>`;
       } catch (e) {
         console.error("Ошибка при создании календаря:", e);
@@ -605,19 +495,9 @@ define(["jquery"], function ($) {
     this.renderCalendar = function () {
       return new Promise(function (resolve) {
         try {
-          console.log("Начало renderCalendar, loading:", self.state.loading);
-
-          // Временно убираем проверку на loading для тестирования
-          // if (self.state.loading) {
-          //   console.log("Рендеринг отложен - данные уже загружаются");
-          //   return resolve();
-          // }
-
+          console.log("Начало renderCalendar");
           self.state.loading = true;
           const cacheKey = `${self.state.currentDate.getFullYear()}-${self.state.currentDate.getMonth()}`;
-
-          console.log("Ключ кэша:", cacheKey);
-          console.log("Данные в кэше:", self.state.cache.monthsData[cacheKey]);
 
           if (self.state.cache.monthsData[cacheKey]) {
             console.log("Используем данные из кэша");
@@ -690,12 +570,6 @@ define(["jquery"], function ($) {
           .on("click.date", ".calendar-day:not(.empty)", function () {
             const dateStr = $(this).data("date");
             self.showDealsPopup(dateStr);
-          });
-
-        $(document)
-          .off("click.test")
-          .on("click.test", ".test-button", function () {
-            self.showError("Тестовое сообщение об ошибке");
           });
       } catch (e) {
         console.error("Ошибка привязки событий календаря:", e);
@@ -876,6 +750,10 @@ define(["jquery"], function ($) {
       init: function () {
         return new Promise(function (resolve) {
           try {
+            if (typeof AMOCRM === "undefined") {
+              throw new Error("AMOCRM API не доступен");
+            }
+
             const currentSettings = self.get_settings();
             if (currentSettings) {
               self.applySettings(currentSettings);
@@ -884,6 +762,7 @@ define(["jquery"], function ($) {
             resolve(true);
           } catch (e) {
             console.error("Ошибка инициализации:", e);
+            self.showError("Ошибка подключения к AMOCRM");
             resolve(false);
           }
         });

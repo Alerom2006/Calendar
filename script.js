@@ -8,66 +8,43 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Улучшенная проверка доступности AMOCRM API с подробной диагностикой
+    // Улучшенная проверка доступности AMOCRM API
     this.checkAMOCRM = function () {
       try {
         console.log("=== Начало проверки AMOCRM API ===");
-        console.log("AMOCRM доступен?", typeof AMOCRM !== "undefined");
 
-        if (typeof AMOCRM !== "undefined") {
-          console.log(
-            "AMOCRM.constant доступен?",
-            typeof AMOCRM.constant === "function"
-          );
-          console.log(
-            "AMOCRM.request доступен?",
-            typeof AMOCRM.request === "function"
-          );
-          console.log(
-            "AMOCRM.data доступен?",
-            typeof AMOCRM.data !== "undefined"
-          );
-          console.log(
-            "AMOCRM.widgets доступен?",
-            typeof AMOCRM.widgets !== "undefined"
-          );
-
-          // Проверка данных аккаунта
-          try {
-            const account = AMOCRM.constant("account");
-            console.log("Данные аккаунта:", account);
-          } catch (e) {
-            console.error("Ошибка при получении данных аккаунта:", e);
-          }
+        // Проверяем наличие основного объекта
+        if (typeof AMOCRM === "undefined") {
+          console.error("AMOCRM не загружен");
+          return false;
         }
 
-        const isAvailable = !(
-          typeof AMOCRM === "undefined" ||
-          typeof AMOCRM.constant !== "function" ||
-          typeof AMOCRM.request !== "function"
+        // Проверяем необходимые методы
+        const requiredMethods = ["constant", "request", "data"];
+        const missingMethods = requiredMethods.filter(
+          (method) => typeof AMOCRM[method] !== "function"
         );
 
-        if (!isAvailable) {
-          console.error("AMOCRM API недоступен или неполный");
-          if (typeof AMOCRM === "undefined") {
-            console.error(
-              "AMOCRM не загружен. Проверьте:\n" +
-                "1. Загружен ли loader.min.js\n" +
-                "2. Не блокируется ли загрузка CSP\n" +
-                "3. Правильно ли указаны скрипты в index.html"
-            );
-          } else {
-            console.error("Не хватает методов AMOCRM:", {
-              constant: typeof AMOCRM.constant,
-              request: typeof AMOCRM.request,
-              data: typeof AMOCRM.data,
-              widgets: typeof AMOCRM.widgets,
-            });
-          }
+        if (missingMethods.length > 0) {
+          console.error("Отсутствуют методы AMOCRM:", missingMethods);
+          return false;
         }
 
-        console.log("=== Результат проверки AMOCRM API ===", isAvailable);
-        return isAvailable;
+        // Дополнительная проверка данных аккаунта
+        try {
+          const account = AMOCRM.constant("account");
+          console.log("Данные аккаунта:", account);
+          if (!account || !account.id) {
+            console.error("Не удалось получить данные аккаунта");
+            return false;
+          }
+        } catch (e) {
+          console.error("Ошибка при получении данных аккаунта:", e);
+          return false;
+        }
+
+        console.log("=== AMOCRM API доступен и функционирует ===");
+        return true;
       } catch (e) {
         console.error("Ошибка проверки AMOCRM API:", e);
         return false;
@@ -82,14 +59,14 @@ define(["jquery"], function ($) {
       this.isStandalone ? "standalone" : "integrated"
     );
 
-    // Получаем данные аккаунта и пользователя с улучшенной обработкой ошибок
+    // Получаем данные аккаунта и пользователя
     let accountData = {};
     let userData = {};
     let currentCard = {};
 
     try {
       if (!this.isStandalone) {
-        console.log("Попытка получения данных из AMOCRM...");
+        console.log("Получение данных из AMOCRM...");
         accountData = AMOCRM.constant("account") || {};
         userData = AMOCRM.constant("user") || {};
         currentCard = AMOCRM.data.current_card || {};
@@ -100,13 +77,9 @@ define(["jquery"], function ($) {
           currentCard,
         });
 
-        // Дополнительная проверка полученных данных
+        // Дополнительная проверка данных
         if (!accountData.id || !userData.id) {
           console.error("Не удалось получить необходимые данные из AMOCRM");
-          console.error("Проверьте scope в manifest.json:", {
-            required: ["crm", "widgets"],
-            current: AMOCRM.constant("scopes") || [],
-          });
           this.isStandalone = true;
         }
       }
@@ -114,10 +87,6 @@ define(["jquery"], function ($) {
       console.error("Ошибка получения данных AMOCRM:", e);
       this.isStandalone = true;
     }
-
-    console.log("Данные аккаунта:", accountData);
-    console.log("Данные пользователя:", userData);
-    console.log("Данные текущей карточки:", currentCard);
 
     // Инициализация системных методов
     this.system = function () {
@@ -131,6 +100,7 @@ define(["jquery"], function ($) {
       };
     }.bind(this);
 
+    // Локализация
     this.langs = {
       ru: {
         widget: { name: "Календарь заказов" },
@@ -196,7 +166,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.10";
+      return "1.0.11";
     };
 
     // Состояние виджета
@@ -327,6 +297,12 @@ define(["jquery"], function ($) {
 
           console.log("Отправка запроса к API:", { method, path, data });
 
+          // Добавляем обработку ошибок для AMOCRM.request
+          if (typeof AMOCRM.request !== "function") {
+            console.error("AMOCRM.request не является функцией");
+            return reject(new Error("AMOCRM.request недоступен"));
+          }
+
           const requestOptions = {
             method,
             path,
@@ -362,6 +338,7 @@ define(["jquery"], function ($) {
       });
     };
 
+    // Остальные методы остаются без изменений
     // ========== ЗАГРУЗКА ДАННЫХ ========== //
     this.loadData = function () {
       return new Promise(function (resolve) {

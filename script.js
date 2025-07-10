@@ -11,40 +11,38 @@ define(["jquery"], function ($) {
     // Улучшенная проверка доступности AMOCRM API
     this.checkAMOCRM = function () {
       try {
-        console.log("=== Начало проверки AMOCRM API ===");
-
-        // Проверяем наличие основного объекта
         if (typeof AMOCRM === "undefined") {
           console.error("AMOCRM не загружен");
           return false;
         }
 
-        // Проверяем необходимые методы
+        // Проверяем все необходимые методы
         const requiredMethods = ["constant", "request", "data"];
-        const missingMethods = requiredMethods.filter(
-          (method) => typeof AMOCRM[method] !== "function"
+        const availableMethods = requiredMethods.filter(
+          (m) => typeof AMOCRM[m] === "function"
         );
 
-        if (missingMethods.length > 0) {
-          console.error("Отсутствуют методы AMOCRM:", missingMethods);
+        if (availableMethods.length !== requiredMethods.length) {
+          console.error("Не хватает методов AMOCRM:", {
+            constant: typeof AMOCRM.constant,
+            request: typeof AMOCRM.request,
+            data: typeof AMOCRM.data,
+          });
           return false;
         }
 
         // Дополнительная проверка данных аккаунта
         try {
           const account = AMOCRM.constant("account");
-          console.log("Данные аккаунта:", account);
           if (!account || !account.id) {
             console.error("Не удалось получить данные аккаунта");
             return false;
           }
+          return true;
         } catch (e) {
           console.error("Ошибка при получении данных аккаунта:", e);
           return false;
         }
-
-        console.log("=== AMOCRM API доступен и функционирует ===");
-        return true;
       } catch (e) {
         console.error("Ошибка проверки AMOCRM API:", e);
         return false;
@@ -166,7 +164,7 @@ define(["jquery"], function ($) {
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.11";
+      return "1.0.12";
     };
 
     // Состояние виджета
@@ -297,7 +295,6 @@ define(["jquery"], function ($) {
 
           console.log("Отправка запроса к API:", { method, path, data });
 
-          // Добавляем обработку ошибок для AMOCRM.request
           if (typeof AMOCRM.request !== "function") {
             console.error("AMOCRM.request не является функцией");
             return reject(new Error("AMOCRM.request недоступен"));
@@ -338,7 +335,6 @@ define(["jquery"], function ($) {
       });
     };
 
-    // Остальные методы остаются без изменений
     // ========== ЗАГРУЗКА ДАННЫХ ========== //
     this.loadData = function () {
       return new Promise(function (resolve) {

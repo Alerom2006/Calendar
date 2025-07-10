@@ -11,16 +11,35 @@ define(["jquery"], function ($) {
     // Улучшенная проверка доступности AMOCRM API с подробной диагностикой
     this.checkAMOCRM = function () {
       try {
-        console.log("Проверка доступности AMOCRM API...");
+        console.log("=== Начало проверки AMOCRM API ===");
         console.log("AMOCRM доступен?", typeof AMOCRM !== "undefined");
-        console.log(
-          "AMOCRM.constant доступен?",
-          typeof AMOCRM?.constant === "function"
-        );
-        console.log(
-          "AMOCRM.request доступен?",
-          typeof AMOCRM?.request === "function"
-        );
+
+        if (typeof AMOCRM !== "undefined") {
+          console.log(
+            "AMOCRM.constant доступен?",
+            typeof AMOCRM.constant === "function"
+          );
+          console.log(
+            "AMOCRM.request доступен?",
+            typeof AMOCRM.request === "function"
+          );
+          console.log(
+            "AMOCRM.data доступен?",
+            typeof AMOCRM.data !== "undefined"
+          );
+          console.log(
+            "AMOCRM.widgets доступен?",
+            typeof AMOCRM.widgets !== "undefined"
+          );
+
+          // Проверка данных аккаунта
+          try {
+            const account = AMOCRM.constant("account");
+            console.log("Данные аккаунта:", account);
+          } catch (e) {
+            console.error("Ошибка при получении данных аккаунта:", e);
+          }
+        }
 
         const isAvailable = !(
           typeof AMOCRM === "undefined" ||
@@ -32,16 +51,22 @@ define(["jquery"], function ($) {
           console.error("AMOCRM API недоступен или неполный");
           if (typeof AMOCRM === "undefined") {
             console.error(
-              "AMOCRM не загружен. Проверьте загрузку loader.min.js"
+              "AMOCRM не загружен. Проверьте:\n" +
+                "1. Загружен ли loader.min.js\n" +
+                "2. Не блокируется ли загрузка CSP\n" +
+                "3. Правильно ли указаны скрипты в index.html"
             );
           } else {
             console.error("Не хватает методов AMOCRM:", {
               constant: typeof AMOCRM.constant,
               request: typeof AMOCRM.request,
+              data: typeof AMOCRM.data,
+              widgets: typeof AMOCRM.widgets,
             });
           }
         }
 
+        console.log("=== Результат проверки AMOCRM API ===", isAvailable);
         return isAvailable;
       } catch (e) {
         console.error("Ошибка проверки AMOCRM API:", e);
@@ -64,13 +89,24 @@ define(["jquery"], function ($) {
 
     try {
       if (!this.isStandalone) {
+        console.log("Попытка получения данных из AMOCRM...");
         accountData = AMOCRM.constant("account") || {};
         userData = AMOCRM.constant("user") || {};
         currentCard = AMOCRM.data.current_card || {};
 
+        console.log("Полученные данные:", {
+          accountData,
+          userData,
+          currentCard,
+        });
+
         // Дополнительная проверка полученных данных
         if (!accountData.id || !userData.id) {
           console.error("Не удалось получить необходимые данные из AMOCRM");
+          console.error("Проверьте scope в manifest.json:", {
+            required: ["crm", "widgets"],
+            current: AMOCRM.constant("scopes") || [],
+          });
           this.isStandalone = true;
         }
       }
@@ -123,6 +159,7 @@ define(["jquery"], function ($) {
           standalone: "Виджет работает в автономном режиме",
           apiError: "Ошибка подключения к API AMOCRM",
           apiNotLoaded: "AMOCRM API не загружен. Проверьте загрузку скриптов.",
+          cspError: "Ошибка политики безопасности (CSP). Проверьте консоль.",
         },
       },
       en: {
@@ -152,13 +189,14 @@ define(["jquery"], function ($) {
           standalone: "Widget works in standalone mode",
           apiError: "AMOCRM API connection error",
           apiNotLoaded: "AMOCRM API not loaded. Check script loading.",
+          cspError: "Content Security Policy error. Check console.",
         },
       },
     };
 
     this.params = {};
     this.get_version = function () {
-      return "1.0.8";
+      return "1.0.10";
     };
 
     // Состояние виджета
@@ -235,6 +273,7 @@ define(["jquery"], function ($) {
               <div class="error-details" style="margin-top: 20px; color: #666;">
                 <p>Режим: ${this.isStandalone ? "standalone" : "integrated"}</p>
                 <p>Версия виджета: ${this.get_version()}</p>
+                <p>Текущая локация: ${this.system().area}</p>
                 ${
                   this.isStandalone
                     ? '<p style="color: red;">AMOCRM API не доступен</p>'
@@ -508,9 +547,9 @@ define(["jquery"], function ($) {
               <h3>${this.getWidgetTitle()}</h3>
               ${
                 this.isStandalone
-                  ? '<p class="standalone-notice">' +
+                  ? '<div class="standalone-warning"><h3>Внимание!</h3><p>' +
                     this.langs.ru.errors.standalone +
-                    "</p>"
+                    "</p><p>Проверьте загрузку AMOCRM API в консоли браузера</p></div>"
                   : ""
               }
               <div class="month-navigation">
@@ -674,9 +713,9 @@ define(["jquery"], function ($) {
               <h3>Сделки на ${dateStr}</h3>
               ${
                 self.isStandalone
-                  ? '<p class="standalone-notice">' +
+                  ? '<div class="standalone-warning"><p>' +
                     self.langs.ru.errors.standalone +
-                    "</p>"
+                    "</p></div>"
                   : ""
               }
               <div class="deals-list">${dealsHTML}</div>

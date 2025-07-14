@@ -8,97 +8,7 @@ define(["jquery"], function ($) {
     var self = this;
     OrdersCalendarWidget.instance = this;
 
-    // Улучшенная проверка доступности AMOCRM API
-    this.checkAMOCRM = function () {
-      try {
-        if (typeof AMOCRM === "undefined") {
-          console.error("AMOCRM не загружен");
-          return false;
-        }
-
-        // Проверяем все необходимые методы
-        const requiredMethods = ["constant", "request", "data"];
-        const availableMethods = requiredMethods.filter(
-          (m) => typeof AMOCRM[m] === "function"
-        );
-
-        if (availableMethods.length !== requiredMethods.length) {
-          console.error("Не хватает методов AMOCRM:", {
-            constant: typeof AMOCRM.constant,
-            request: typeof AMOCRM.request,
-            data: typeof AMOCRM.data,
-          });
-          return false;
-        }
-
-        // Дополнительная проверка данных аккаунта
-        try {
-          const account = AMOCRM.constant("account");
-          if (!account || !account.id) {
-            console.error("Не удалось получить данные аккаунта");
-            return false;
-          }
-          return true;
-        } catch (e) {
-          console.error("Ошибка при получении данных аккаунта:", e);
-          return false;
-        }
-      } catch (e) {
-        console.error("Ошибка проверки AMOCRM API:", e);
-        return false;
-      }
-    };
-
-    this.isStandalone = !this.checkAMOCRM();
-
-    console.log(
-      "Виджет инициализирован",
-      "Режим:",
-      this.isStandalone ? "standalone" : "integrated"
-    );
-
-    // Получаем данные аккаунта и пользователя
-    let accountData = {};
-    let userData = {};
-    let currentCard = {};
-
-    try {
-      if (!this.isStandalone) {
-        console.log("Получение данных из AMOCRM...");
-        accountData = AMOCRM.constant("account") || {};
-        userData = AMOCRM.constant("user") || {};
-        currentCard = AMOCRM.data.current_card || {};
-
-        console.log("Полученные данные:", {
-          accountData,
-          userData,
-          currentCard,
-        });
-
-        // Дополнительная проверка данных
-        if (!accountData.id || !userData.id) {
-          console.error("Не удалось получить необходимые данные из AMOCRM");
-          this.isStandalone = true;
-        }
-      }
-    } catch (e) {
-      console.error("Ошибка получения данных AMOCRM:", e);
-      this.isStandalone = true;
-    }
-
-    // Инициализация системных методов
-    this.system = function () {
-      return {
-        area: this.isStandalone ? "standalone" : currentCard.type || "unknown",
-        amouser_id: userData.id || null,
-        amouser: userData.name || null,
-        amohash: userData.api_key || null,
-        subdomain: accountData.subdomain || "yourdomain",
-        account_id: accountData.id || null,
-      };
-    }.bind(this);
-
-    // Локализация
+    // Инициализация языков в первую очередь
     this.langs = {
       ru: {
         widget: { name: "Календарь заказов" },
@@ -125,9 +35,10 @@ define(["jquery"], function ($) {
           fileDelete: "Ошибка удаления файла",
           settingsSave: "Ошибка сохранения настроек",
           standalone: "Виджет работает в автономном режиме",
-          apiError: "Ошибка подключения к API AMOCRM",
-          apiNotLoaded: "AMOCRM API не загружен. Проверьте загрузку скриптов.",
+          apiError: "Ошибка подключения к API AmoCRM",
+          apiNotLoaded: "AmoCRM API не загружен. Проверьте загрузку скриптов.",
           cspError: "Ошибка политики безопасности (CSP). Проверьте консоль.",
+          unknown: "Неизвестная ошибка",
         },
       },
       en: {
@@ -155,19 +66,96 @@ define(["jquery"], function ($) {
           fileDelete: "File delete error",
           settingsSave: "Error saving settings",
           standalone: "Widget works in standalone mode",
-          apiError: "AMOCRM API connection error",
-          apiNotLoaded: "AMOCRM API not loaded. Check script loading.",
+          apiError: "AmoCRM API connection error",
+          apiNotLoaded: "AmoCRM API not loaded. Check script loading.",
           cspError: "Content Security Policy error. Check console.",
+          unknown: "Unknown error",
         },
       },
     };
 
-    this.params = {};
-    this.get_version = function () {
-      return "1.0.12";
+    // Улучшенная проверка AmoCRM API
+    this.checkAMOCRM = function () {
+      try {
+        // Проверяем все возможные варианты объекта AmoCRM
+        const amo = window.AmoCRM || window.AMOCRM || {};
+
+        if (typeof amo === "undefined") {
+          console.error("AmoCRM API не обнаружен");
+          return false;
+        }
+
+        // Проверяем необходимые методы
+        const requiredMethods = ["constant", "request", "data"];
+        const missingMethods = requiredMethods.filter(
+          (m) => typeof amo[m] !== "function"
+        );
+
+        if (missingMethods.length > 0) {
+          console.error("Отсутствуют методы AmoCRM:", missingMethods);
+          return false;
+        }
+
+        // Проверяем данные аккаунта
+        try {
+          const account = amo.constant("account") || {};
+          if (!account.id) {
+            console.error("Не удалось получить ID аккаунта");
+            return false;
+          }
+          return true;
+        } catch (e) {
+          console.error("Ошибка при проверке данных аккаунта:", e);
+          return false;
+        }
+      } catch (e) {
+        console.error("Критическая ошибка при проверке API:", e);
+        return false;
+      }
     };
 
-    // Состояние виджета
+    this.isStandalone = !this.checkAMOCRM();
+
+    console.log("Инициализация виджета", {
+      version: "1.0.14",
+      mode: this.isStandalone ? "standalone" : "integrated",
+      apiAvailable: !this.isStandalone,
+    });
+
+    // Получение данных аккаунта
+    let accountData = {};
+    let userData = {};
+    let currentCard = {};
+
+    if (!this.isStandalone) {
+      try {
+        accountData = AmoCRM.constant("account") || {};
+        userData = AmoCRM.constant("user") || {};
+        currentCard = AmoCRM.data.current_card || {};
+      } catch (e) {
+        console.error("Ошибка получения данных AmoCRM:", e);
+        this.isStandalone = true;
+      }
+    }
+
+    // Системные данные
+    this.system = function () {
+      return {
+        area: this.isStandalone ? "standalone" : currentCard.type || "unknown",
+        amouser_id: userData.id || null,
+        amouser: userData.name || null,
+        amohash: userData.api_key || null,
+        subdomain: accountData.subdomain || "yourdomain",
+        account_id: accountData.id || null,
+      };
+    }.bind(this);
+
+    // Параметры и состояние виджета
+    this.params = {};
+    this.get_version = function () {
+      return "1.0.14";
+    };
+
     this.state = {
       initialized: false,
       currentDate: new Date(),
@@ -187,7 +175,42 @@ define(["jquery"], function ($) {
       attachedFiles: {},
     };
 
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ========== //
+    // Улучшенный метод отображения ошибок
+    this.showError = function (message) {
+      try {
+        const widgetRoot = document.getElementById("widget-root");
+        if (!widgetRoot) return;
+
+        const lang = this.langs.ru || this.langs.en || {};
+        const errorMessage =
+          message || lang.errors?.apiError || "Неизвестная ошибка";
+
+        widgetRoot.innerHTML = `
+          <div class="error-message">
+            <h3>${lang.widget?.name || "Календарь заказов"}</h3>
+            <p>${errorMessage}</p>
+            <div class="error-details">
+              <p><strong>Режим:</strong> ${
+                this.isStandalone ? "standalone" : "integrated"
+              }</p>
+              <p><strong>Версия:</strong> ${this.get_version()}</p>
+              ${
+                this.isStandalone
+                  ? '<p class="text-danger">AmoCRM API недоступен</p>'
+                  : ""
+              }
+            </div>
+            <button class="btn btn-primary mt-3" onclick="location.reload()">
+              Обновить страницу
+            </button>
+          </div>
+        `;
+      } catch (e) {
+        console.error("Ошибка при отображении ошибки:", e);
+      }
+    };
+
+    // Основные методы виджета
     this.formatDate = function (day, month, year) {
       return `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
@@ -203,23 +226,15 @@ define(["jquery"], function ($) {
       );
     };
 
-    this.getWidgetTitle = function () {
-      return this.langs.ru?.widget?.name || "Календарь заказов";
-    };
-
     this.applySettings = function (settings) {
       if (settings && typeof settings === "object") {
         if (settings.deal_date_field_id) {
           const fieldId = parseInt(settings.deal_date_field_id);
-          if (!isNaN(fieldId)) {
-            self.state.fieldIds.ORDER_DATE = fieldId;
-          }
+          if (!isNaN(fieldId)) this.state.fieldIds.ORDER_DATE = fieldId;
         }
         if (settings.delivery_range_field) {
           const fieldId = parseInt(settings.delivery_range_field);
-          if (!isNaN(fieldId)) {
-            self.state.fieldIds.DELIVERY_RANGE = fieldId;
-          }
+          if (!isNaN(fieldId)) this.state.fieldIds.DELIVERY_RANGE = fieldId;
         }
         return true;
       }
@@ -230,128 +245,56 @@ define(["jquery"], function ($) {
       return this.params;
     };
 
-    this.showError = function (message) {
-      try {
-        const widgetRoot = document.getElementById("widget-root");
-        if (widgetRoot) {
-          widgetRoot.innerHTML = `
-            <div class="error-message">
-              <h3>${this.getWidgetTitle()}</h3>
-              <p>${message}</p>
-              <div class="error-details" style="margin-top: 20px; color: #666;">
-                <p>Режим: ${this.isStandalone ? "standalone" : "integrated"}</p>
-                <p>Версия виджета: ${this.get_version()}</p>
-                <p>Текущая локация: ${this.system().area}</p>
-                ${
-                  this.isStandalone
-                    ? '<p style="color: red;">AMOCRM API не доступен</p>'
-                    : ""
-                }
-              </div>
-              ${
-                this.isStandalone
-                  ? '<button class="btn" onclick="location.reload()">Обновить</button>'
-                  : ""
-              }
-            </div>
-          `;
-        }
-      } catch (e) {
-        console.error("Ошибка при отображении ошибки:", e);
-      }
-    };
-
-    // ========== API МЕТОДЫ ========== //
+    // API методы
     this.doRequest = function (method, path, data, options = {}) {
-      return new Promise(function (resolve, reject) {
-        if (self.isStandalone) {
+      return new Promise((resolve, reject) => {
+        if (this.isStandalone) {
           setTimeout(() => {
-            const dateStr = self.formatDate(
-              self.state.currentDate.getDate(),
-              self.state.currentDate.getMonth() + 1,
-              self.state.currentDate.getFullYear()
-            );
-
-            if (path.includes("/files") && method === "GET") {
-              resolve({ _embedded: { files: [] } });
-            } else if (self.state.standaloneData[dateStr]) {
-              resolve({
-                _embedded: {
-                  leads: self.state.standaloneData[dateStr],
-                },
-              });
-            } else {
-              resolve({ _embedded: { leads: [] } });
-            }
+            const mockResponse = {
+              _embedded: { leads: [], files: [] },
+            };
+            resolve(mockResponse);
           }, 300);
           return;
         }
 
         try {
-          if (typeof AMOCRM === "undefined") {
-            console.error("AMOCRM API недоступен");
-            return reject(new Error(self.langs.ru.errors.apiNotLoaded));
-          }
-
-          console.log("Отправка запроса к API:", { method, path, data });
-
-          if (typeof AMOCRM.request !== "function") {
-            console.error("AMOCRM.request не является функцией");
-            return reject(new Error("AMOCRM.request недоступен"));
-          }
-
-          const requestOptions = {
+          AmoCRM.request({
             method,
             path,
             data,
             ...options,
-          };
-
-          AMOCRM.request(requestOptions)
-            .then((response) => {
-              if (!response) {
-                console.error("Пустой ответ от сервера для", path);
-                return reject(new Error("Пустой ответ сервера"));
-              }
-              console.log("Успешный ответ от API для", path, response);
-              resolve(response);
-            })
-            .catch(function (error) {
-              console.error("Ошибка API запроса:", {
-                method,
-                path,
-                error,
-              });
+          })
+            .then(resolve)
+            .catch((error) => {
+              console.error("Ошибка API запроса:", { method, path, error });
               reject(
-                new Error(
-                  self.langs.ru?.errors?.load || "Ошибка загрузки данных"
-                )
+                new Error(this.langs.ru?.errors?.load || "Ошибка загрузки")
               );
             });
         } catch (e) {
-          console.error("Критическая ошибка в doRequest:", e);
+          console.error("Критическая ошибка doRequest:", e);
           reject(e);
         }
       });
     };
 
-    // ========== ЗАГРУЗКА ДАННЫХ ========== //
+    // Методы работы с данными
     this.loadData = function () {
-      return new Promise(function (resolve) {
+      return new Promise((resolve) => {
         try {
-          console.log("Начало загрузки данных", new Date().toISOString());
-          self.state.loading = true;
+          this.state.loading = true;
 
-          if (self.isStandalone) {
-            console.log("Загрузка тестовых данных в standalone режиме");
+          if (this.isStandalone) {
+            // Загрузка тестовых данных для standalone режима
             const today = new Date();
-            const dateStr = self.formatDate(
+            const dateStr = this.formatDate(
               today.getDate(),
               today.getMonth() + 1,
               today.getFullYear()
             );
 
-            self.state.standaloneData[dateStr] = [
+            this.state.standaloneData[dateStr] = [
               {
                 id: 1,
                 name: "Тестовая сделка",
@@ -359,7 +302,7 @@ define(["jquery"], function ($) {
                 price: 1000,
                 custom_fields_values: [
                   {
-                    field_id: self.state.fieldIds.ORDER_DATE,
+                    field_id: this.state.fieldIds.ORDER_DATE,
                     values: [{ value: Math.floor(today.getTime() / 1000) }],
                   },
                 ],
@@ -369,65 +312,51 @@ define(["jquery"], function ($) {
               },
             ];
 
-            self.processData(self.state.standaloneData[dateStr]);
-            self.state.loading = false;
-            console.log("Данные загружены (standalone)");
-            return resolve();
-          }
-
-          if (!self.state.fieldIds.ORDER_DATE) {
-            console.error("Не настроено поле с датой заказа");
-            self.showError("Не настроено поле с датой заказа");
-            self.state.loading = false;
+            this.processData(this.state.standaloneData[dateStr]);
+            this.state.loading = false;
             return resolve();
           }
 
           const dateFrom = new Date(
-            self.state.currentDate.getFullYear(),
-            self.state.currentDate.getMonth(),
+            this.state.currentDate.getFullYear(),
+            this.state.currentDate.getMonth(),
             1
           );
           const dateTo = new Date(
-            self.state.currentDate.getFullYear(),
-            self.state.currentDate.getMonth() + 1,
+            this.state.currentDate.getFullYear(),
+            this.state.currentDate.getMonth() + 1,
             0
           );
 
-          console.log("Диапазон дат для запроса:", dateFrom, "до", dateTo);
-
-          self
-            .doRequest("GET", "/api/v4/leads", {
-              filter: {
-                [self.state.fieldIds.ORDER_DATE]: {
-                  from: Math.floor(dateFrom.getTime() / 1000),
-                  to: Math.floor(dateTo.getTime() / 1000),
-                },
+          this.doRequest("GET", "/api/v4/leads", {
+            filter: {
+              [this.state.fieldIds.ORDER_DATE]: {
+                from: Math.floor(dateFrom.getTime() / 1000),
+                to: Math.floor(dateTo.getTime() / 1000),
               },
-              limit: 250,
-              with: "contacts",
-            })
-            .then(function (response) {
-              console.log("Ответ от API:", response);
+            },
+            limit: 250,
+            with: "contacts",
+          })
+            .then((response) => {
               if (response?._embedded?.leads) {
-                self.processData(response._embedded.leads);
-                console.log("Данные загружены");
+                this.processData(response._embedded.leads);
               } else {
-                console.warn("Нет данных о сделках в ответе");
-                self.state.dealsData = {};
+                this.state.dealsData = {};
               }
             })
-            .catch(function (error) {
+            .catch((error) => {
               console.error("Ошибка загрузки данных:", error);
-              self.showError(self.langs.ru.errors.load);
-              self.state.dealsData = {};
+              this.showError(this.langs.ru?.errors?.load || "Ошибка загрузки");
+              this.state.dealsData = {};
             })
-            .finally(function () {
-              self.state.loading = false;
+            .finally(() => {
+              this.state.loading = false;
               resolve();
             });
         } catch (e) {
-          console.error("Неожиданная ошибка в loadData:", e);
-          self.state.loading = false;
+          console.error("Ошибка loadData:", e);
+          this.state.loading = false;
           resolve();
         }
       });
@@ -437,30 +366,16 @@ define(["jquery"], function ($) {
       try {
         const newDealsData = {};
 
-        if (!deals || !Array.isArray(deals)) {
-          console.warn("Некорректные данные сделок:", deals);
-          return;
-        }
-
-        deals.forEach(function (deal) {
+        (deals || []).forEach((deal) => {
           try {
-            if (!deal || typeof deal !== "object") return;
-
-            const dateField = (deal.custom_fields_values || []).find(function (
-              f
-            ) {
-              return f?.field_id === self.state.fieldIds.ORDER_DATE;
-            });
+            const dateField = (deal.custom_fields_values || []).find(
+              (f) => f?.field_id === this.state.fieldIds.ORDER_DATE
+            );
 
             const timestamp = dateField?.values?.[0]?.value;
             if (!timestamp) return;
 
             const date = new Date(timestamp * 1000);
-            if (isNaN(date.getTime())) {
-              console.warn("Некорректная дата в сделке:", deal.id, timestamp);
-              return;
-            }
-
             const dateStr = date.toISOString().split("T")[0];
 
             if (!newDealsData[dateStr]) {
@@ -481,11 +396,11 @@ define(["jquery"], function ($) {
 
         this.state.dealsData = newDealsData;
       } catch (e) {
-        console.error("Критическая ошибка в processData:", e);
+        console.error("Критическая ошибка processData:", e);
       }
     };
 
-    // ========== ОТОБРАЖЕНИЕ КАЛЕНДАРЯ ========== //
+    // Методы отображения
     this.generateCalendarHTML = function () {
       try {
         const month = this.state.currentDate.getMonth();
@@ -494,99 +409,98 @@ define(["jquery"], function ($) {
         const firstDay = new Date(year, month, 1).getDay();
         const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-        const monthNames = this.langs.ru?.months || [];
-        const weekdays = this.langs.ru?.weekdays || [];
+        const lang = this.langs.ru || this.langs.en || {};
+        const monthNames = lang.months || [];
+        const weekdays = lang.weekdays || [];
 
         let daysHTML = "";
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
           const deals = this.state.dealsData[dateStr] || [];
           const isToday = dateStr === this.getTodayDateString();
-          const hasDeals = deals.length > 0;
 
           daysHTML += `
             <div class="calendar-day ${isToday ? "today" : ""} ${
-            hasDeals ? "has-deals" : ""
-          }" 
-                 data-date="${dateStr}">
+            deals.length ? "has-deals" : ""
+          }" data-date="${dateStr}">
               <div class="day-number">${day}</div>
-              ${hasDeals ? `<div class="deal-count">${deals.length}</div>` : ""}
+              ${
+                deals.length
+                  ? `<div class="deal-count">${deals.length}</div>`
+                  : ""
+              }
             </div>`;
         }
 
         return `
           <div class="orders-calendar">
             <div class="calendar-header">
-              <h3>${this.getWidgetTitle()}</h3>
+              <h3>${lang.widget?.name || "Календарь заказов"}</h3>
               ${
                 this.isStandalone
-                  ? '<div class="standalone-warning"><h3>Внимание!</h3><p>' +
-                    this.langs.ru.errors.standalone +
-                    "</p><p>Проверьте загрузку AMOCRM API в консоли браузера</p></div>"
+                  ? `<div class="alert alert-warning">
+                      ${lang.errors?.standalone || "Режим standalone"}
+                     </div>`
                   : ""
               }
               <div class="month-navigation">
-                <button class="nav-button prev-month">←</button>
+                <button class="btn btn-sm prev-month">←</button>
                 <span class="current-month">${monthNames[month]} ${year}</span>
-                <button class="nav-button next-month">→</button>
+                <button class="btn btn-sm next-month">→</button>
               </div>
             </div>
             <div class="calendar-grid">
               ${weekdays
-                .map((day) => `<div class="calendar-weekday">${day}</div>`)
+                .map((day) => `<div class="weekday">${day}</div>`)
                 .join("")}
               ${Array(adjustedFirstDay)
-                .fill('<div class="calendar-day empty"></div>')
+                .fill('<div class="day-empty"></div>')
                 .join("")}
               ${daysHTML}
             </div>
             ${
               this.state.loading
-                ? '<div class="loading-spinner" style="padding: 20px; text-align: center;">Загрузка данных...</div>'
+                ? '<div class="loading-overlay"><div class="spinner"></div></div>'
                 : ""
             }
           </div>`;
       } catch (e) {
-        console.error("Ошибка при создании календаря:", e);
-        return '<div class="error-message">Ошибка при создании календаря</div>';
+        console.error("Ошибка генерации календаря:", e);
+        return `<div class="alert alert-danger">Ошибка отображения календаря</div>`;
       }
     };
 
     this.renderCalendar = function () {
-      return new Promise(function (resolve) {
+      return new Promise((resolve) => {
         try {
-          console.log("Начало renderCalendar");
-          self.state.loading = true;
-          const cacheKey = `${self.state.currentDate.getFullYear()}-${self.state.currentDate.getMonth()}`;
+          this.state.loading = true;
+          const cacheKey = `${this.state.currentDate.getFullYear()}-${this.state.currentDate.getMonth()}`;
 
-          if (self.state.cache.monthsData[cacheKey]) {
-            console.log("Используем данные из кэша");
-            self.state.dealsData = self.state.cache.monthsData[cacheKey];
-            self.state.loading = false;
-            self.updateCalendarView();
+          if (this.state.cache.monthsData[cacheKey]) {
+            this.state.dealsData = this.state.cache.monthsData[cacheKey];
+            this.state.loading = false;
+            this.updateCalendarView();
             return resolve();
           }
 
-          console.log("Загружаем новые данные");
-          self
-            .loadData()
-            .then(function () {
-              console.log("Данные загружены, сохраняем в кэш");
-              self.state.cache.monthsData[cacheKey] = {
-                ...self.state.dealsData,
+          this.loadData()
+            .then(() => {
+              this.state.cache.monthsData[cacheKey] = {
+                ...this.state.dealsData,
               };
-              self.updateCalendarView();
+              this.updateCalendarView();
             })
-            .catch(function (e) {
+            .catch((e) => {
               console.error("Ошибка рендеринга календаря:", e);
+              this.showError(this.langs.ru?.errors?.load || "Ошибка загрузки");
             })
-            .finally(function () {
-              self.state.loading = false;
+            .finally(() => {
+              this.state.loading = false;
               resolve();
             });
         } catch (e) {
-          console.error("Критическая ошибка в renderCalendar:", e);
-          self.state.loading = false;
+          console.error("Критическая ошибка renderCalendar:", e);
+          this.state.loading = false;
           resolve();
         }
       });
@@ -596,52 +510,52 @@ define(["jquery"], function ($) {
       try {
         const widgetRoot = document.getElementById("widget-root");
         if (widgetRoot) {
-          widgetRoot.innerHTML = self.generateCalendarHTML();
-          self.bindCalendarEvents();
+          widgetRoot.innerHTML = this.generateCalendarHTML();
+          this.bindCalendarEvents();
         }
       } catch (e) {
-        console.error("Ошибка при обновлении календаря:", e);
+        console.error("Ошибка обновления календаря:", e);
       }
     };
 
-    // ========== ОБРАБОТЧИКИ СОБЫТИЙ ========== //
+    // Обработчики событий
     this.bindCalendarEvents = function () {
       try {
         $(document)
           .off("click.calendar")
-          .on("click.calendar", ".prev-month", function () {
-            self.state.currentDate.setMonth(
-              self.state.currentDate.getMonth() - 1
+          .on("click.calendar", ".prev-month", () => {
+            this.state.currentDate.setMonth(
+              this.state.currentDate.getMonth() - 1
             );
-            self.renderCalendar();
+            this.renderCalendar();
           });
 
         $(document)
           .off("click.calendar")
-          .on("click.calendar", ".next-month", function () {
-            self.state.currentDate.setMonth(
-              self.state.currentDate.getMonth() + 1
+          .on("click.calendar", ".next-month", () => {
+            this.state.currentDate.setMonth(
+              this.state.currentDate.getMonth() + 1
             );
-            self.renderCalendar();
+            this.renderCalendar();
           });
 
         $(document)
           .off("click.date")
-          .on("click.date", ".calendar-day:not(.empty)", function () {
-            const dateStr = $(this).data("date");
-            self.showDealsPopup(dateStr);
+          .on("click.date", ".calendar-day:not(.empty)", (e) => {
+            const dateStr = $(e.currentTarget).data("date");
+            this.showDealsPopup(dateStr);
           });
       } catch (e) {
-        console.error("Ошибка привязки событий календаря:", e);
+        console.error("Ошибка привязки событий:", e);
       }
     };
 
-    // ========== POPUP СО СДЕЛКАМИ ========== //
+    // Popup со сделками
     this.showDealsPopup = function (dateStr) {
       try {
-        const deals = self.state.dealsData[dateStr] || [];
-        const noDealsText =
-          self.langs.ru?.errors?.noDeals || "Нет сделок на эту дату";
+        const deals = this.state.dealsData[dateStr] || [];
+        const lang = this.langs.ru || this.langs.en || {};
+        const noDealsText = lang.errors?.noDeals || "Нет сделок на эту дату";
 
         const dealsHTML = deals.length
           ? deals
@@ -650,11 +564,11 @@ define(["jquery"], function ($) {
               <div class="deal-item" data-deal-id="${deal.id}">
                 <h4>${deal.name}</h4>
                 <p>Статус: ${
-                  self.state.statuses[deal.status_id] || "Неизвестно"
+                  this.state.statuses[deal.status_id] || "Неизвестно"
                 }</p>
                 <p>Сумма: ${deal.price} руб.</p>
                 ${
-                  deal.contacts.length > 0
+                  deal.contacts?.length > 0
                     ? `<p>Контакты: ${deal.contacts
                         .map((c) => c.name || "Без имени")
                         .join(", ")}</p>`
@@ -685,10 +599,10 @@ define(["jquery"], function ($) {
             <div class="popup-content">
               <h3>Сделки на ${dateStr}</h3>
               ${
-                self.isStandalone
-                  ? '<div class="standalone-warning"><p>' +
-                    self.langs.ru.errors.standalone +
-                    "</p></div>"
+                this.isStandalone
+                  ? `<div class="alert alert-warning">${
+                      lang.errors?.standalone || "Режим standalone"
+                    }</div>`
                   : ""
               }
               <div class="deals-list">${dealsHTML}</div>
@@ -700,14 +614,12 @@ define(["jquery"], function ($) {
         $(".deals-popup").remove();
         $("#widget-root").append(popupHTML);
 
-        // Загружаем файлы для каждой сделки
-        if (!self.isStandalone) {
+        if (!this.isStandalone) {
           deals.forEach((deal) => {
-            self.loadDealFiles(deal.id);
+            this.loadDealFiles(deal.id);
           });
         }
 
-        // Навешиваем обработчики для загрузки файлов
         $(".upload-file-btn").on("click", function () {
           const dealId = $(this).closest(".files-list").data("deal-id");
           $(`input.file-input[data-deal-id="${dealId}"]`).click();
@@ -716,28 +628,26 @@ define(["jquery"], function ($) {
         $(".file-input").on("change", function (e) {
           const dealId = $(this).data("deal-id");
           const file = e.target.files[0];
-          if (file) {
-            self.uploadFile(file, dealId);
-          }
+          if (file) this.uploadFile(file, dealId);
         });
 
         $(document)
           .off("click.popup")
-          .on("click.popup", ".close-popup", function () {
+          .on("click.popup", ".close-popup", () => {
             $(".deals-popup").remove();
           });
       } catch (e) {
-        console.error("Ошибка при отображении попапа:", e);
+        console.error("Ошибка отображения попапа:", e);
       }
     };
 
+    // Методы работы с файлами
     this.loadDealFiles = function (dealId) {
-      if (self.isStandalone) return;
+      if (this.isStandalone) return;
 
-      self
-        .getDealFiles(dealId)
+      this.getDealFiles(dealId)
         .then((response) => {
-          if (response && response._embedded && response._embedded.files) {
+          if (response?._embedded?.files) {
             const filesContainer = $(`.files-list[data-deal-id="${dealId}"]`);
             filesContainer.find(".file-upload-container").before(
               response._embedded.files
@@ -754,20 +664,20 @@ define(["jquery"], function ($) {
 
             $(".delete-file-btn").on("click", function () {
               const fileUuid = $(this).data("file-uuid");
-              self.deleteFile(fileUuid).then(() => {
+              this.deleteFile(fileUuid).then(() => {
                 $(this).closest(".file-item").remove();
               });
             });
           }
         })
         .catch((error) => {
-          console.error("Ошибка загрузки файлов сделки:", error);
+          console.error("Ошибка загрузки файлов:", error);
         });
     };
 
     this.uploadFile = function (file, dealId) {
-      if (self.isStandalone) {
-        alert("В standalone режиме загрузка файлов невозможна");
+      if (this.isStandalone) {
+        alert(this.langs.ru?.errors?.standalone || "Режим standalone");
         return;
       }
 
@@ -782,77 +692,93 @@ define(["jquery"], function ($) {
       progressText.text("0%");
 
       const progressInterval = setInterval(() => {
-        progressBar.val(self.state.fileUploadProgress);
-        progressText.text(`${self.state.fileUploadProgress}%`);
+        progressBar.val(this.state.fileUploadProgress);
+        progressText.text(`${this.state.fileUploadProgress}%`);
       }, 100);
 
-      self
-        .completeFileUpload(file, dealId)
-        .then((response) => {
+      this.completeFileUpload(file, dealId)
+        .then(() => {
           clearInterval(progressInterval);
           progressBar.val(100);
           progressText.text("100%");
           setTimeout(() => {
             progressContainer.hide();
-            self.loadDealFiles(dealId);
+            this.loadDealFiles(dealId);
           }, 500);
         })
         .catch((error) => {
           clearInterval(progressInterval);
           progressContainer.html(
-            `<div class="error">Ошибка загрузки: ${error.message}</div>`
+            `<div class="error">${
+              this.langs.ru?.errors?.fileUpload || "Ошибка загрузки"
+            }: ${error.message}</div>`
           );
         });
     };
 
-    // ========== CALLBACKS ДЛЯ AMOCRM ========== //
+    // Колбэки для AmoCRM
     this.callbacks = {
       init: function () {
-        return new Promise(function (resolve) {
+        return new Promise((resolve) => {
           try {
             console.log("Инициализация виджета...");
-
-            // Повторная проверка AMOCRM API
             self.isStandalone = !self.checkAMOCRM();
 
             if (self.isStandalone) {
-              console.error(
-                "Виджет перешел в standalone режим из-за недоступности AMOCRM API"
+              console.warn("Виджет в standalone режиме");
+              self.showError(
+                self.langs.ru?.errors?.apiNotLoaded || "API недоступен"
               );
-              self.showError(self.langs.ru.errors.apiNotLoaded);
               return resolve(false);
             }
 
-            const currentSettings = self.get_settings();
-            if (currentSettings) {
-              self.applySettings(currentSettings);
-            }
+            const settings = self.get_settings();
+            if (settings) self.applySettings(settings);
 
             self.state.initialized = true;
-            console.log("Виджет успешно инициализирован в integrated режиме");
+            console.log("Виджет успешно инициализирован");
             resolve(true);
           } catch (e) {
             console.error("Ошибка инициализации:", e);
-            self.showError("Ошибка подключения к AMOCRM. Проверьте консоль.");
+            self.showError("Ошибка инициализации");
             resolve(false);
           }
         });
       },
 
       render: function () {
-        return new Promise(function (resolve) {
+        return new Promise((resolve) => {
           self
             .renderCalendar()
-            .then(() => resolve(true))
+            .then(() => {
+              if (
+                !self.isStandalone &&
+                typeof self.render_template === "function"
+              ) {
+                try {
+                  self.render_template(
+                    {
+                      body: self.generateCalendarHTML(),
+                      caption: { class_name: "orders-calendar-caption" },
+                    },
+                    {}
+                  );
+                } catch (e) {
+                  console.error("Ошибка render_template:", e);
+                }
+              }
+              resolve(true);
+            })
             .catch((e) => {
               console.error("Ошибка рендеринга:", e);
+              self.showError("Ошибка отображения");
               resolve(false);
             });
         });
       },
 
       onSave: function (newSettings) {
-        return new Promise(function (resolve) {
+        return new Promise((resolve) => {
           try {
             const result = self.applySettings(newSettings);
             if (result) {
@@ -863,7 +789,9 @@ define(["jquery"], function ($) {
             }
           } catch (e) {
             console.error("Ошибка сохранения настроек:", e);
-            self.showError(self.langs.ru.errors.settingsSave);
+            self.showError(
+              self.langs.ru?.errors?.settingsSave || "Ошибка сохранения"
+            );
             resolve(false);
           }
         });
@@ -911,16 +839,12 @@ define(["jquery"], function ($) {
       },
     };
 
-    // Инициализация виджета
+    // Инициализация в standalone режиме
     if (this.isStandalone) {
-      console.log("Инициализация в standalone режиме");
+      console.log("Запуск в standalone режиме");
       this.renderCalendar().then(() => {
-        console.log("Рендеринг завершен в standalone режиме");
         this.bindCalendarEvents();
       });
-    } else {
-      console.log("Инициализация в integrated режиме");
-      // В integrated режиме инициализация происходит через callbacks
     }
 
     return this;

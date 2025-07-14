@@ -52,9 +52,9 @@ define(["jquery"], function ($) {
       }
     }.bind(this);
 
-    // Локализация с защитой от undefined
-    this.langs = {
-      ru: {
+    // Безопасный доступ к языковым данным
+    this.getLangData = function () {
+      const defaultData = {
         widget: {
           name: "Календарь заказов",
           description: "Виджет для отображения сделок по дате заказа",
@@ -83,7 +83,28 @@ define(["jquery"], function ($) {
           apiNotLoaded: "AmoCRM API не загружен. Проверьте загрузку скриптов.",
           calendarError: "Ошибка при создании календаря",
         },
-      },
+      };
+
+      try {
+        if (this.langs && this.langs.ru) {
+          return {
+            ...defaultData,
+            ...this.langs.ru,
+            widget: {
+              ...defaultData.widget,
+              ...(this.langs.ru.widget || {}),
+            },
+            errors: {
+              ...defaultData.errors,
+              ...(this.langs.ru.errors || {}),
+            },
+          };
+        }
+        return defaultData;
+      } catch (e) {
+        console.error("Ошибка получения языковых данных:", e);
+        return defaultData;
+      }
     };
 
     // Состояние виджета
@@ -119,13 +140,13 @@ define(["jquery"], function ($) {
     };
 
     this.getWidgetTitle = function () {
-      return (
-        (this.langs &&
-          this.langs.ru &&
-          this.langs.ru.widget &&
-          this.langs.ru.widget.name) ||
-        "Календарь заказов"
-      );
+      const langData = this.getLangData();
+      return langData.widget.name || "Календарь заказов";
+    };
+
+    this.getErrorMessage = function (key) {
+      const langData = this.getLangData();
+      return langData.errors[key] || "Неизвестная ошибка";
     };
 
     this.applySettings = function (settings) {
@@ -185,15 +206,7 @@ define(["jquery"], function ($) {
             typeof AmoCRM.API === "undefined" ||
             typeof AmoCRM.API.request !== "function"
           ) {
-            return reject(
-              new Error(
-                (self.langs &&
-                  self.langs.ru &&
-                  self.langs.ru.errors &&
-                  self.langs.ru.errors.apiNotLoaded) ||
-                  "API не доступен"
-              )
-            );
+            return reject(new Error(self.getErrorMessage("apiNotLoaded")));
           }
 
           console.log("Отправка запроса к API:", { method, path, data });
@@ -213,15 +226,7 @@ define(["jquery"], function ($) {
             })
             .catch(function (error) {
               console.error("Ошибка API запроса:", error);
-              reject(
-                new Error(
-                  (self.langs &&
-                    self.langs.ru &&
-                    self.langs.ru.errors &&
-                    self.langs.ru.errors.load) ||
-                    "Ошибка загрузки данных"
-                )
-              );
+              reject(new Error(self.getErrorMessage("load")));
             });
         } catch (e) {
           console.error("Критическая ошибка в doRequest:", e);
@@ -239,37 +244,14 @@ define(["jquery"], function ($) {
         const firstDay = new Date(year, month, 1).getDay();
         const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1;
 
-        // Защита от undefined для локализации
-        const langData =
-          this.langs && this.langs.ru
-            ? this.langs.ru
-            : {
-                months: [
-                  "Январь",
-                  "Февраль",
-                  "Март",
-                  "Апрель",
-                  "Май",
-                  "Июнь",
-                  "Июль",
-                  "Август",
-                  "Сентябрь",
-                  "Октябрь",
-                  "Ноябрь",
-                  "Декабрь",
-                ],
-                weekdays: ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
-                errors: {},
-              };
-
+        const langData = this.getLangData();
         const monthNames = langData.months || [];
         const weekdays = langData.weekdays || [];
 
         let daysHTML = "";
         for (let day = 1; day <= daysInMonth; day++) {
           const dateStr = this.formatDate(day, month + 1, year);
-          const deals =
-            (this.state.dealsData && this.state.dealsData[dateStr]) || [];
+          const deals = this.state.dealsData[dateStr] || [];
           const isToday = dateStr === this.getTodayDateString();
           const hasDeals = deals.length > 0;
 
@@ -290,10 +272,7 @@ define(["jquery"], function ($) {
               ${
                 this.isStandalone
                   ? `<div class="standalone-warning">
-                  <p>${
-                    (langData.errors && langData.errors.standalone) ||
-                    "Виджет работает в автономном режиме"
-                  }</p>
+                  <p>${langData.errors.standalone}</p>
                 </div>`
                   : ""
               }
@@ -322,13 +301,7 @@ define(["jquery"], function ($) {
           </div>`;
       } catch (e) {
         console.error("Ошибка при создании календаря:", e);
-        this.showError(
-          (this.langs &&
-            this.langs.ru &&
-            this.langs.ru.errors &&
-            this.langs.ru.errors.calendarError) ||
-            "Ошибка при создании календаря"
-        );
+        this.showError(this.getErrorMessage("calendarError"));
         return '<div class="error-message">Ошибка при создании календаря</div>';
       }
     };
@@ -337,7 +310,6 @@ define(["jquery"], function ($) {
       try {
         const html = self.generateCalendarHTML();
 
-        // Проверка на существование render_template
         if (!self.isStandalone && typeof self.render_template === "function") {
           self.render_template(
             {
@@ -349,7 +321,6 @@ define(["jquery"], function ($) {
             {}
           );
         } else {
-          // Fallback для standalone режима
           const widgetRoot = document.getElementById("widget-root");
           if (widgetRoot) {
             widgetRoot.innerHTML = html;
@@ -362,9 +333,6 @@ define(["jquery"], function ($) {
       }
     };
 
-    // Остальные методы (loadData, processData, bindCalendarEvents и т.д.) остаются без изменений
-    // ...
-
     // ========== CALLBACKS ДЛЯ AMOCRM ========== //
     this.callbacks = {
       init: function () {
@@ -375,11 +343,10 @@ define(["jquery"], function ($) {
 
             if (self.isStandalone) {
               console.error("Виджет перешел в standalone режим");
-              self.showError("AmoCRM API не загружен");
+              self.showError(self.getErrorMessage("apiNotLoaded"));
               return resolve(false);
             }
 
-            // Применяем настройки если они есть
             const currentSettings = self.params || {};
             self.applySettings(currentSettings);
 
@@ -419,7 +386,7 @@ define(["jquery"], function ($) {
             }
           } catch (e) {
             console.error("Ошибка сохранения настроек:", e);
-            self.showError(self.langs.ru.errors.settingsSave);
+            self.showError(self.getErrorMessage("settingsSave"));
             resolve(false);
           }
         });

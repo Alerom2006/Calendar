@@ -235,6 +235,88 @@ define(["jquery"], function ($) {
       });
     };
 
+    // ========== API ФАЙЛОВ ========== //
+    this.uploadFile = function (file, entityType, entityId) {
+      return new Promise(function (resolve, reject) {
+        if (self.isStandalone) {
+          return reject(
+            new Error("Функционал файлов недоступен в standalone режиме")
+          );
+        }
+
+        // 1. Создаем сессию загрузки
+        AmoCRM.API.request({
+          method: "POST",
+          path: "/v1.0/sessions",
+          host: "https://drive.amocrm.ru",
+          data: {
+            file_name: file.name,
+            file_size: file.size,
+            content_type: file.type,
+          },
+        })
+          .then(function (sessionResponse) {
+            // 2. Загружаем файл по частям
+            const formData = new FormData();
+            formData.append("file", file);
+
+            return fetch(sessionResponse.upload_url, {
+              method: "POST",
+              body: formData,
+            });
+          })
+          .then(function (uploadResponse) {
+            if (!uploadResponse.ok) {
+              throw new Error("Ошибка загрузки файла");
+            }
+            return uploadResponse.json();
+          })
+          .then(function (fileData) {
+            // 3. Привязываем файл к сущности
+            return AmoCRM.API.request({
+              method: "PUT",
+              path: `/api/v4/${entityType}/${entityId}/files`,
+              data: [
+                {
+                  file_uuid: fileData.uuid,
+                },
+              ],
+            });
+          })
+          .then(resolve)
+          .catch(function (error) {
+            console.error("Ошибка загрузки файла:", error);
+            reject(new Error("Ошибка загрузки файла"));
+          });
+      });
+    };
+
+    this.deleteFile = function (fileUuid) {
+      return new Promise(function (resolve, reject) {
+        if (self.isStandalone) {
+          return reject(
+            new Error("Функционал файлов недоступен в standalone режиме")
+          );
+        }
+
+        AmoCRM.API.request({
+          method: "DELETE",
+          path: "/v1.0/files",
+          host: "https://drive.amocrm.ru",
+          data: [
+            {
+              uuid: fileUuid,
+            },
+          ],
+        })
+          .then(resolve)
+          .catch(function (error) {
+            console.error("Ошибка удаления файла:", error);
+            reject(new Error("Ошибка удаления файла"));
+          });
+      });
+    };
+
     // ========== ОТОБРАЖЕНИЕ КАЛЕНДАРЯ ========== //
     this.generateCalendarHTML = function () {
       try {
